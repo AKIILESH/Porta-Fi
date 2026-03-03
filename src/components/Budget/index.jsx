@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import { useFinance } from '../../context/FinanceContext.jsx'
+import { useTransactions, useAddTransaction, useDeleteTransaction } from '../../hooks/useTransactions.js'
+import { useBudgetLimits, useSetBudgetLimit } from '../../hooks/useBudgetLimits.js'
+import { useCashAccounts } from '../../hooks/useCashAccounts.js'
 import { Spinner, EmptyState } from '../shared/ui.jsx'
 import { inr, inrCompact, fmtDate, todayISO, currentMonth } from '../../lib/formatters.js'
 import theme from '../../lib/theme.js'
@@ -30,6 +33,18 @@ const G = {
 const CATEGORIES    = ['Housing','Food','Transport','Entertainment','Health','Shopping','Utilities','Education','Insurance','Other']
 const INCOME_CATS   = ['Salary','Freelance','Business','Investment Returns','Other Income']
 const PIE_COLORS    = [G.gold,'#4f8eff','#d4a842','#9b5cff',G.red,'#ff9f43','#54a0ff','#48dbfb','#ff6b81','#a29bfe']
+
+// ── Loading Skeleton ─────────────────────────────────────────────────────────
+function BudgetSkeleton() {
+  return (
+    <div style={{ display: 'grid', gap: 20 }}>
+      <div style={{ height: 80, background: G.card, animation: 'pulse 1.5s infinite' }} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+        {[1,2,3].map(i => <div key={i} style={{ height: 120, background: G.card, animation: 'pulse 1.5s infinite' }} />)}
+      </div>
+    </div>
+  )
+}
 
 // ── Primitives ────────────────────────────────────────────────────────────────
 const FL = ({ children, required }) => (
@@ -108,10 +123,18 @@ function TypeToggle({ value, onChange }) {
 
 // ── Add Transaction Form ──────────────────────────────────────────────────────
 function AddTransactionForm() {
-  const { addTransaction, cashAccounts } = useFinance()
+  const { userId } = useFinance()
+  const addTransaction = useAddTransaction(userId)
+  const { data: cashAccounts = [] } = useCashAccounts(userId)
+  
   const [type, setType]   = useState('expense')
-  const [form, setForm]   = useState({ date: todayISO(), description: '', amount: '', category: 'Food', account_id: cashAccounts[0]?.id || '' })
-  const [saving, setSaving] = useState(false)
+  const [form, setForm]   = useState({ 
+    date: todayISO(), 
+    description: '', 
+    amount: '', 
+    category: 'Food', 
+    account_id: cashAccounts[0]?.id || '' 
+  })
   const [err, setErr]     = useState('')
 
   const set  = k => v => setForm(f => ({ ...f, [k]: v }))
@@ -125,16 +148,25 @@ function AddTransactionForm() {
   const submit = async () => {
     if (!form.description || !form.amount) { setErr('Description and amount are required'); return }
     if (!form.account_id) { setErr('Please select an account'); return }
-    setSaving(true); setErr('')
+    
+    setErr('')
     try {
       const amount = type === 'income' ? Math.abs(+form.amount) : -Math.abs(+form.amount)
-      await addTransaction({ ...form, amount, category: form.category || cats[0], account_id: form.account_id })
-      setForm({ date: todayISO(), description: '', amount: '', category: cats[0], account_id: cashAccounts[0]?.id || '' })
-    } catch (e) { setErr(e.message) }
-    finally { setSaving(false) }
+      await addTransaction.mutateAsync({ ...form, amount, category: form.category || cats[0] })
+      setForm({ 
+        date: todayISO(), 
+        description: '', 
+        amount: '', 
+        category: cats[0], 
+        account_id: cashAccounts[0]?.id || '' 
+      })
+    } catch (e) { 
+      setErr(e.message) 
+    }
   }
 
   const accentColor = type === 'income' ? G.green : G.red
+  const isPending = addTransaction.isPending
 
   return (
     <GCard style={{ borderLeft: `2px solid ${accentColor}` }}>
@@ -186,26 +218,25 @@ function AddTransactionForm() {
         </div>
       )}
 
-      <button onClick={submit} disabled={saving} style={{
+      <button onClick={submit} disabled={isPending} style={{
         width: '100%', background: accentColor, color: G.ink,
-        border: 'none', padding: '11px', cursor: saving ? 'not-allowed' : 'pointer',
+        border: 'none', padding: '11px', cursor: isPending ? 'not-allowed' : 'pointer',
         fontFamily: G.mono, fontSize: '0.68rem', letterSpacing: '0.2em', textTransform: 'uppercase',
-        opacity: saving ? 0.6 : 1, transition: 'opacity 0.2s, box-shadow 0.2s',
+        opacity: isPending ? 0.6 : 1, transition: 'opacity 0.2s, box-shadow 0.2s',
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
       }}
-        onMouseEnter={e => { if (!saving) e.currentTarget.style.boxShadow = `0 0 24px ${accentColor}40` }}
+        onMouseEnter={e => { if (!isPending) e.currentTarget.style.boxShadow = `0 0 24px ${accentColor}40` }}
         onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
       >
-        {saving ? <Spinner size={13} /> : `Add ${type === 'income' ? 'Income' : 'Expense'}`}
+        {isPending ? <Spinner size={13} /> : `Add ${type === 'income' ? 'Income' : 'Expense'}`}
       </button>
     </GCard>
   )
 }
 
 // ── Spending Chart ────────────────────────────────────────────────────────────
-function SpendingChart() {
-  const { spendByCategory } = useFinance()
-  const data = Object.entries(spendByCategory).map(([name, value]) => ({ name, value }))
+function SpendingChart({ spendByCategory }) {
+  const data = Object.entries(spendByCategory || {}).map(([name, value]) => ({ name, value }))
   if (!data.length) return (
     <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: G.mono, fontSize: '0.7rem', color: G.muted }}>
       No spending data this month yet
@@ -242,18 +273,59 @@ function SpendingChart() {
 }
 
 // ── Budget Limits ─────────────────────────────────────────────────────────────
+// ── Budget Limits ─────────────────────────────────────────────────────────────
 function BudgetLimits() {
-  const { budgetLimits, spendByCategory, setBudgetLimit } = useFinance()
+  const { userId } = useFinance()
+  const month = currentMonth()
+  
+  const { 
+    data: budgetLimits = [], 
+    isLoading,
+    error 
+  } = useBudgetLimits(userId, month)
+  
+  const setBudgetLimit = useSetBudgetLimit(userId)
+  
+  const { spendByCategory = {} } = useFinance()
+  
   const [form, setForm]   = useState({ category: CATEGORIES[0], limit: '' })
   const [saving, setSaving] = useState(false)
 
   const submit = async () => {
     if (!form.limit) return
     setSaving(true)
-    try { await setBudgetLimit(form.category, Number(form.limit)); setForm(f => ({ ...f, limit: '' })) }
-    catch (e) { console.error(e) }
-    finally { setSaving(false) }
+    try { 
+      await setBudgetLimit.mutateAsync({ category: form.category, limit: Number(form.limit) })
+      setForm(f => ({ ...f, limit: '' }))
+    } catch (e) { 
+      console.error(e) 
+    } finally { 
+      setSaving(false) 
+    }
   }
+
+  if (isLoading) {
+    return (
+      <GCard>
+        <div style={{ padding: '40px 0', textAlign: 'center' }}>
+          <Spinner size={20} />
+        </div>
+      </GCard>
+    )
+  }
+
+  if (error) {
+    return (
+      <GCard>
+        <div style={{ padding: '30px 0', textAlign: 'center', fontFamily: G.mono, fontSize: '0.7rem', color: G.red }}>
+          Error loading budget limits: {error.message}
+        </div>
+      </GCard>
+    )
+  }
+
+  // Ensure budgetLimits is an array
+  const limits = Array.isArray(budgetLimits) ? budgetLimits : []
 
   return (
     <GCard>
@@ -271,25 +343,28 @@ function BudgetLimits() {
           <FL>Monthly Limit (₹)</FL>
           <GInput value={form.limit} onChange={v => setForm(f => ({ ...f, limit: v }))} type="number" placeholder="e.g. 10000" />
         </div>
-        <button onClick={submit} disabled={saving} style={{
+        <button onClick={submit} disabled={saving || setBudgetLimit?.isPending} style={{
           background: G.gold, color: G.ink, border: 'none',
-          padding: '9px 20px', cursor: saving ? 'not-allowed' : 'pointer',
+          padding: '9px 20px', cursor: (saving || setBudgetLimit?.isPending) ? 'not-allowed' : 'pointer',
           fontFamily: G.mono, fontSize: '0.62rem', letterSpacing: '0.15em',
-          textTransform: 'uppercase', opacity: saving ? 0.6 : 1, transition: 'opacity 0.2s', flexShrink: 0,
+          textTransform: 'uppercase', opacity: (saving || setBudgetLimit?.isPending) ? 0.6 : 1, transition: 'opacity 0.2s', flexShrink: 0,
         }}>
-          {saving ? <Spinner size={12} /> : 'Set'}
+          {(saving || setBudgetLimit?.isPending) ? <Spinner size={12} /> : 'Set'}
         </button>
       </div>
 
-      {budgetLimits.length === 0 && (
+      {limits.length === 0 && (
         <div style={{ padding: '30px 0', textAlign: 'center', fontFamily: G.mono, fontSize: '0.7rem', color: G.muted }}>No budget limits set yet</div>
       )}
 
       <div style={{ display: 'grid', gap: 16 }}>
-        {budgetLimits.map(b => {
-          const spent = spendByCategory[b.category] || 0
-          const over  = spent > b.monthly_limit
-          const prog  = Math.min(100, (spent / b.monthly_limit) * 100)
+        {limits.map(b => {
+          // Ensure b exists and has required properties
+          if (!b || !b.category) return null
+          
+          const spent = spendByCategory?.[b.category] || 0
+          const over  = spent > (b.monthly_limit || 0)
+          const prog  = b.monthly_limit > 0 ? Math.min(100, (spent / b.monthly_limit) * 100) : 0
           const barColor = over ? G.red : prog > 80 ? G.goldLight : G.green
 
           return (
@@ -299,7 +374,7 @@ function BudgetLimits() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   {over && <span style={{ fontFamily: G.mono, fontSize: '0.55rem', letterSpacing: '0.12em', color: G.red, border: `1px solid ${G.red}40`, padding: '2px 6px' }}>OVER</span>}
                   <span style={{ fontFamily: G.mono, fontSize: '0.65rem', color: over ? G.red : G.muted }}>
-                    <span style={{ color: over ? G.red : G.text }}>{inr(spent)}</span> / {inr(b.monthly_limit)}
+                    <span style={{ color: over ? G.red : G.text }}>{inr(spent)}</span> / {inr(b.monthly_limit || 0)}
                   </span>
                 </div>
               </div>
@@ -320,23 +395,52 @@ function BudgetLimits() {
 
 // ── Transaction List ──────────────────────────────────────────────────────────
 function TransactionList() {
-  const { transactions, deleteTransaction, cashAccounts } = useFinance()
-  const month    = currentMonth()
-  const filtered = transactions.filter(t => t.date?.startsWith(month))
+  const { userId } = useFinance()
+  const month = currentMonth()
+  
+  const { 
+    data: transactionsData, 
+    isLoading 
+  } = useTransactions(userId, month)
+  
+  const deleteTransaction = useDeleteTransaction(userId)
+  const { data: cashAccounts = [] } = useCashAccounts(userId)
+  
+  const transactions = transactionsData?.data || []
   const getAccName = id => cashAccounts.find(a => a.id === id)?.name || '—'
+
+  const handleDelete = async (id, transaction) => {
+    if (window.confirm('Delete this transaction?')) {
+      try {
+        await deleteTransaction.mutateAsync({ id, transaction })
+      } catch (error) {
+        console.error('Error deleting transaction:', error)
+      }
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <GCard>
+        <div style={{ padding: '40px 0', textAlign: 'center' }}>
+          <Spinner />
+        </div>
+      </GCard>
+    )
+  }
 
   return (
     <GCard>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
         <SL>This Month's Transactions</SL>
-        <span style={{ fontFamily: G.mono, fontSize: '0.55rem', color: G.muted, letterSpacing: '0.1em' }}>{filtered.length} entries</span>
+        <span style={{ fontFamily: G.mono, fontSize: '0.55rem', color: G.muted, letterSpacing: '0.1em' }}>{transactions.length} entries</span>
       </div>
 
-      {filtered.length === 0 && (
+      {transactions.length === 0 && (
         <div style={{ padding: '40px 0', textAlign: 'center', fontFamily: G.mono, fontSize: '0.7rem', color: G.muted }}>No transactions this month</div>
       )}
 
-      {filtered.map((t, i) => {
+      {transactions.map((t, i) => {
         const [hov, setHov] = useState(false)
         const isCredit = t.amount >= 0
         return (
@@ -346,7 +450,7 @@ function TransactionList() {
             style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               padding: '12px 12px',
-              borderBottom: i < filtered.length - 1 ? `1px solid ${G.border}` : 'none',
+              borderBottom: i < transactions.length - 1 ? `1px solid ${G.border}` : 'none',
               background: hov ? G.goldGlow : 'transparent',
               transition: 'background 0.2s',
             }}
@@ -372,14 +476,34 @@ function TransactionList() {
               <div style={{ fontFamily: G.display, fontSize: '1.05rem', color: isCredit ? G.green : G.red, textAlign: 'right' }}>
                 {isCredit ? '+' : ''}{inr(t.amount)}
               </div>
-              <button onClick={() => deleteTransaction(t.id)} style={{
-                background: 'transparent', border: `1px solid transparent`,
-                color: G.muted, padding: '5px 7px', cursor: 'pointer', transition: 'all 0.2s',
-                fontFamily: G.mono, fontSize: '0.6rem',
-              }}
-                onMouseEnter={e => { e.currentTarget.style.color = G.red; e.currentTarget.style.borderColor = `${G.red}40`; e.currentTarget.style.background = `${G.red}10` }}
-                onMouseLeave={e => { e.currentTarget.style.color = G.muted; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent' }}
-              >✕</button>
+              <button 
+                onClick={() => handleDelete(t.id, t)} 
+                disabled={deleteTransaction.isPending}
+                style={{
+                  background: 'transparent', border: `1px solid transparent`,
+                  color: deleteTransaction.isPending ? G.muted : G.muted,
+                  padding: '5px 7px', cursor: deleteTransaction.isPending ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s',
+                  fontFamily: G.mono, fontSize: '0.6rem',
+                  opacity: deleteTransaction.isPending ? 0.5 : 1,
+                }}
+                onMouseEnter={e => { 
+                  if (!deleteTransaction.isPending) {
+                    e.currentTarget.style.color = G.red; 
+                    e.currentTarget.style.borderColor = `${G.red}40`; 
+                    e.currentTarget.style.background = `${G.red}10`;
+                  }
+                }}
+                onMouseLeave={e => { 
+                  if (!deleteTransaction.isPending) {
+                    e.currentTarget.style.color = G.muted; 
+                    e.currentTarget.style.borderColor = 'transparent'; 
+                    e.currentTarget.style.background = 'transparent';
+                  }
+                }}
+              >
+                {deleteTransaction.isPending ? <Spinner size={10} /> : '✕'}
+              </button>
             </div>
           </div>
         )
@@ -390,9 +514,38 @@ function TransactionList() {
 
 // ── Budget Page ───────────────────────────────────────────────────────────────
 export default function Budget() {
-  const { monthlyIncome, monthlyExpenses } = useFinance()
-  const savings     = monthlyIncome - monthlyExpenses
+  const { userId } = useFinance()
+  const month = currentMonth()
+  
+  const { 
+    data: transactionsData, 
+    isLoading: transactionsLoading 
+  } = useTransactions(userId, month)
+  
+  const transactions = transactionsData?.data || []
+  
+  // Calculate monthly aggregates
+  const monthlyIncome = transactions
+    .filter(t => t.amount > 0)
+    .reduce((sum, t) => sum + Number(t.amount), 0)
+    
+  const monthlyExpenses = transactions
+    .filter(t => t.amount < 0)
+    .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0)
+    
+  const spendByCategory = {}
+  transactions
+    .filter(t => t.amount < 0)
+    .forEach(t => {
+      spendByCategory[t.category] = (spendByCategory[t.category] || 0) + Math.abs(Number(t.amount))
+    })
+
+  const savings = monthlyIncome - monthlyExpenses
   const savingsRate = monthlyIncome > 0 ? (savings / monthlyIncome) * 100 : 0
+
+  if (transactionsLoading) {
+    return <BudgetSkeleton />
+  }
 
   return (
     <div style={{ display: 'grid', gap: 20, fontFamily: G.sans }}>
@@ -423,7 +576,7 @@ export default function Budget() {
         <AddTransactionForm />
         <GCard>
           <SL>Spending by Category</SL>
-          <SpendingChart />
+          <SpendingChart spendByCategory={spendByCategory} />
         </GCard>
       </div>
 

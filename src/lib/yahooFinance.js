@@ -127,7 +127,7 @@ export async function fetchYahooQuote(yahooTicker) {
     const change = currentPrice - prevClose
     const changePct = prevClose !== 0 ? (change / prevClose) * 100 : 0
 
-    // Store in cache using upsert
+    // Store in cache using upsert - UPDATED with correct onConflict
     const { error: upsertError } = await supabase
       .from('price_cache')
       .upsert({
@@ -142,8 +142,8 @@ export async function fetchYahooQuote(yahooTicker) {
         fetch_date: new Date().toISOString().split('T')[0],
         session: 'auto'
       }, {
-        onConflict: 'ticker, fetch_date, session',
-        ignoreDuplicates: false
+        onConflict: 'ticker, fetch_date', // Updated to match your new constraint
+        ignoreDuplicates: false // This ensures existing records are updated
       })
 
     if (upsertError) {

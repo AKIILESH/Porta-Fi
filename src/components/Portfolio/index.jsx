@@ -1,6 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../../lib/supabase.js'
 import { useFinance } from '../../context/FinanceContext.jsx'
+import { usePortfolioData } from '../../hooks/usePortfolioData'
+import { useHoldings } from '../../hooks/useHoldings'
+import { useTrades } from '../../hooks/useTrades'
+import { useAddTrade } from '../../hooks/useTrades'
+import { useDeleteHolding } from '../../hooks/useHoldings'
 import { Card, Btn, Input, Select, Badge, KpiCard, EmptyState, Spinner } from '../shared/ui.jsx'
 import { inr, inrCompact, pct, gainColor, todayISO } from '../../lib/formatters.js'
 import theme from '../../lib/theme.js'
@@ -72,6 +77,30 @@ const CATEGORY_GROUPS = [
 const assetColor = k => ASSET_CLASSES.find(a => a.value === k)?.color || G.muted
 const assetLabel = k => ASSET_CLASSES.find(a => a.value === k)?.label || k
 
+// ── Loading Skeleton ──────────────────────────────────────────────────────────
+function PortfolioSkeleton() {
+  return (
+    <div style={{ display: 'grid', gap: 20, fontFamily: G.sans }}>
+      {/* KPI skeletons */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+        {[1,2,3,4].map(i => (
+          <div key={i} style={{ background: G.card, border: `1px solid ${G.border}`, padding: '22px 24px', height: 120 }} />
+        ))}
+      </div>
+      
+      {/* Chart skeletons */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        {[1,2].map(i => (
+          <div key={i} style={{ background: G.card, border: `1px solid ${G.border}`, padding: '24px', height: 280 }} />
+        ))}
+      </div>
+      
+      {/* Table skeleton */}
+      <div style={{ background: G.card, border: `1px solid ${G.border}`, padding: '24px', height: 400 }} />
+    </div>
+  )
+}
+
 // ── Shared label style ────────────────────────────────────────────────────────
 const FieldLabel = ({ children }) => (
   <div style={{ fontFamily: G.mono, fontSize: '0.52rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: G.muted, marginBottom: 5 }}>
@@ -111,7 +140,10 @@ const GoldTooltip = ({ active, payload, allData }) => {
 
 // ── Trade Form ────────────────────────────────────────────────────────────────
 function TradeForm({ mode, onDone, prefilledHolding }) {
-  const { recordTrade, holdings } = useFinance()
+  const { userId } = useFinance()
+  const addTrade = useAddTrade(userId)
+  const { data: holdings = [] } = useHoldings(userId)
+  
   const isB = mode === 'buy'
   const [searchResults, setSearchResults] = useState([])
   const [showSearch, setShowSearch]       = useState(false)
@@ -175,19 +207,32 @@ function TradeForm({ mode, onDone, prefilledHolding }) {
   const submit = async () => {
     if (!form.ticker || !form.quantity || !form.price) { setErr('Ticker, quantity and price are required'); return }
     if (!isB && Number(form.quantity) > maxSell) { setErr(`You only hold ${maxSell} units of ${form.ticker}`); return }
-    setSaving(true); setErr('')
+    
+    setSaving(true)
+    setErr('')
+    
     try {
-      await recordTrade({
-        ticker: form.ticker, name: form.name || form.ticker, exchange: form.exchange,
-        asset_class: form.asset_class, sub_category: form.sub_category || null,
-        trade_date: form.trade_date, trade_type: form.trade_type,
-        quantity: Number(form.quantity), price: Number(form.price),
-        brokerage: Number(form.brokerage) || 0, stt: Number(form.stt) || 0,
-        gst: Number(form.gst) || 0, notes: form.notes || null,
+      await addTrade.mutateAsync({
+        ticker: form.ticker,
+        name: form.name || form.ticker,
+        exchange: form.exchange,
+        asset_class: form.asset_class,
+        sub_category: form.sub_category || null,
+        trade_date: form.trade_date,
+        trade_type: form.trade_type,
+        quantity: Number(form.quantity),
+        price: Number(form.price),
+        brokerage: Number(form.brokerage) || 0,
+        stt: Number(form.stt) || 0,
+        gst: Number(form.gst) || 0,
+        notes: form.notes || null,
       })
       onDone()
-    } catch (e) { setErr(e.message) }
-    finally { setSaving(false) }
+    } catch (e) { 
+      setErr(e.message) 
+    } finally { 
+      setSaving(false) 
+    }
   }
 
   const inputBase = {
@@ -337,7 +382,7 @@ function TradeForm({ mode, onDone, prefilledHolding }) {
       {err && <div style={{ color: G.red, fontFamily: G.mono, fontSize: '0.62rem', marginBottom: 10, letterSpacing: '0.08em' }}>{err}</div>}
 
       <div style={{ display: 'flex', gap: 10 }}>
-        <button onClick={submit} disabled={saving} style={{
+        <button onClick={submit} disabled={saving || addTrade.isPending} style={{
           display: 'inline-flex', alignItems: 'center', gap: 8,
           background: isB ? G.green : G.red, color: G.ink,
           border: 'none', padding: '10px 24px', cursor: saving ? 'not-allowed' : 'pointer',
@@ -363,12 +408,16 @@ function TradeForm({ mode, onDone, prefilledHolding }) {
 }
 
 // ── Holdings Table ────────────────────────────────────────────────────────────
-// ── Holdings Table ────────────────────────────────────────────────────────────
 function HoldingsTable({ onSell }) {
-  const { holdings, quotesMap, quotesLoading, deleteHolding } = useFinance()
+  const { userId } = useFinance()
+  const { data: holdings = [], isLoading: holdingsLoading } = useHoldings(userId)
+  const deleteHolding = useDeleteHolding(userId)
+const { data: portfolioData } = usePortfolioData(userId)
+  const quotesMap = portfolioData?.quotesMap || {}
+
   const [filterClass, setFilterClass] = useState('all')
   const [showDropdown, setShowDropdown] = useState(false)
-  const [rowHoverStates, setRowHoverStates] = useState({}) // Track hover states by ID
+  const [rowHoverStates, setRowHoverStates] = useState({})
   const dropdownRef = useRef(null)
 
   useEffect(() => {
@@ -390,7 +439,20 @@ function HoldingsTable({ onSell }) {
     setRowHoverStates(prev => ({ ...prev, [id]: false }))
   }
 
-  // Early return after all hooks are declared
+  const handleDelete = async (id) => {
+    if (window.confirm('Are you sure you want to delete this holding?')) {
+      try {
+        await deleteHolding.mutateAsync(id)
+      } catch (error) {
+        console.error('Error deleting holding:', error)
+      }
+    }
+  }
+
+  if (holdingsLoading) {
+    return <div style={{ padding: '40px', textAlign: 'center' }}><Spinner /></div>
+  }
+
   if (!holdings.filter(h => h.quantity > 0).length) {
     return <EmptyState icon="◎" message="No open positions. Record your first buy above." />
   }
@@ -400,9 +462,8 @@ function HoldingsTable({ onSell }) {
 
   return (
     <div>
-      {/* Filter (unchanged) */}
+      {/* Filter dropdown */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16, position: 'relative' }} ref={dropdownRef}>
-        {/* ... filter button code remains the same ... */}
         <button onClick={() => setShowDropdown(v => !v)} style={{
           display: 'flex', alignItems: 'center', gap: 8,
           background: G.surface, border: `1px solid ${showDropdown ? G.borderHi : G.border}`,
@@ -445,13 +506,13 @@ function HoldingsTable({ onSell }) {
       )}
 
       {filtered.map((h, i) => {
-        const q      = quotesMap[h.ticker]
-        const price  = q?.price ?? h.avg_cost
-        const value  = price * h.quantity
-        const cost   = h.avg_cost * h.quantity
-        const gain   = value - cost
-        const gainP  = cost > 0 ? (gain / cost) * 100 : 0
-        const ac     = ASSET_CLASSES.find(a => a.value === h.asset_class)
+        const q = portfolioData?.quotesMap?.[h.ticker]
+        const price = q?.price ?? h.avg_cost
+        const value = price * h.quantity
+        const cost = h.avg_cost * h.quantity
+        const gain = value - cost
+        const gainP = cost > 0 ? (gain / cost) * 100 : 0
+        const ac = ASSET_CLASSES.find(a => a.value === h.asset_class)
         const isHovered = rowHoverStates[h.id] || false
 
         return (
@@ -473,7 +534,7 @@ function HoldingsTable({ onSell }) {
             <div style={{ fontFamily: G.mono, fontSize: '0.75rem', color: G.text }}>{Number(h.quantity).toFixed(4)}</div>
             <div style={{ fontFamily: G.mono, fontSize: '0.75rem', color: G.text }}>{inr(h.avg_cost)}</div>
             <div style={{ fontFamily: G.mono, fontSize: '0.75rem', color: q ? G.text : G.muted }}>
-              {quotesLoading && !q ? <Spinner size={12} /> : q ? inr(q.price) : <span style={{ fontSize: '0.6rem' }}>Cached</span>}
+              {q ? inr(q.price) : <span style={{ fontSize: '0.6rem' }}>Cached</span>}
             </div>
             <div style={{ fontFamily: G.display, fontSize: '1rem', color: G.text }}>{inr(value)}</div>
             <div>
@@ -488,10 +549,12 @@ function HoldingsTable({ onSell }) {
                 onMouseEnter={e => e.currentTarget.style.background = `${G.red}30`}
                 onMouseLeave={e => e.currentTarget.style.background = `${G.red}18`}
               >Sell</button>
-              <button onClick={() => deleteHolding(h.id)} style={{ padding: '5px 8px', background: 'transparent', border: `1px solid ${G.border}`, color: G.muted, fontFamily: G.mono, fontSize: '0.6rem', cursor: 'pointer', transition: 'all 0.2s' }}
+              <button onClick={() => handleDelete(h.id)} disabled={deleteHolding.isPending} style={{ padding: '5px 8px', background: 'transparent', border: `1px solid ${G.border}`, color: G.muted, fontFamily: G.mono, fontSize: '0.6rem', cursor: 'pointer', transition: 'all 0.2s' }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = G.red; e.currentTarget.style.color = G.red }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = G.border; e.currentTarget.style.color = G.muted }}
-              >✕</button>
+              >
+                {deleteHolding.isPending ? <Spinner size={12} /> : '✕'}
+              </button>
             </div>
           </div>
         )
@@ -502,8 +565,13 @@ function HoldingsTable({ onSell }) {
 
 // ── Trade History ─────────────────────────────────────────────────────────────
 function TradeHistory() {
-  const { trades } = useFinance()
+  const { userId } = useFinance()
+  const { data: trades = [], isLoading } = useTrades(userId)
   const [show, setShow] = useState(10)
+
+  if (isLoading) {
+    return <div style={{ padding: '40px', textAlign: 'center' }}><Spinner /></div>
+  }
 
   if (!trades.length) return <EmptyState icon="◌" message="No trade history yet." />
 
@@ -563,8 +631,15 @@ function TradeHistory() {
 
 // ── Allocation Chart ──────────────────────────────────────────────────────────
 function AllocationChart() {
-  const { byAssetClass } = useFinance()
-  const data = Object.entries(byAssetClass).map(([k, v]) => ({ name: assetLabel(k), value: v, color: assetColor(k) })).filter(d => d.value > 0)
+  const { userId } = useFinance()
+  const { data: portfolioData } = usePortfolioData(userId)
+  
+  const byAssetClass = portfolioData?.byAssetClass || {}
+  
+  const data = Object.entries(byAssetClass)
+    .map(([k, v]) => ({ name: assetLabel(k), value: v, color: assetColor(k) }))
+    .filter(d => d.value > 0)
+    
   if (!data.length) return null
   const total = data.reduce((s, d) => s + d.value, 0)
 
@@ -596,7 +671,10 @@ function AllocationChart() {
 
 // ── Holdings Breakdown ────────────────────────────────────────────────────────
 function HoldingsBreakdown() {
-  const { holdings, quotesMap } = useFinance()
+  const { userId } = useFinance()
+  const { data: portfolioData } = usePortfolioData(userId)
+  const { data: holdings = [] } = useHoldings(userId)
+  
   const [selected, setSelected] = useState('equity')
   const [showDrop, setShowDrop]  = useState(false)
   const dropRef = useRef(null)
@@ -608,13 +686,22 @@ function HoldingsBreakdown() {
   }, [])
 
   const cat     = CATEGORY_GROUPS.find(c => c.key === selected)
+  const quotesMap = portfolioData?.quotesMap || {}
+  
   const catData = holdings
     .filter(h => cat?.includes.includes(h.asset_class) && h.quantity > 0)
     .map(h => {
       const price = quotesMap[h.ticker]?.price || h.avg_cost
       const value = price * h.quantity
       const displayName = (h.name || h.ticker).length > 22 ? (h.name || h.ticker).slice(0, 22) + '…' : (h.name || h.ticker)
-      return { name: h.ticker, displayName, fullName: h.name || h.ticker, value, color: assetColor(h.asset_class), changePct: quotesMap[h.ticker]?.changePct }
+      return { 
+        name: h.ticker, 
+        displayName, 
+        fullName: h.name || h.ticker, 
+        value, 
+        color: assetColor(h.asset_class), 
+        changePct: quotesMap[h.ticker]?.changePct 
+      }
     })
     .sort((a,b) => b.value - a.value)
 
@@ -693,10 +780,60 @@ function HoldingsBreakdown() {
 
 // ── Portfolio Page ────────────────────────────────────────────────────────────
 export default function Portfolio() {
-  const { portfolioValue, portfolioCost, portfolioGain, realisedPnl, trades } = useFinance()
-  const [mode, setMode]               = useState(null)
+  const { userId } = useFinance()
+  const { 
+    data: portfolioData, 
+    isLoading, 
+    error,
+    refetch 
+  } = usePortfolioData(userId)
+  
+  const [mode, setMode] = useState(null)
   const [sellHolding, setSellHolding] = useState(null)
-  const [activeTab, setActiveTab]     = useState('holdings')
+  const [activeTab, setActiveTab] = useState('holdings')
+
+  if (isLoading) {
+    return <PortfolioSkeleton />
+  }
+
+  if (error) {
+    return (
+      <div style={{ 
+        padding: '40px', 
+        textAlign: 'center', 
+        background: G.card, 
+        border: `1px solid ${G.border}`,
+        color: G.red,
+        fontFamily: G.mono
+      }}>
+        Error loading portfolio: {error.message}
+        <button 
+          onClick={() => refetch()}
+          style={{
+            display: 'block',
+            margin: '20px auto 0',
+            padding: '8px 20px',
+            background: G.gold,
+            border: 'none',
+            color: G.ink,
+            fontFamily: G.mono,
+            cursor: 'pointer'
+          }}
+        >
+          Retry
+        </button>
+      </div>
+    )
+  }
+
+  const {
+    portfolioValue = 0,
+    portfolioCost = 0,
+    portfolioGain = 0,
+    realisedPnl = 0,
+    trades = [],
+    quotesMap = {}
+  } = portfolioData || {}
 
   const gainPct = portfolioCost > 0 ? (portfolioGain / portfolioCost) * 100 : 0
 
@@ -704,10 +841,10 @@ export default function Portfolio() {
   const closeForm  = ()  => { setMode(null); setSellHolding(null) }
 
   const kpis = [
-    { label: 'Portfolio Value',  value: inrCompact(portfolioValue), color: G.gold,                                       sub: 'Current market value' },
-    { label: 'Unrealised P&L',   value: inr(portfolioGain),         color: portfolioGain >= 0 ? G.green : G.red,         sub: pct(gainPct) },
-    { label: 'Realised P&L',     value: inr(realisedPnl),           color: realisedPnl >= 0 ? G.green : G.red,           sub: 'All closed trades' },
-    { label: 'Total Trades',     value: trades.length,              color: '#4f8eff',                                     sub: `${trades.filter(t => ['sell','switch_out'].includes(t.trade_type)).length} exits` },
+    { label: 'Portfolio Value',  value: inrCompact(portfolioValue), color: G.gold, sub: 'Current market value' },
+    { label: 'Unrealised P&L',   value: inr(portfolioGain),         color: portfolioGain >= 0 ? G.green : G.red, sub: pct(gainPct) },
+    { label: 'Realised P&L',     value: inr(realisedPnl),           color: realisedPnl >= 0 ? G.green : G.red, sub: 'All closed trades' },
+    { label: 'Total Trades',     value: trades.length,              color: '#4f8eff', sub: `${trades.filter(t => ['sell','switch_out'].includes(t.trade_type)).length} exits` },
   ]
 
   return (

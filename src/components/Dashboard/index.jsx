@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useFinance } from '../../context/FinanceContext.jsx'
+import { useDashboardData } from '../../hooks/useDashboardData'
+import { useIndices } from '../../hooks/useIndices'
 import { KpiCard } from '../shared/ui.jsx'
 import { Card } from '../shared/ui.jsx'
 import { Btn } from '../shared/ui.jsx'
@@ -66,6 +68,19 @@ function SectionLabel({ children }) {
   )
 }
 
+// ── LOADING PLACEHOLDER ─────────────────────────────────────────────────────
+function LoadingSkeleton() {
+  return (
+    <div style={{ fontFamily: G.sans, background: 'transparent', display: 'grid', gap: 24, padding: '4px 0' }}>
+      <div style={{ height: 60, background: G.card, border: `1px solid ${G.border}`, opacity: 0.6 }} />
+      <div style={{ height: 200, background: G.card, border: `1px solid ${G.border}`, opacity: 0.6 }} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        {[1,2,3,4].map(i => <div key={i} style={{ height: 120, background: G.card, border: `1px solid ${G.border}`, opacity: 0.6 }} />)}
+      </div>
+    </div>
+  )
+}
+
 // ── METRIC CARD ──────────────────────────────────────────────────────────────
 function MetricCard({ label, value, sub, accent, delay = 0, large = false }) {
   const [, vis] = useFadeIn(delay)
@@ -85,9 +100,7 @@ function MetricCard({ label, value, sub, accent, delay = 0, large = false }) {
         transition: 'opacity 0.6s ease, transform 0.6s ease, background 0.3s, border-color 0.3s',
       }}
     >
-      {/* top accent bar */}
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: accent || G.gold, opacity: hov ? 1 : 0.4, transition: 'opacity 0.3s' }} />
-      {/* ambient glow */}
       <div style={{ position: 'absolute', top: -40, right: -40, width: 120, height: 120, background: `radial-gradient(circle, ${accent || G.gold}18 0%, transparent 70%)`, pointerEvents: 'none' }} />
 
       <div style={{ fontFamily: G.mono, fontSize: '0.57rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: G.muted, marginBottom: 10 }}>{label}</div>
@@ -129,16 +142,14 @@ function NWTooltip({ active, payload }) {
   )
 }
 
-function PieTooltip({ active, payload, allocationData }) {
+function PieTooltip({ active, payload }) {
   if (!active || !payload?.length) return null
   const d = payload[0].payload
-  const total = allocationData.reduce((s, i) => s + i.value, 0)
-  const pct = ((d.value / total) * 100).toFixed(1)
   return (
     <div style={{ background: G.card, border: `1px solid ${G.borderHi}`, padding: '10px 14px' }}>
       <div style={{ fontFamily: G.mono, fontSize: '0.58rem', color: G.muted, letterSpacing: '0.1em', marginBottom: 4 }}>{d.name}</div>
       <div style={{ fontFamily: G.display, fontSize: '1.1rem', color: G.goldLight }}>{inr(d.value)}</div>
-      <div style={{ fontFamily: G.mono, fontSize: '0.55rem', color: G.muted, marginTop: 2 }}>{pct}% of portfolio</div>
+      <div style={{ fontFamily: G.mono, fontSize: '0.55rem', color: G.muted, marginTop: 2 }}>{d.percentage}% of portfolio</div>
     </div>
   )
 }
@@ -211,18 +222,85 @@ function ActionBtn({ label, icon, href }) {
 // ── MAIN DASHBOARD ───────────────────────────────────────────────────────────
 export default function Dashboard() {
   useFonts()
+  const { userId } = useFinance()
+  
+  // Use TanStack Query hooks
+  const { 
+    data: dashboardData, 
+    isLoading, 
+    error,
+    refetch 
+  } = useDashboardData(userId)
+  
+  const { 
+    data: indices,
+    isLoading: indicesLoading 
+  } = useIndices()
 
+  // Handle loading state
+  if (isLoading || indicesLoading) {
+    return <LoadingSkeleton />
+  }
+
+  // Handle error state
+  if (error) {
+    return (
+      <div style={{ 
+        padding: '40px', 
+        textAlign: 'center', 
+        background: G.card, 
+        border: `1px solid ${G.border}`,
+        color: G.red,
+        fontFamily: G.mono
+      }}>
+        Error loading dashboard: {error.message}
+        <button 
+          onClick={() => refetch()}
+          style={{
+            display: 'block',
+            margin: '20px auto 0',
+            padding: '8px 20px',
+            background: G.gold,
+            border: 'none',
+            color: G.ink,
+            fontFamily: G.mono,
+            cursor: 'pointer'
+          }}
+        >
+          Retry
+        </button>
+      </div>
+    )
+  }
+
+  // Extract data from dashboard query
   const {
-    netWorth, portfolioValue, portfolioCost, portfolioGain,
-    monthlyIncome, monthlyExpenses, totalDebt,
-    transactions, cashAccounts, byAssetClass, nwHistory,
-  } = useFinance()
+    portfolioValue = 0,
+    cashBalance = 0,
+    accountBalance = 0,
+    totalDebt = 0,
+    netWorth = 0,
+    byAssetClass = {},
+    recentTransactions = [],
+    nwHistory = []
+  } = dashboardData || {}
 
-  const portfolioGainPct  = portfolioCost > 0 ? (portfolioGain / portfolioCost) * 100 : 0
-  const cashBalance        = cashAccounts?.reduce((s, a) => s + Number(a.balance), 0) || 0
-  const emergencyMonths    = monthlyExpenses > 0 ? (cashBalance / monthlyExpenses).toFixed(1) : 'N/A'
-  const savings            = monthlyIncome - monthlyExpenses
-  const savingsRate        = monthlyIncome > 0 ? (savings / monthlyIncome) * 100 : 0
+  // Calculate derived values
+  const monthlyIncome = recentTransactions
+    .filter(t => t.amount > 0)
+    .reduce((sum, t) => sum + Number(t.amount), 0)
+  
+  const monthlyExpenses = recentTransactions
+    .filter(t => t.amount < 0)
+    .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0)
+  
+  const portfolioCost = 0 // You might want to calculate this from holdings
+  const portfolioGain = portfolioValue - portfolioCost
+  const portfolioGainPct = portfolioCost > 0 ? (portfolioGain / portfolioCost) * 100 : 0
+  
+  const emergencyMonths = monthlyExpenses > 0 ? (cashBalance / monthlyExpenses).toFixed(1) : 'N/A'
+  const savings = monthlyIncome - monthlyExpenses
+  const savingsRate = monthlyIncome > 0 ? (savings / monthlyIncome) * 100 : 0
 
   // Allocation data
   const assetColors = {
@@ -241,16 +319,37 @@ export default function Dashboard() {
   }
 
   const allocationData = Object.entries(byAssetClass || {})
-    .map(([k, v]) => ({ name: assetLabels[k] || k, value: v, color: assetColors[k] || G.gold, originalKey: k }))
+    .map(([k, v]) => ({ 
+      name: assetLabels[k] || k, 
+      value: v, 
+      color: assetColors[k] || G.gold, 
+      originalKey: k 
+    }))
     .filter(d => d.value > 0)
-  if (cashBalance > 0) allocationData.push({ name: 'Cash & Bank', value: cashBalance, color: '#fbbf24', originalKey: 'cash' })
+  
+  if (cashBalance > 0) {
+    allocationData.push({ 
+      name: 'Cash & Bank', 
+      value: cashBalance, 
+      color: '#fbbf24', 
+      originalKey: 'cash' 
+    })
+  }
   allocationData.sort((a, b) => b.value - a.value)
+  
+  // Add percentages for tooltip
+  const totalAlloc = allocationData.reduce((sum, item) => sum + item.value, 0)
+  const allocationDataWithPct = allocationData.map(item => ({
+    ...item,
+    percentage: totalAlloc > 0 ? ((item.value / totalAlloc) * 100).toFixed(1) : 0
+  }))
 
   const chartData = nwHistory?.length >= 2
-    ? nwHistory.map(s => ({ month: new Date(s.snapshot_date).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }), value: Number(s.net_worth) }))
+    ? nwHistory.map(s => ({ 
+        month: new Date(s.date).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }), 
+        value: Number(s.value) 
+      }))
     : [{ month: 'Now', value: netWorth }]
-
-  const totalAlloc = allocationData.reduce((s, i) => s + i.value, 0)
 
   return (
     <div style={{ fontFamily: G.sans, background: 'transparent', display: 'grid', gap: 24, padding: '4px 0' }}>
@@ -358,7 +457,7 @@ export default function Dashboard() {
             <span style={{ fontFamily: G.mono, fontSize: '0.55rem', color: G.muted }}>{inrCompact(totalAlloc)}</span>
           </div>
 
-          {allocationData.length === 0 ? (
+          {allocationDataWithPct.length === 0 ? (
             <div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: G.muted, fontFamily: G.mono, fontSize: '0.7rem' }}>
               No assets to display
             </div>
@@ -366,26 +465,35 @@ export default function Dashboard() {
             <>
               <ResponsiveContainer width="100%" height={140}>
                 <PieChart>
-                  <Pie data={allocationData} cx="50%" cy="50%" innerRadius={44} outerRadius={64} paddingAngle={2} dataKey="value" strokeWidth={0}>
-                    {allocationData.map((d, i) => <Cell key={i} fill={d.color} />)}
+                  <Pie 
+                    data={allocationDataWithPct} 
+                    cx="50%" 
+                    cy="50%" 
+                    innerRadius={44} 
+                    outerRadius={64} 
+                    paddingAngle={2} 
+                    dataKey="value" 
+                    strokeWidth={0}
+                  >
+                    {allocationDataWithPct.map((d, i) => <Cell key={i} fill={d.color} />)}
                   </Pie>
-                  <Tooltip content={<PieTooltip allocationData={allocationData} />} />
+                  <Tooltip content={<PieTooltip />} />
                 </PieChart>
               </ResponsiveContainer>
               {/* Legend */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px 10px', marginTop: 12 }}>
-                {allocationData.slice(0, 4).map((item, i) => (
+                {allocationDataWithPct.slice(0, 4).map((item, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                     <div style={{ width: 7, height: 7, borderRadius: '50%', background: item.color, flexShrink: 0 }} />
                     <span style={{ fontFamily: G.mono, fontSize: '0.57rem', color: G.muted }}>
-                      {item.name} <span style={{ color: G.text }}>({((item.value / totalAlloc) * 100).toFixed(1)}%)</span>
+                      {item.name} <span style={{ color: G.text }}>({item.percentage}%)</span>
                     </span>
                   </div>
                 ))}
               </div>
-              {allocationData.length > 4 && (
+              {allocationDataWithPct.length > 4 && (
                 <div style={{ fontFamily: G.mono, fontSize: '0.52rem', color: G.muted, textAlign: 'center', marginTop: 6 }}>
-                  +{allocationData.length - 4} more
+                  +{allocationDataWithPct.length - 4} more
                 </div>
               )}
             </>
@@ -399,13 +507,13 @@ export default function Dashboard() {
           <SectionLabel>Recent Transactions</SectionLabel>
           <span style={{ fontFamily: G.mono, fontSize: '0.55rem', color: G.muted, letterSpacing: '0.1em' }}>Last 7</span>
         </div>
-        {!transactions?.length ? (
+        {!recentTransactions?.length ? (
           <div style={{ padding: '40px', textAlign: 'center', fontFamily: G.mono, fontSize: '0.7rem', color: G.muted }}>
             No transactions yet
           </div>
         ) : (
-          transactions.slice(0, 7).map((t, i) => (
-            <TxRow key={t.id} t={t} i={i} total={Math.min(transactions.length, 7)} />
+          recentTransactions.slice(0, 7).map((t, i) => (
+            <TxRow key={t.id} t={t} i={i} total={Math.min(recentTransactions.length, 7)} />
           ))
         )}
       </div>

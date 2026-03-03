@@ -1,9 +1,10 @@
 // App.jsx
 import { useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { queryClient } from "./lib/queryClient.js"; // Import the query client
 import { FinanceProvider } from "./context/FinanceContext.jsx";
-import PortaFi from "./components/Landing/index.jsx";
-import Signup from "./components/Auth/Signup.jsx";
 import Sidebar from "./components/shared/Sidebar.jsx";
 import TickerBar from "./components/shared/TickerBar.jsx";
 import Dashboard from "./components/Dashboard/index.jsx";
@@ -66,25 +67,11 @@ function Page({ tab }) {
   }
 }
 
-// ── Dashboard App with route sync ────────────────────────────────────────────
+// ── Dashboard App ────────────────────────────────────────────────────────────
 function DashboardApp({ userId }) {
-  const location = useLocation();
   const [tab, setTab] = useState("dashboard");
+  const [loading, setLoading] = useState(true);
 
-  // Sync tab state with current route
-  useEffect(() => {
-    const path = location.pathname.substring(1); // Remove leading slash
-    if (path === "admin") return; // Don't sync admin route
-    
-    const validTabs = ["dashboard", "portfolio", "budget", "goals", "debt", "markets", "ai", "cash"];
-    if (validTabs.includes(path)) {
-      setTab(path);
-    } else {
-      setTab("dashboard");
-    }
-  }, [location]);
-
-  // Don't render until we have userId
   if (!userId) {
     return (
       <div style={{ 
@@ -130,7 +117,6 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
     const getInitialSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
@@ -145,7 +131,6 @@ export default function App() {
 
     getInitialSession();
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUserId(session?.user?.id || null);
     });
@@ -169,86 +154,86 @@ export default function App() {
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<PortaFi />} />
-        <Route path="/login" element={<Login />} />
-                <Route path="/signup" element={<Signup />} />
-
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <DashboardApp userId={userId} />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/portfolio"
-          element={
-            <ProtectedRoute>
-              <DashboardApp userId={userId} />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/budget"
-          element={
-            <ProtectedRoute>
-              <DashboardApp userId={userId} />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/goals"
-          element={
-            <ProtectedRoute>
-              <DashboardApp userId={userId} />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/debt"
-          element={
-            <ProtectedRoute>
-              <DashboardApp userId={userId} />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/markets"
-          element={
-            <ProtectedRoute>
-              <DashboardApp userId={userId} />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/ai"
-          element={
-            <ProtectedRoute>
-              <DashboardApp userId={userId} />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/cash"
-          element={
-            <ProtectedRoute>
-              <DashboardApp userId={userId} />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin"
-          element={
-            <AdminRoute>
-              <AdminPage />
-            </AdminRoute>
-          }
-        />
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      </Routes>
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <DashboardApp userId={userId} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/portfolio"
+            element={
+              <ProtectedRoute>
+                <DashboardApp userId={userId} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/budget"
+            element={
+              <ProtectedRoute>
+                <DashboardApp userId={userId} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/goals"
+            element={
+              <ProtectedRoute>
+                <DashboardApp userId={userId} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/debt"
+            element={
+              <ProtectedRoute>
+                <DashboardApp userId={userId} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/markets"
+            element={
+              <ProtectedRoute>
+                <DashboardApp userId={userId} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/ai"
+            element={
+              <ProtectedRoute>
+                <DashboardApp userId={userId} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/cash"
+            element={
+              <ProtectedRoute>
+                <DashboardApp userId={userId} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <AdminPage />
+              </AdminRoute>
+            }
+          />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </BrowserRouter>
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
   );
 }
