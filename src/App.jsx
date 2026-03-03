@@ -5,6 +5,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from "./lib/queryClient.js"; // Import the query client
 import { FinanceProvider } from "./context/FinanceContext.jsx";
+import Signup from "./components/Auth/Signup.jsx";
 import Sidebar from "./components/shared/Sidebar.jsx";
 import TickerBar from "./components/shared/TickerBar.jsx";
 import Dashboard from "./components/Dashboard/index.jsx";
@@ -158,6 +159,8 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+                    <Route path="/signup" element={<Signup />} />
+
           <Route
             path="/dashboard"
             element={
