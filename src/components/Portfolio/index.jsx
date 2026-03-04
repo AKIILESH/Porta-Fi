@@ -67,8 +67,8 @@ const SUB_CATEGORIES = {
 }
 
 const CATEGORY_GROUPS = [
-  { key: 'equity',      label: 'Equity',       color: '#5cb87a', includes: ['equity','us_equity'] },
-  { key: 'mutual_fund', label: 'Mutual Funds', color: '#c9a84c', includes: ['mutual_fund','index_fund','elss','etf'] },
+  { key: 'equity',      label: 'Equity',       color: '#5cb87a', includes: ['equity','us_equity','etf'] },
+  { key: 'mutual_fund', label: 'Mutual Funds', color: '#c9a84c', includes: ['mutual_fund','index_fund','elss'] },
   { key: 'debt',        label: 'Debt',         color: '#54a0ff', includes: ['debt_fund','liquid_fund','hybrid_fund'] },
   { key: 'commodity',   label: 'Commodity',    color: '#f5c400', includes: ['gold','silver'] },
   { key: 'other',       label: 'Other',        color: '#6e6558', includes: ['reit','invit','crypto','other'] },

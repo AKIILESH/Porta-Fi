@@ -90,7 +90,6 @@ const BANK_NAMES = [
 ].sort();
 
 const BANK_LOGOS = {
-  "State Bank of India (SBI)": "/bank-logos/sbi.svg",
   "HDFC Bank": "/HDFC.png",
   "IDFC FIRST Bank": "/IDFC.png",
   "Kotak Mahindra Bank": "/KOTAK.png",

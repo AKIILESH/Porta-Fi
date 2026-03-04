@@ -1,10 +1,11 @@
 // App.jsx
 import { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { queryClient } from "./lib/queryClient.js"; // Import the query client
 import { FinanceProvider } from "./context/FinanceContext.jsx";
+import PortaFi from "./components/Landing/index.jsx";
 import Signup from "./components/Auth/Signup.jsx";
 import Sidebar from "./components/shared/Sidebar.jsx";
 import TickerBar from "./components/shared/TickerBar.jsx";
@@ -75,15 +76,17 @@ function DashboardApp({ userId }) {
 
   if (!userId) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh',
-        background: theme.bg,
-        color: theme.text 
-      }}>
-        <div style={{ animation: 'spin 1s linear infinite' }}>⚡</div>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+          background: theme.bg,
+          color: theme.text,
+        }}
+      >
+        <div style={{ animation: "spin 1s linear infinite" }}>⚡</div>
       </div>
     );
   }
@@ -102,7 +105,11 @@ function DashboardApp({ userId }) {
       >
         <TickerBar />
         <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-          <Sidebar tab={tab} setTab={setTab} onSignOut={() => supabase.auth.signOut()} />
+          <Sidebar
+            tab={tab}
+            setTab={setTab}
+            onSignOut={() => supabase.auth.signOut()}
+          />
           <main style={{ flex: 1, overflow: "auto", padding: "24px 28px" }}>
             <Page tab={tab} />
           </main>
@@ -120,11 +127,14 @@ export default function App() {
   useEffect(() => {
     const getInitialSession = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
         if (error) throw error;
         setUserId(session?.user?.id || null);
       } catch (error) {
-        console.error('Error getting session:', error);
+        console.error("Error getting session:", error);
       } finally {
         setLoading(false);
       }
@@ -132,7 +142,9 @@ export default function App() {
 
     getInitialSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setUserId(session?.user?.id || null);
     });
 
@@ -141,15 +153,17 @@ export default function App() {
 
   if (loading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh',
-        background: theme.bg,
-        color: theme.text 
-      }}>
-        <div style={{ animation: 'spin 1s linear infinite' }}>⚡</div>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+          background: theme.bg,
+          color: theme.text,
+        }}
+      >
+        <div style={{ animation: "spin 1s linear infinite" }}>⚡</div>
       </div>
     );
   }
@@ -158,8 +172,9 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
+          <Route path="/" element={<PortaFi/>}/>
           <Route path="/login" element={<Login />} />
-                    <Route path="/signup" element={<Signup />} />
+          <Route path="/signup" element={<Signup />} />
 
           <Route
             path="/dashboard"
