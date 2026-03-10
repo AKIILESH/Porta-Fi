@@ -3,28 +3,16 @@ import { useNavigate } from "react-router-dom"
 import {
   LayoutDashboard, PieChart, Wallet, Target,
   CreditCard, TrendingUp, Bot, Settings,
-  Palette, LogOut, User, Landmark,
+  Palette, LogOut, Landmark, ChevronLeft, ChevronRight, ChevronUp,
 } from "lucide-react"
 import theme from "../../lib/theme.js"
 
-// ── GOLD TOKENS ───────────────────────────────────────────────────────────────
-const G = {
-  ink:       "#09090e",
-  surface:   "#0f0e0a",
-  card:      "#131109",
-  border:    "rgba(201,168,76,0.16)",
-  borderHi:  "rgba(201,168,76,0.38)",
-  gold:      "#c9a84c",
-  goldLight: "#e8c96b",
-  goldDim:   "rgba(201,168,76,0.10)",
-  goldGlow:  "rgba(201,168,76,0.06)",
-  text:      "#f0ebe0",
-  muted:     "#6e6558",
-  red:       "#d96b6b",
-  mono:      "'DM Mono', 'Courier New', monospace",
-  display:   "'Cormorant Garamond', Georgia, serif",
-  sans:      "'DM Sans', system-ui, sans-serif",
-}
+// ── Glass helper ──────────────────────────────────────────────────────────────
+const glass = (opacity = 0.04, blur = 20) => ({
+  background: `rgba(255,255,255,${opacity})`,
+  backdropFilter: `blur(${blur}px) saturate(180%)`,
+  WebkitBackdropFilter: `blur(${blur}px) saturate(180%)`,
+})
 
 const NAV = [
   { id: "dashboard", icon: LayoutDashboard, label: "Dashboard",  path: "/dashboard" },
@@ -37,7 +25,7 @@ const NAV = [
   { id: "ai",        icon: Bot,             label: "AI Agent",   path: "/ai"        },
 ]
 
-// ── TOOLTIP ───────────────────────────────────────────────────────────────────
+// ── Tooltip ───────────────────────────────────────────────────────────────────
 function Tip({ children, text }) {
   const [show, setShow] = useState(false)
   return (
@@ -50,20 +38,21 @@ function Tip({ children, text }) {
         <div style={{
           position: "absolute", left: "calc(100% + 14px)", top: "50%",
           transform: "translateY(-50%)",
-          background: G.card, border: `1px solid ${G.borderHi}`,
+          ...glass(0.12, 20),
+          border: `1px solid ${theme.borderHi}`,
           padding: "6px 14px",
-          fontFamily: G.mono, fontSize: "0.62rem", letterSpacing: "0.12em",
-          color: G.text, whiteSpace: "nowrap", zIndex: 200,
-          boxShadow: `0 8px 24px rgba(0,0,0,0.4), 0 0 0 1px ${G.border}`,
+          fontFamily: theme.mono, fontSize: "0.62rem", letterSpacing: "0.12em",
+          color: theme.text, whiteSpace: "nowrap", zIndex: 200,
+          boxShadow: `0 8px 24px rgba(0,0,0,0.4), 0 0 16px ${theme.accentGlow}`,
           pointerEvents: "none",
           animation: "tipIn 0.15s ease",
+          borderRadius: 8,
         }}>
-          {/* arrow */}
           <div style={{
             position: "absolute", right: "100%", top: "50%",
             transform: "translateY(-50%)",
             borderTop: "5px solid transparent", borderBottom: "5px solid transparent",
-            borderRight: `5px solid ${G.borderHi}`,
+            borderRight: `5px solid ${theme.borderHi}`,
           }} />
           {text}
         </div>
@@ -72,7 +61,7 @@ function Tip({ children, text }) {
   )
 }
 
-// ── NAV ITEM ──────────────────────────────────────────────────────────────────
+// ── NavItem ───────────────────────────────────────────────────────────────────
 function NavItem({ n, active, collapsed, onClick }) {
   const [hov, setHov] = useState(false)
   const Icon = n.icon
@@ -87,33 +76,40 @@ function NavItem({ n, active, collapsed, onClick }) {
         display: "flex",
         alignItems: "center",
         justifyContent: collapsed ? "center" : "flex-start",
-        gap: collapsed ? 0 : 13,
+        gap: collapsed ? 0 : 12,
         width: "100%",
-        padding: collapsed ? "13px 0" : "12px 16px",
+        padding: collapsed ? "13px 0" : "11px 16px",
         marginBottom: 2,
-        background: active ? G.goldDim : hov ? "rgba(255,255,255,0.03)" : "transparent",
+        ...(active ? glass(0.08, 16) : hov ? glass(0.05, 12) : { background: "transparent" }),
         border: "none",
-        borderLeft: `2px solid ${active ? G.gold : "transparent"}`,
-        color: active ? G.gold : hov ? G.text : G.muted,
-        fontFamily: G.mono,
-        fontSize: "0.7rem",
-        letterSpacing: "0.12em",
+        borderLeft: `2px solid ${active ? theme.accent : "transparent"}`,
+        borderRadius: collapsed ? 10 : "0 8px 8px 0",
+        color: active ? theme.accent : hov ? theme.text : theme.muted,
+        fontFamily: theme.mono,
+        fontSize: "0.68rem",
+        letterSpacing: "0.10em",
         textTransform: "uppercase",
         cursor: "pointer",
         transition: "all 0.22s ease",
         position: "relative",
+        boxShadow: active ? `inset 0 1px 0 rgba(255,255,255,0.08), 0 0 20px ${theme.accentGlow}` : "none",
       }}
     >
       {/* active glow sweep */}
       {active && (
         <div style={{
           position: "absolute", inset: 0,
-          background: `linear-gradient(90deg, ${G.goldDim} 0%, transparent 100%)`,
+          background: `linear-gradient(90deg, ${theme.accentDim} 0%, transparent 100%)`,
           pointerEvents: "none",
+          borderRadius: "inherit",
         }} />
       )}
 
-      <Icon size={collapsed ? 18 : 15} strokeWidth={active ? 1.8 : 1.4} />
+      <Icon
+        size={collapsed ? 18 : 15}
+        strokeWidth={active ? 2 : 1.4}
+        style={{ filter: active ? `drop-shadow(0 0 6px ${theme.accent})` : "none", flexShrink: 0 }}
+      />
 
       {!collapsed && (
         <span style={{ flex: 1, position: "relative" }}>{n.label}</span>
@@ -123,8 +119,8 @@ function NavItem({ n, active, collapsed, onClick }) {
       {isAI && (
         <span style={{
           width: 5, height: 5, borderRadius: "50%",
-          background: G.gold, flexShrink: 0,
-          boxShadow: `0 0 8px ${G.gold}`,
+          background: theme.accent, flexShrink: 0,
+          boxShadow: `0 0 8px ${theme.accent}`,
           animation: "aiPulse 2.2s ease-in-out infinite",
           ...(collapsed ? { position: "absolute", top: 9, right: 14 } : {}),
         }} />
@@ -135,25 +131,48 @@ function NavItem({ n, active, collapsed, onClick }) {
   return collapsed ? <Tip text={n.label}>{btn}</Tip> : btn
 }
 
-// ── DIVIDER ───────────────────────────────────────────────────────────────────
+// ── Divider ───────────────────────────────────────────────────────────────────
 function Divider() {
-  return <div style={{ height: 1, background: G.border, margin: "8px 0" }} />
+  return (
+    <div style={{
+      height: 1,
+      background: `linear-gradient(90deg, transparent, ${theme.border}, transparent)`,
+      margin: "8px 0",
+    }} />
+  )
 }
 
-// ── MAIN SIDEBAR ──────────────────────────────────────────────────────────────
+// ── Avatar ────────────────────────────────────────────────────────────────────
+function Avatar({ initial, size = 36 }) {
+  return (
+    <div style={{
+      width: size, height: size, flexShrink: 0,
+      ...glass(0.10, 16),
+      border: `1px solid ${theme.borderHi}`,
+      borderRadius: "50%",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontFamily: theme.display, fontSize: size * 0.42, fontWeight: 700,
+      color: theme.accent,
+      boxShadow: `0 0 16px ${theme.accentGlow}, inset 0 1px 0 rgba(255,255,255,0.15)`,
+    }}>
+      {initial}
+    </div>
+  )
+}
+
+// ── Main Sidebar ──────────────────────────────────────────────────────────────
 export default function Sidebar({ tab, setTab, user, onSignOut }) {
-  const [collapsed, setCollapsed]         = useState(false)
-  const [showProfile, setShowProfile]     = useState(false)
-  const [mounted, setMounted]             = useState(false)
+  const [collapsed, setCollapsed]     = useState(false)
+  const [showProfile, setShowProfile] = useState(false)
+  const [mounted, setMounted]         = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
-    // inject fonts once
     if (!document.getElementById("portafi-fonts")) {
       const l = document.createElement("link")
       l.id   = "portafi-fonts"
       l.rel  = "stylesheet"
-      l.href = "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@300;400&display=swap"
+      l.href = "https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=Space+Grotesk:wght@300;400;500&family=Space+Mono:wght@400&display=swap"
       document.head.appendChild(l)
     }
     const t = setTimeout(() => setMounted(true), 60)
@@ -166,71 +185,80 @@ export default function Sidebar({ tab, setTab, user, onSignOut }) {
     setShowProfile(false)
   }
 
-  const initial = user?.email?.[0]?.toUpperCase() || "U"
+  const initial  = user?.email?.[0]?.toUpperCase() || "U"
   const username = user?.email?.split("@")[0] || "User"
 
   return (
     <>
       <style>{`
-        @keyframes tipIn    { from { opacity:0; transform:translateY(-50%) translateX(-6px) } to { opacity:1; transform:translateY(-50%) translateX(0) } }
-        @keyframes aiPulse  { 0%,100% { opacity:1; transform:scale(1) } 50% { opacity:0.5; transform:scale(1.5) } }
-        @keyframes fadeUp   { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
-        @keyframes slideIn  { from { opacity:0; transform:translateX(-12px) } to { opacity:1; transform:translateX(0) } }
+        @keyframes tipIn   { from { opacity:0; transform:translateY(-50%) translateX(-6px) } to { opacity:1; transform:translateY(-50%) translateX(0) } }
+        @keyframes aiPulse { 0%,100% { opacity:1; transform:scale(1) } 50% { opacity:0.4; transform:scale(1.6) } }
+        @keyframes fadeUp  { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
+        @keyframes slideIn { from { opacity:0; transform:translateX(-10px) } to { opacity:1; transform:translateX(0) } }
       `}</style>
 
       <aside style={{
         width: collapsed ? 72 : 248,
-        background: G.ink,
-        borderRight: `1px solid ${G.border}`,
+        ...glass(0.04, 28),
+        borderRight: `1px solid ${theme.border}`,
         display: "flex",
         flexDirection: "column",
         flexShrink: 0,
-        transition: "width 0.32s cubic-bezier(0.4,0,0.2,1)",
         position: "relative",
         opacity: mounted ? 1 : 0,
         transform: mounted ? "translateX(0)" : "translateX(-8px)",
         transitionProperty: "width, opacity, transform",
         transitionDuration: "0.32s, 0.5s, 0.5s",
+        transitionTimingFunction: "cubic-bezier(0.4,0,0.2,1)",
         overflow: "visible",
+        boxShadow: `inset -1px 0 0 ${theme.border}, 4px 0 32px rgba(0,0,0,0.3)`,
       }}>
 
-        {/* ── LOGO ── */}
+        {/* Top shine */}
+        <div style={{
+          position: "absolute", top: 0, left: "10%", right: "10%", height: 1,
+          background: `linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent)`,
+          pointerEvents: "none",
+        }} />
+
+        {/* ── Logo ── */}
         <div style={{
           padding: collapsed ? "28px 0 24px" : "28px 24px 24px",
-          borderBottom: `1px solid ${G.border}`,
+          borderBottom: `1px solid ${theme.border}`,
           textAlign: collapsed ? "center" : "left",
           flexShrink: 0,
         }}>
           {collapsed ? (
             <div style={{
-              fontFamily: G.display,
+              fontFamily: theme.display,
               fontSize: "1.1rem",
-              fontWeight: 400,
-              color: G.gold,
-              letterSpacing: "0.1em",
+              fontWeight: 700,
+              color: theme.accent,
+              letterSpacing: "0.05em",
+              textShadow: `0 0 16px ${theme.accentGlow}`,
             }}>
               PFi
             </div>
           ) : (
             <>
               <div style={{
-                fontFamily: G.display,
+                fontFamily: theme.display,
                 fontSize: "1.55rem",
-                fontWeight: 400,
-                letterSpacing: "0.1em",
+                fontWeight: 700,
+                letterSpacing: "0.06em",
                 lineHeight: 1,
                 marginBottom: 6,
                 animation: "slideIn 0.4s ease",
               }}>
-                <span style={{ color: G.gold }}>Porta</span>
-                <span style={{ color: G.text }}>Fi</span>
+                <span style={{ color: theme.accent, textShadow: `0 0 20px ${theme.accentGlow}` }}>Porta</span>
+                <span style={{ color: theme.text }}>Fi</span>
               </div>
               <div style={{
-                fontFamily: G.mono,
-                fontSize: "0.52rem",
+                fontFamily: theme.mono,
+                fontSize: "0.50rem",
                 letterSpacing: "0.22em",
                 textTransform: "uppercase",
-                color: G.muted,
+                color: theme.muted,
                 animation: "slideIn 0.45s ease",
               }}>
                 Smart Money · Smart Future
@@ -239,46 +267,48 @@ export default function Sidebar({ tab, setTab, user, onSignOut }) {
           )}
         </div>
 
-        {/* ── COLLAPSE TOGGLE ── */}
+        {/* ── Collapse toggle ── */}
         <button
           onClick={() => setCollapsed(c => !c)}
           style={{
             position: "absolute",
-            right: -13,
-            top: 38,
-            width: 26,
-            height: 26,
+            right: -14,
+            top: 36,
+            width: 28, height: 28,
             borderRadius: "50%",
-            background: G.card,
-            border: `1px solid ${G.borderHi}`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            ...glass(0.12, 20),
+            border: `1px solid ${theme.borderHi}`,
+            display: "flex", alignItems: "center", justifyContent: "center",
             cursor: "pointer",
-            color: G.gold,
+            color: theme.accent,
             zIndex: 50,
             transition: "all 0.2s",
-            fontSize: "0.6rem",
-            boxShadow: `0 2px 12px rgba(0,0,0,0.4)`,
+            boxShadow: `0 0 12px ${theme.accentGlow}, inset 0 1px 0 rgba(255,255,255,0.15)`,
           }}
-          onMouseEnter={e => { e.currentTarget.style.background = G.gold; e.currentTarget.style.color = G.ink }}
-          onMouseLeave={e => { e.currentTarget.style.background = G.card; e.currentTarget.style.color = G.gold }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = `rgba(0,212,255,0.20)`
+            e.currentTarget.style.boxShadow  = `0 0 20px ${theme.accent}50, inset 0 1px 0 rgba(255,255,255,0.2)`
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = `rgba(255,255,255,0.12)`
+            e.currentTarget.style.boxShadow  = `0 0 12px ${theme.accentGlow}, inset 0 1px 0 rgba(255,255,255,0.15)`
+          }}
         >
-          {collapsed ? "›" : "‹"}
+          {collapsed
+            ? <ChevronRight size={13} strokeWidth={2} />
+            : <ChevronLeft  size={13} strokeWidth={2} />}
         </button>
 
-        {/* ── NAV ── */}
+        {/* ── Nav ── */}
         <nav style={{
           flex: 1,
           padding: collapsed ? "16px 8px" : "16px 10px",
-          overflowY: "auto",
-          overflowX: "visible",
+          overflowY: "auto", overflowX: "visible",
         }}>
-          {/* Section label */}
           {!collapsed && (
             <div style={{
-              fontFamily: G.mono, fontSize: "0.5rem", letterSpacing: "0.25em",
-              textTransform: "uppercase", color: G.muted,
+              fontFamily: theme.mono, fontSize: "0.48rem", letterSpacing: "0.28em",
+              textTransform: "uppercase", color: theme.muted,
               padding: "4px 16px 10px",
             }}>
               Navigation
@@ -288,22 +318,16 @@ export default function Sidebar({ tab, setTab, user, onSignOut }) {
           {NAV.map((n, i) => (
             <div key={n.id} style={{ animation: `slideIn ${0.1 + i * 0.04}s ease` }}>
               {n.id === "ai" && <Divider />}
-              <NavItem
-                n={n}
-                active={tab === n.id}
-                collapsed={collapsed}
-                onClick={handleNav}
-              />
+              <NavItem n={n} active={tab === n.id} collapsed={collapsed} onClick={handleNav} />
             </div>
           ))}
         </nav>
 
-        {/* ── PROFILE ── */}
+        {/* ── Profile ── */}
         <div style={{
-          borderTop: `1px solid ${G.border}`,
+          borderTop: `1px solid ${theme.border}`,
           padding: collapsed ? "16px 8px" : "16px 12px",
-          position: "relative",
-          flexShrink: 0,
+          position: "relative", flexShrink: 0,
         }}>
 
           {/* Profile dropdown */}
@@ -312,15 +336,20 @@ export default function Sidebar({ tab, setTab, user, onSignOut }) {
               position: "absolute",
               bottom: "calc(100% + 8px)",
               left: 12, right: 12,
-              background: G.card,
-              border: `1px solid ${G.borderHi}`,
+              ...glass(0.12, 24),
+              border: `1px solid ${theme.borderHi}`,
+              borderRadius: 12,
               padding: "8px",
               zIndex: 100,
               animation: "fadeUp 0.2s ease",
-              boxShadow: `0 -12px 40px rgba(0,0,0,0.5)`,
+              boxShadow: `0 -12px 40px rgba(0,0,0,0.5), 0 0 24px ${theme.accentGlow}`,
             }}>
-              {/* top gold bar */}
-              <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, ${G.gold}, transparent)` }} />
+              {/* top shine */}
+              <div style={{
+                position: "absolute", top: 0, left: "10%", right: "10%", height: 1,
+                background: `linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)`,
+                borderRadius: "12px 12px 0 0",
+              }} />
 
               {[
                 { icon: Settings, label: "Settings", action: () => setShowProfile(false) },
@@ -328,31 +357,39 @@ export default function Sidebar({ tab, setTab, user, onSignOut }) {
               ].map(({ icon: Icon, label, action }) => (
                 <button key={label} onClick={action} style={{
                   display: "flex", alignItems: "center", gap: 10,
-                  width: "100%", padding: "10px 14px", border: "none",
+                  width: "100%", padding: "10px 14px",
+                  border: "none", borderRadius: 8,
                   background: "transparent", cursor: "pointer",
-                  fontFamily: G.mono, fontSize: "0.65rem",
-                  letterSpacing: "0.12em", textTransform: "uppercase",
-                  color: G.muted, transition: "all 0.2s",
+                  fontFamily: theme.mono, fontSize: "0.63rem",
+                  letterSpacing: "0.10em", textTransform: "uppercase",
+                  color: theme.muted, transition: "all 0.2s",
                 }}
-                  onMouseEnter={e => { e.currentTarget.style.color = G.gold; e.currentTarget.style.background = G.goldDim }}
-                  onMouseLeave={e => { e.currentTarget.style.color = G.muted; e.currentTarget.style.background = "transparent" }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.color      = theme.accent
+                    e.currentTarget.style.background = theme.accentDim
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.color      = theme.muted
+                    e.currentTarget.style.background = "transparent"
+                  }}
                 >
                   <Icon size={13} strokeWidth={1.5} />
                   {label}
                 </button>
               ))}
 
-              <div style={{ height: 1, background: G.border, margin: "4px 0" }} />
+              <Divider />
 
               <button onClick={() => { onSignOut?.(); setShowProfile(false) }} style={{
                 display: "flex", alignItems: "center", gap: 10,
-                width: "100%", padding: "10px 14px", border: "none",
+                width: "100%", padding: "10px 14px",
+                border: "none", borderRadius: 8,
                 background: "transparent", cursor: "pointer",
-                fontFamily: G.mono, fontSize: "0.65rem",
-                letterSpacing: "0.12em", textTransform: "uppercase",
-                color: G.red, transition: "all 0.2s",
+                fontFamily: theme.mono, fontSize: "0.63rem",
+                letterSpacing: "0.10em", textTransform: "uppercase",
+                color: theme.red, transition: "all 0.2s",
               }}
-                onMouseEnter={e => e.currentTarget.style.background = `${G.red}18`}
+                onMouseEnter={e => e.currentTarget.style.background = `${theme.red}18`}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}
               >
                 <LogOut size={13} strokeWidth={1.5} />
@@ -377,46 +414,53 @@ export default function Sidebar({ tab, setTab, user, onSignOut }) {
               style={{
                 display: "flex", alignItems: "center", gap: 12,
                 width: "100%", padding: "10px 12px",
-                background: showProfile ? G.goldDim : "transparent",
-                border: `1px solid ${showProfile ? G.borderHi : "transparent"}`,
+                borderRadius: 10,
+                ...(showProfile ? glass(0.08, 16) : { background: "transparent" }),
+                border: `1px solid ${showProfile ? theme.borderHi : "transparent"}`,
                 cursor: "pointer",
                 transition: "all 0.25s",
+                boxShadow: showProfile ? `inset 0 1px 0 rgba(255,255,255,0.08), 0 0 16px ${theme.accentGlow}` : "none",
               }}
-              onMouseEnter={e => { if (!showProfile) e.currentTarget.style.background = G.goldGlow }}
-              onMouseLeave={e => { if (!showProfile) e.currentTarget.style.background = "transparent" }}
+              onMouseEnter={e => {
+                if (showProfile) return
+                e.currentTarget.style.background    = "rgba(255,255,255,0.04)"
+                e.currentTarget.style.borderColor   = theme.border
+              }}
+              onMouseLeave={e => {
+                if (showProfile) return
+                e.currentTarget.style.background    = "transparent"
+                e.currentTarget.style.borderColor   = "transparent"
+              }}
             >
               <Avatar initial={initial} size={34} />
-              <div style={{ flex: 1, textAlign: "left" }}>
-                <div style={{ fontFamily: G.sans, fontSize: "0.82rem", fontWeight: 500, color: G.text, marginBottom: 2 }}>{username}</div>
-                <div style={{ fontFamily: G.mono, fontSize: "0.55rem", color: G.muted, letterSpacing: "0.08em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 130 }}>
+              <div style={{ flex: 1, textAlign: "left", overflow: "hidden" }}>
+                <div style={{
+                  fontFamily: theme.sans, fontSize: "0.82rem", fontWeight: 500,
+                  color: theme.text, marginBottom: 2,
+                }}>
+                  {username}
+                </div>
+                <div style={{
+                  fontFamily: theme.mono, fontSize: "0.54rem", color: theme.muted,
+                  letterSpacing: "0.06em", overflow: "hidden",
+                  textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 130,
+                }}>
                   {user?.email || "signed in"}
                 </div>
               </div>
-              <span style={{
-                fontFamily: G.mono, fontSize: "0.5rem", color: G.gold,
-                transform: showProfile ? "rotate(180deg)" : "none",
-                transition: "transform 0.2s",
-              }}>▲</span>
+              <ChevronUp
+                size={12} strokeWidth={2}
+                style={{
+                  color: theme.accent, flexShrink: 0,
+                  transform: showProfile ? "rotate(180deg)" : "rotate(0deg)",
+                  transition: "transform 0.25s",
+                  filter: `drop-shadow(0 0 4px ${theme.accent})`,
+                }}
+              />
             </button>
           )}
         </div>
       </aside>
     </>
-  )
-}
-
-// ── AVATAR ────────────────────────────────────────────────────────────────────
-function Avatar({ initial, size = 36 }) {
-  return (
-    <div style={{
-      width: size, height: size, flexShrink: 0,
-      background: `linear-gradient(135deg, ${G.gold} 0%, rgba(201,168,76,0.4) 100%)`,
-      border: `1px solid ${G.borderHi}`,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      fontFamily: G.display, fontSize: size * 0.44, fontWeight: 400,
-      color: G.ink, letterSpacing: "0.05em",
-    }}>
-      {initial}
-    </div>
   )
 }

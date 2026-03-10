@@ -2,142 +2,93 @@ import { useState, useEffect, useRef } from 'react'
 import { useFinance } from '../../context/FinanceContext.jsx'
 import { useDashboardData } from '../../hooks/useDashboardData'
 import { useIndices } from '../../hooks/useIndices'
-import { KpiCard } from '../shared/ui.jsx'
-import { Card } from '../shared/ui.jsx'
-import { Btn } from '../shared/ui.jsx'
 import { inr, inrCompact, pct, gainColor, fmtDate } from '../../lib/formatters.js'
 import theme from '../../lib/theme.js'
 import {
   AreaChart, Area, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts'
+import {
+  TrendingUp, TrendingDown, Wallet, Target,
+  ArrowUpRight, ArrowDownRight, Activity,
+  PieChart as PieIcon, RefreshCw, Clock,
+  DollarSign, Shield, Zap, BarChart2,
+} from 'lucide-react'
 
-// ── GOLD THEME TOKENS ────────────────────────────────────────────────────────
-const G = {
-  ink:        '#09090e',
-  surface:    '#0f0e0a',
-  card:       '#131109',
-  cardHover:  '#181610',
-  border:     'rgba(201,168,76,0.16)',
-  borderHi:   'rgba(201,168,76,0.35)',
-  gold:       '#c9a84c',
-  goldLight:  '#e8c96b',
-  goldDim:    'rgba(201,168,76,0.10)',
-  goldGlow:   'rgba(201,168,76,0.06)',
-  text:       '#f0ebe0',
-  muted:      '#6e6558',
-  green:      '#5cb87a',
-  red:        '#d96b6b',
-  mono:       "'DM Mono', 'Courier New', monospace",
-  display:    "'Cormorant Garamond', Georgia, serif",
-  sans:       "'DM Sans', system-ui, sans-serif",
+// ── Glass helpers ─────────────────────────────────────────────────────────────
+const glass = (opacity = 0.04, blur = 20) => ({
+  background: `rgba(255,255,255,${opacity})`,
+  backdropFilter: `blur(${blur}px) saturate(180%)`,
+  WebkitBackdropFilter: `blur(${blur}px) saturate(180%)`,
+})
+const glassInset = `inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 rgba(0,0,0,0.12)`
+
+// ── Asset config ──────────────────────────────────────────────────────────────
+const ASSET_COLORS = {
+  equity: '#2563EB', us_equity: '#0EA5E9', etf: '#60A5FA',
+  mutual_fund: '#8B5CF6', index_fund: '#A78BFA', elss: '#C4B5FD',
+  debt_fund: '#10B981', liquid_fund: '#34D399', hybrid_fund: '#6EE7B7',
+  gold: '#F59E0B', silver: '#94A3B8',
+  reit: '#EC4899', invit: '#F97316', crypto: '#A855F7', other: '#6B7280',
+}
+const ASSET_LABELS = {
+  equity: 'Equity', us_equity: 'US Equity', etf: 'ETF',
+  index_fund: 'Index Fund', elss: 'ELSS', mutual_fund: 'Mutual Fund',
+  debt_fund: 'Debt Fund', liquid_fund: 'Liquid Fund', hybrid_fund: 'Hybrid Fund',
+  gold: 'Gold', silver: 'Silver', reit: 'REIT',
+  invit: 'InvIT', crypto: 'Crypto', other: 'Other',
 }
 
-// ── FONT INJECTION ───────────────────────────────────────────────────────────
-function useFonts() {
-  useEffect(() => {
-    if (document.getElementById('portafi-fonts')) return
-    const l = document.createElement('link')
-    l.id   = 'portafi-fonts'
-    l.rel  = 'stylesheet'
-    l.href = 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@300;400&display=swap'
-    document.head.appendChild(l)
-  }, [])
-}
-
-// ── FADE-IN HOOK ─────────────────────────────────────────────────────────────
-function useFadeIn(delay = 0) {
-  const ref = useRef(null)
-  const [vis, setVis] = useState(false)
-  useEffect(() => {
-    const t = setTimeout(() => setVis(true), delay)
-    return () => clearTimeout(t)
-  }, [delay])
-  return [ref, vis]
-}
-
-// ── SECTION LABEL ────────────────────────────────────────────────────────────
+// ── Section label ─────────────────────────────────────────────────────────────
 function SectionLabel({ children }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-      <span style={{ width: 20, height: 1, background: G.gold, display: 'inline-block' }} />
-      <span style={{ fontFamily: G.mono, fontSize: '0.58rem', letterSpacing: '0.22em', textTransform: 'uppercase', color: G.gold }}>
+      <div style={{ width: 3, height: 14, background: theme.accent, borderRadius: 2, boxShadow: `0 0 8px ${theme.accent}` }} />
+      <span style={{
+        fontFamily: theme.mono, fontSize: '0.58rem',
+        letterSpacing: '0.22em', textTransform: 'uppercase', color: theme.accent,
+      }}>
         {children}
       </span>
     </div>
   )
 }
 
-// ── LOADING PLACEHOLDER ─────────────────────────────────────────────────────
+// ── Loading skeleton ──────────────────────────────────────────────────────────
 function LoadingSkeleton() {
   return (
-    <div style={{ fontFamily: G.sans, background: 'transparent', display: 'grid', gap: 24, padding: '4px 0' }}>
-      <div style={{ height: 60, background: G.card, border: `1px solid ${G.border}`, opacity: 0.6 }} />
-      <div style={{ height: 200, background: G.card, border: `1px solid ${G.border}`, opacity: 0.6 }} />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-        {[1,2,3,4].map(i => <div key={i} style={{ height: 120, background: G.card, border: `1px solid ${G.border}`, opacity: 0.6 }} />)}
-      </div>
+    <div style={{ display: 'grid', gap: 24, padding: '4px 0' }}>
+      {[60, 200, 120, 120].map((h, i) => (
+        <div key={i} style={{
+          height: h,
+          ...glass(0.04, 20),
+          border: `1px solid ${theme.border}`,
+          borderRadius: 16,
+          animation: 'pulse 1.8s ease-in-out infinite',
+          animationDelay: `${i * 0.15}s`,
+        }} />
+      ))}
+      <style>{`@keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:0.8} }`}</style>
     </div>
   )
 }
 
-// ── METRIC CARD ──────────────────────────────────────────────────────────────
-function MetricCard({ label, value, sub, accent, delay = 0, large = false }) {
-  const [, vis] = useFadeIn(delay)
-  const [hov, setHov] = useState(false)
-  return (
-    <div
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        background: hov ? G.cardHover : G.card,
-        border: `1px solid ${hov ? G.borderHi : G.border}`,
-        padding: large ? '28px 28px' : '22px 24px',
-        position: 'relative',
-        overflow: 'hidden',
-        opacity: vis ? 1 : 0,
-        transform: vis ? 'translateY(0)' : 'translateY(16px)',
-        transition: 'opacity 0.6s ease, transform 0.6s ease, background 0.3s, border-color 0.3s',
-      }}
-    >
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: accent || G.gold, opacity: hov ? 1 : 0.4, transition: 'opacity 0.3s' }} />
-      <div style={{ position: 'absolute', top: -40, right: -40, width: 120, height: 120, background: `radial-gradient(circle, ${accent || G.gold}18 0%, transparent 70%)`, pointerEvents: 'none' }} />
-
-      <div style={{ fontFamily: G.mono, fontSize: '0.57rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: G.muted, marginBottom: 10 }}>{label}</div>
-      <div style={{ fontFamily: G.display, fontSize: large ? '2.4rem' : '1.9rem', fontWeight: 300, lineHeight: 1, color: G.text, letterSpacing: '-0.01em', marginBottom: 8 }}>{value}</div>
-      <div style={{ fontFamily: G.mono, fontSize: '0.6rem', color: accent || G.gold, letterSpacing: '0.08em' }}>{sub}</div>
-    </div>
-  )
-}
-
-// ── STAT PILL ────────────────────────────────────────────────────────────────
-function StatPill({ label, value, color, delay = 0 }) {
-  const [, vis] = useFadeIn(delay)
-  return (
-    <div style={{
-      background: G.card,
-      border: `1px solid ${G.border}`,
-      padding: '18px 24px',
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      opacity: vis ? 1 : 0,
-      transform: vis ? 'translateY(0)' : 'translateY(12px)',
-      transition: 'opacity 0.5s ease, transform 0.5s ease',
-    }}>
-      <span style={{ fontFamily: G.mono, fontSize: '0.58rem', letterSpacing: '0.15em', textTransform: 'uppercase', color: G.muted }}>{label}</span>
-      <span style={{ fontFamily: G.display, fontSize: '1.3rem', fontWeight: 400, color: color || G.text }}>{value}</span>
-    </div>
-  )
-}
-
-// ── CHART TOOLTIP ────────────────────────────────────────────────────────────
+// ── Tooltips ──────────────────────────────────────────────────────────────────
 function NWTooltip({ active, payload }) {
   if (!active || !payload?.length) return null
   return (
-    <div style={{ background: G.card, border: `1px solid ${G.borderHi}`, padding: '10px 14px' }}>
-      <div style={{ fontFamily: G.mono, fontSize: '0.58rem', color: G.muted, letterSpacing: '0.1em', marginBottom: 4 }}>{payload[0]?.payload?.month}</div>
-      <div style={{ fontFamily: G.display, fontSize: '1.1rem', color: G.goldLight }}>{inr(payload[0]?.value)}</div>
+    <div style={{
+      ...glass(0.15, 20),
+      border: `1px solid ${theme.borderHi}`,
+      padding: '10px 14px', borderRadius: 10,
+      boxShadow: `0 8px 24px rgba(0,0,0,0.4), 0 0 16px ${theme.accentGlow}`,
+    }}>
+      <div style={{ fontFamily: theme.mono, fontSize: '0.58rem', color: theme.muted, marginBottom: 4 }}>
+        {payload[0]?.payload?.month}
+      </div>
+      <div style={{ fontFamily: theme.display, fontSize: '1.1rem', color: theme.accent }}>
+        {inr(payload[0]?.value)}
+      </div>
     </div>
   )
 }
@@ -146,58 +97,203 @@ function PieTooltip({ active, payload }) {
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   return (
-    <div style={{ background: G.card, border: `1px solid ${G.borderHi}`, padding: '10px 14px' }}>
-      <div style={{ fontFamily: G.mono, fontSize: '0.58rem', color: G.muted, letterSpacing: '0.1em', marginBottom: 4 }}>{d.name}</div>
-      <div style={{ fontFamily: G.display, fontSize: '1.1rem', color: G.goldLight }}>{inr(d.value)}</div>
-      <div style={{ fontFamily: G.mono, fontSize: '0.55rem', color: G.muted, marginTop: 2 }}>{d.percentage}% of portfolio</div>
+    <div style={{
+      ...glass(0.15, 20),
+      border: `1px solid ${theme.borderHi}`,
+      padding: '10px 14px', borderRadius: 10,
+      boxShadow: `0 8px 24px rgba(0,0,0,0.4)`,
+    }}>
+      <div style={{ fontFamily: theme.mono, fontSize: '0.58rem', color: theme.muted, marginBottom: 4 }}>{d.name}</div>
+      <div style={{ fontFamily: theme.display, fontSize: '1.1rem', color: d.color }}>{inr(d.value)}</div>
+      <div style={{ fontFamily: theme.mono, fontSize: '0.55rem', color: theme.muted, marginTop: 2 }}>{d.percentage}%</div>
     </div>
   )
 }
 
-// ── TRANSACTION ROW ──────────────────────────────────────────────────────────
+// ── Metric card ───────────────────────────────────────────────────────────────
+function MetricCard({ label, value, sub, accent, icon: Icon, delay = 0 }) {
+  const [hov, setHov] = useState(false)
+  const [vis, setVis] = useState(false)
+  useEffect(() => { const t = setTimeout(() => setVis(true), delay); return () => clearTimeout(t) }, [delay])
+
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        ...glass(hov ? 0.08 : 0.04, 20),
+        border: `1px solid ${hov ? (accent || theme.accent) + '50' : theme.border}`,
+        borderRadius: 16,
+        padding: window.innerWidth <= 768 ? '16px' : '22px 24px',
+        position: 'relative',
+        overflow: 'hidden',
+        cursor: 'default',
+        opacity: vis ? 1 : 0,
+        transform: vis ? 'translateY(0)' : 'translateY(16px)',
+        transition: 'opacity 0.5s ease, transform 0.5s ease, border-color 0.3s, background 0.3s',
+        boxShadow: hov
+          ? `${glassInset}, 0 0 28px ${(accent || theme.accent) + '20'}`
+          : `${glassInset}, 0 4px 16px rgba(0,0,0,0.3)`,
+        width: '100%',
+        boxSizing: 'border-box',
+      }}
+    >
+      {/* Top shine */}
+      <div style={{
+        position: 'absolute', top: 0, left: '10%', right: '10%', height: 1,
+        background: `linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent)`,
+      }} />
+      {/* Glow blob */}
+      <div style={{
+        position: 'absolute', top: -30, right: -30, width: 100, height: 100,
+        background: `radial-gradient(circle, ${accent || theme.accent}20 0%, transparent 70%)`,
+        pointerEvents: 'none',
+        transition: 'opacity 0.3s',
+        opacity: hov ? 1 : 0.5,
+      }} />
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: window.innerWidth <= 768 ? 10 : 14 }}>
+        <div style={{ fontFamily: theme.mono, fontSize: window.innerWidth <= 768 ? '0.5rem' : '0.55rem', letterSpacing: '0.18em', textTransform: 'uppercase', color: theme.muted }}>
+          {label}
+        </div>
+        {Icon && (
+          <div style={{
+            width: window.innerWidth <= 768 ? 24 : 28,
+            height: window.innerWidth <= 768 ? 24 : 28,
+            ...glass(0.08, 12),
+            border: `1px solid ${(accent || theme.accent) + '30'}`,
+            borderRadius: 8,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: accent || theme.accent,
+          }}>
+            <Icon size={window.innerWidth <= 768 ? 12 : 13} strokeWidth={1.8} />
+          </div>
+        )}
+      </div>
+
+      <div style={{
+        fontFamily: theme.display, fontSize: window.innerWidth <= 768 ? '1.5rem' : '1.85rem', fontWeight: 700,
+        color: theme.text, lineHeight: 1, marginBottom: window.innerWidth <= 768 ? 6 : 8,
+        textShadow: hov ? `0 0 20px ${(accent || theme.accent) + '40'}` : 'none',
+        transition: 'text-shadow 0.3s',
+        wordBreak: 'break-word',
+      }}>
+        {value}
+      </div>
+      <div style={{ fontFamily: theme.mono, fontSize: window.innerWidth <= 768 ? '0.55rem' : '0.6rem', color: accent || theme.accent, letterSpacing: '0.06em' }}>
+        {sub}
+      </div>
+    </div>
+  )
+}
+
+// ── Stat pill ─────────────────────────────────────────────────────────────────
+function StatPill({ label, value, color, icon: Icon, delay = 0 }) {
+  const [vis, setVis] = useState(false)
+  useEffect(() => { const t = setTimeout(() => setVis(true), delay); return () => clearTimeout(t) }, [delay])
+  return (
+    <div style={{
+      ...glass(0.05, 16),
+      border: `1px solid ${theme.border}`,
+      borderRadius: 14,
+      padding: window.innerWidth <= 768 ? '14px 16px' : '18px 22px',
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      opacity: vis ? 1 : 0,
+      transform: vis ? 'translateY(0)' : 'translateY(12px)',
+      transition: 'opacity 0.5s ease, transform 0.5s ease',
+      boxShadow: glassInset,
+      width: '100%',
+      boxSizing: 'border-box',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: window.innerWidth <= 768 ? 6 : 10 }}>
+        {Icon && (
+          <div style={{
+            width: window.innerWidth <= 768 ? 28 : 32,
+            height: window.innerWidth <= 768 ? 28 : 32,
+            ...glass(0.08, 12),
+            border: `1px solid ${(color || theme.accent) + '30'}`,
+            borderRadius: 9,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: color || theme.accent,
+          }}>
+            <Icon size={window.innerWidth <= 768 ? 12 : 14} strokeWidth={1.8} />
+          </div>
+        )}
+        <span style={{ fontFamily: theme.mono, fontSize: window.innerWidth <= 768 ? '0.52rem' : '0.58rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: theme.muted }}>
+          {label}
+        </span>
+      </div>
+      <span style={{
+        fontFamily: theme.display, fontSize: window.innerWidth <= 768 ? '1.1rem' : '1.25rem', fontWeight: 700,
+        color: color || theme.text,
+        textShadow: `0 0 16px ${(color || theme.accent) + '40'}`,
+      }}>
+        {value}
+      </span>
+    </div>
+  )
+}
+
+// ── Transaction row ───────────────────────────────────────────────────────────
 function TxRow({ t, i, total }) {
   const [hov, setHov] = useState(false)
   const isCredit = t.amount >= 0
+  const color = isCredit ? theme.green : theme.red
+  const isMobile = window.innerWidth <= 768
   return (
     <div
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        padding: '13px 20px',
-        borderBottom: i < total - 1 ? `1px solid ${G.border}` : 'none',
-        background: hov ? G.goldGlow : 'transparent',
-        transition: 'background 0.25s',
+        padding: isMobile ? '10px 16px' : '13px 20px',
+        borderBottom: i < total - 1 ? `1px solid ${theme.border}` : 'none',
+        background: hov ? 'rgba(255,255,255,0.03)' : 'transparent',
+        transition: 'background 0.2s',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 14, minWidth: 0, flex: 1 }}>
         <div style={{
-          width: 34, height: 34,
-          background: isCredit ? `${G.green}18` : `${G.red}18`,
-          border: `1px solid ${isCredit ? G.green : G.red}30`,
+          width: isMobile ? 32 : 36,
+          height: isMobile ? 32 : 36,
+          ...glass(0.06, 12),
+          border: `1px solid ${color + '30'}`,
+          borderRadius: 10,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: isCredit ? G.green : G.red,
-          fontFamily: G.mono, fontSize: '0.8rem',
+          color,
+          boxShadow: `0 0 10px ${color + '20'}`,
+          flexShrink: 0,
         }}>
-          {isCredit ? '↑' : '↓'}
+          {isCredit
+            ? <ArrowUpRight size={isMobile ? 13 : 15} strokeWidth={2} />
+            : <ArrowDownRight size={isMobile ? 13 : 15} strokeWidth={2} />}
         </div>
-        <div>
-          <div style={{ fontFamily: G.sans, fontSize: '0.85rem', color: G.text, marginBottom: 2 }}>{t.description}</div>
-          <div style={{ fontFamily: G.mono, fontSize: '0.57rem', color: G.muted, letterSpacing: '0.08em' }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontFamily: theme.sans, fontSize: isMobile ? '0.8rem' : '0.85rem', color: theme.text, marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {t.description}
+          </div>
+          <div style={{ fontFamily: theme.mono, fontSize: isMobile ? '0.5rem' : '0.57rem', color: theme.muted, letterSpacing: '0.06em' }}>
             {t.category} · {fmtDate(t.date)}
           </div>
         </div>
       </div>
-      <div style={{ fontFamily: G.display, fontSize: '1.05rem', color: isCredit ? G.green : G.red }}>
+      <div style={{
+        fontFamily: theme.display, fontSize: isMobile ? '0.9rem' : '1.05rem', fontWeight: 700,
+        color, textShadow: `0 0 12px ${color + '40'}`,
+        marginLeft: 8,
+        whiteSpace: 'nowrap',
+      }}>
         {isCredit ? '+' : ''}{inr(t.amount)}
       </div>
     </div>
   )
 }
 
-// ── QUICK ACTION BTN ─────────────────────────────────────────────────────────
-function ActionBtn({ label, icon, href }) {
+// ── Quick action button ───────────────────────────────────────────────────────
+function ActionBtn({ label, icon: Icon, href, color }) {
   const [hov, setHov] = useState(false)
+  const c = color || theme.accent
+  const isMobile = window.innerWidth <= 768
   return (
     <a
       href={href}
@@ -205,295 +301,389 @@ function ActionBtn({ label, icon, href }) {
       onMouseLeave={() => setHov(false)}
       style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        gap: 8, padding: '20px 12px',
-        background: hov ? G.goldDim : G.card,
-        border: `1px solid ${hov ? G.gold : G.border}`,
+        gap: isMobile ? 6 : 10, padding: isMobile ? '16px 8px' : '22px 12px',
+        ...glass(hov ? 0.09 : 0.04, 16),
+        border: `1px solid ${hov ? c + '50' : theme.border}`,
+        borderRadius: 14,
         textDecoration: 'none',
-        transition: 'all 0.3s ease',
+        transition: 'all 0.25s ease',
         cursor: 'pointer',
+        boxShadow: hov ? `${glassInset}, 0 0 24px ${c + '20'}` : glassInset,
+        position: 'relative', overflow: 'hidden',
+        width: '100%',
+        boxSizing: 'border-box',
       }}
     >
-      <span style={{ fontSize: '1.1rem', color: G.gold }}>{icon}</span>
-      <span style={{ fontFamily: G.mono, fontSize: '0.58rem', letterSpacing: '0.18em', textTransform: 'uppercase', color: hov ? G.goldLight : G.muted }}>{label}</span>
+      <div style={{
+        position: 'absolute', top: 0, left: '15%', right: '15%', height: 1,
+        background: `linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent)`,
+      }} />
+      <div style={{
+        width: isMobile ? 34 : 38,
+        height: isMobile ? 34 : 38,
+        ...glass(0.08, 12),
+        border: `1px solid ${c + '30'}`,
+        borderRadius: 10,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: c,
+        boxShadow: hov ? `0 0 16px ${c + '40'}` : 'none',
+        transition: 'box-shadow 0.25s',
+      }}>
+        {Icon && <Icon size={isMobile ? 14 : 16} strokeWidth={1.8} />}
+      </div>
+      <span style={{
+        fontFamily: theme.mono, fontSize: isMobile ? '0.5rem' : '0.56rem',
+        letterSpacing: '0.14em', textTransform: 'uppercase',
+        color: hov ? theme.text : theme.muted,
+        transition: 'color 0.2s',
+      }}>
+        {label}
+      </span>
     </a>
   )
 }
 
-// ── MAIN DASHBOARD ───────────────────────────────────────────────────────────
+// ── Main Dashboard ────────────────────────────────────────────────────────────
 export default function Dashboard() {
-  useFonts()
   const { userId } = useFinance()
-  
-  // Use TanStack Query hooks
-  const { 
-    data: dashboardData, 
-    isLoading, 
-    error,
-    refetch 
-  } = useDashboardData(userId)
-  
-  const { 
-    data: indices,
-    isLoading: indicesLoading 
-  } = useIndices()
+  const { data: dashboardData, isLoading, error, refetch } = useDashboardData(userId)
+  const { data: indices, isLoading: indicesLoading } = useIndices()
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200)
 
-  // Handle loading state
-  if (isLoading || indicesLoading) {
-    return <LoadingSkeleton />
-  }
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
-  // Handle error state
-  if (error) {
-    return (
-      <div style={{ 
-        padding: '40px', 
-        textAlign: 'center', 
-        background: G.card, 
-        border: `1px solid ${G.border}`,
-        color: G.red,
-        fontFamily: G.mono
+  const isMobile = windowWidth <= 768
+  const isTablet = windowWidth > 768 && windowWidth <= 1024
+
+  if (isLoading || indicesLoading) return <LoadingSkeleton />
+
+  if (error) return (
+    <div style={{
+      ...glass(0.06, 20),
+      border: `1px solid ${theme.red + '40'}`,
+      borderRadius: 16, padding: isMobile ? '30px 20px' : '40px',
+      textAlign: 'center', color: theme.red, fontFamily: theme.mono,
+    }}>
+      Error loading dashboard: {error.message}
+      <button onClick={() => refetch()} style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        margin: '20px auto 0', padding: '9px 20px',
+        ...glass(0.08, 12),
+        border: `1px solid ${theme.red + '40'}`,
+        borderRadius: 10, color: theme.red, fontFamily: theme.mono,
+        fontSize: 12, cursor: 'pointer',
       }}>
-        Error loading dashboard: {error.message}
-        <button 
-          onClick={() => refetch()}
-          style={{
-            display: 'block',
-            margin: '20px auto 0',
-            padding: '8px 20px',
-            background: G.gold,
-            border: 'none',
-            color: G.ink,
-            fontFamily: G.mono,
-            cursor: 'pointer'
-          }}
-        >
-          Retry
-        </button>
-      </div>
-    )
-  }
+        <RefreshCw size={13} /> Retry
+      </button>
+    </div>
+  )
 
-  // Extract data from dashboard query
   const {
-    portfolioValue = 0,
-    cashBalance = 0,
-    accountBalance = 0,
-    totalDebt = 0,
-    netWorth = 0,
-    byAssetClass = {},
-    recentTransactions = [],
-    nwHistory = []
+    portfolioValue = 0, cashBalance = 0, totalDebt = 0,
+    netWorth = 0, byAssetClass = {}, recentTransactions = [], nwHistory = []
   } = dashboardData || {}
 
-  // Calculate derived values
-  const monthlyIncome = recentTransactions
-    .filter(t => t.amount > 0)
-    .reduce((sum, t) => sum + Number(t.amount), 0)
-  
-  const monthlyExpenses = recentTransactions
-    .filter(t => t.amount < 0)
-    .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0)
-  
-  const portfolioCost = 0 // You might want to calculate this from holdings
-  const portfolioGain = portfolioValue - portfolioCost
-  const portfolioGainPct = portfolioCost > 0 ? (portfolioGain / portfolioCost) * 100 : 0
-  
-  const emergencyMonths = monthlyExpenses > 0 ? (cashBalance / monthlyExpenses).toFixed(1) : 'N/A'
-  const savings = monthlyIncome - monthlyExpenses
-  const savingsRate = monthlyIncome > 0 ? (savings / monthlyIncome) * 100 : 0
+  const monthlyIncome    = recentTransactions.filter(t => t.amount > 0).reduce((s, t) => s + Number(t.amount), 0)
+  const monthlyExpenses  = recentTransactions.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(Number(t.amount)), 0)
+  const savings          = monthlyIncome - monthlyExpenses
+  const savingsRate      = monthlyIncome > 0 ? (savings / monthlyIncome) * 100 : 0
+  const emergencyMonths  = monthlyExpenses > 0 ? (cashBalance / monthlyExpenses).toFixed(1) : 'N/A'
+  const portfolioGainPct = 0
 
-  // Allocation data
-  const assetColors = {
-    equity: '#00f5a0', us_equity: '#4f8eff', etf: '#ffd93d',
-    index_fund: '#a8e6cf', elss: '#9b5cff', mutual_fund: '#ff9f43',
-    debt_fund: '#54a0ff', liquid_fund: '#48dbfb', hybrid_fund: '#ff6b81',
-    gold: '#f5c400', silver: '#b2bec3', reit: '#fd79a8',
-    invit: '#e17055', crypto: '#6c5ce7', other: '#636e72',
-  }
-  const assetLabels = {
-    equity: 'Equity', us_equity: 'US Equity', etf: 'ETF',
-    index_fund: 'Index Fund', elss: 'ELSS', mutual_fund: 'Mutual Fund',
-    debt_fund: 'Debt Fund', liquid_fund: 'Liquid Fund', hybrid_fund: 'Hybrid Fund',
-    gold: 'Gold', silver: 'Silver', reit: 'REIT',
-    invit: 'InvIT', crypto: 'Crypto', other: 'Other',
-  }
+  const allocationData = [
+    ...Object.entries(byAssetClass).map(([k, v]) => ({
+      name: ASSET_LABELS[k] || k, value: v,
+      color: ASSET_COLORS[k] || theme.accent, originalKey: k,
+    })),
+    ...(cashBalance > 0 ? [{ name: 'Cash & Bank', value: cashBalance, color: '#fbbf24', originalKey: 'cash' }] : []),
+  ].filter(d => d.value > 0).sort((a, b) => b.value - a.value)
 
-  const allocationData = Object.entries(byAssetClass || {})
-    .map(([k, v]) => ({ 
-      name: assetLabels[k] || k, 
-      value: v, 
-      color: assetColors[k] || G.gold, 
-      originalKey: k 
-    }))
-    .filter(d => d.value > 0)
-  
-  if (cashBalance > 0) {
-    allocationData.push({ 
-      name: 'Cash & Bank', 
-      value: cashBalance, 
-      color: '#fbbf24', 
-      originalKey: 'cash' 
-    })
-  }
-  allocationData.sort((a, b) => b.value - a.value)
-  
-  // Add percentages for tooltip
-  const totalAlloc = allocationData.reduce((sum, item) => sum + item.value, 0)
-  const allocationDataWithPct = allocationData.map(item => ({
-    ...item,
-    percentage: totalAlloc > 0 ? ((item.value / totalAlloc) * 100).toFixed(1) : 0
-  }))
+  const totalAlloc = allocationData.reduce((s, d) => s + d.value, 0)
+  const allocWithPct = allocationData.map(d => ({ ...d, percentage: totalAlloc > 0 ? ((d.value / totalAlloc) * 100).toFixed(1) : 0 }))
 
   const chartData = nwHistory?.length >= 2
-    ? nwHistory.map(s => ({ 
-        month: new Date(s.date).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }), 
-        value: Number(s.value) 
-      }))
+    ? nwHistory.map(s => ({ month: new Date(s.date).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }), value: Number(s.value) }))
     : [{ month: 'Now', value: netWorth }]
 
   return (
-    <div style={{ fontFamily: G.sans, background: 'transparent', display: 'grid', gap: 24, padding: '4px 0' }}>
+    <div style={{ 
+      fontFamily: theme.sans, 
+      background: 'transparent', 
+      display: 'grid', 
+      gap: isMobile ? 16 : 24, 
+      padding: isMobile ? '0' : '4px 0',
+      width: '100%',
+      maxWidth: '100%',
+      overflowX: 'hidden',
+    }}>
+      <style>{`
+        @keyframes fadeUp { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }
+        @keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(200%)} }
+      `}</style>
 
-      {/* ── HEADER ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', paddingBottom: 20, borderBottom: `1px solid ${G.border}` }}>
+      {/* ── Header ── */}
+      <div style={{
+        display: 'flex', 
+        flexDirection: isMobile ? 'column' : 'row',
+        justifyContent: 'space-between', 
+        alignItems: isMobile ? 'flex-start' : 'flex-end',
+        gap: isMobile ? 12 : 0,
+        paddingBottom: 20, 
+        borderBottom: `1px solid ${theme.border}`,
+      }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-            <span style={{ width: 28, height: 1, background: G.gold, display: 'inline-block' }} />
-            <span style={{ fontFamily: G.mono, fontSize: '0.6rem', letterSpacing: '0.25em', textTransform: 'uppercase', color: G.gold }}>PortaFi</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <Activity size={12} style={{ color: theme.accent }} strokeWidth={2} />
+            <span style={{ fontFamily: theme.mono, fontSize: '0.58rem', letterSpacing: '0.22em', textTransform: 'uppercase', color: theme.accent }}>
+              PortaFi
+            </span>
           </div>
-          <h1 style={{ fontFamily: G.display, fontSize: '2.2rem', fontWeight: 300, color: G.text, margin: 0, letterSpacing: '-0.01em', lineHeight: 1 }}>
+          <h1 style={{ 
+            fontFamily: theme.display, 
+            fontSize: isMobile ? '1.8rem' : '2.1rem', 
+            fontWeight: 700, 
+            color: theme.text, 
+            margin: 0, 
+            lineHeight: 1,
+            wordBreak: 'break-word',
+          }}>
             Financial Overview
           </h1>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontFamily: G.mono, fontSize: '0.58rem', letterSpacing: '0.15em', color: G.muted }}>
+        <div style={{ textAlign: isMobile ? 'left' : 'right' }}>
+          <div style={{ fontFamily: theme.mono, fontSize: '0.57rem', letterSpacing: '0.12em', color: theme.muted }}>
             {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </div>
-          <div style={{ fontFamily: G.mono, fontSize: '0.55rem', color: G.gold, marginTop: 4, letterSpacing: '0.1em' }}>
-            ● Live
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: isMobile ? 'flex-start' : 'flex-end', marginTop: 5 }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: theme.green, boxShadow: `0 0 8px ${theme.green}`, animation: 'pulse 2s infinite' }} />
+            <span style={{ fontFamily: theme.mono, fontSize: '0.54rem', color: theme.green, letterSpacing: '0.10em' }}>Live</span>
           </div>
         </div>
       </div>
 
-      {/* ── NET WORTH HERO ── */}
+      {/* ── Net Worth Hero ── */}
       <div style={{
-        background: G.card,
-        border: `1px solid ${G.border}`,
-        padding: '32px 36px',
-        position: 'relative',
+        ...glass(0.05, 28),
+        border: `1px solid ${theme.border}`,
+        borderRadius: 20, 
+        padding: isMobile ? '24px' : '32px 36px',
+        position: 'relative', 
         overflow: 'hidden',
+        boxShadow: `${glassInset}, 0 12px 48px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.03)`,
       }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${G.gold}, ${G.goldLight}, ${G.gold})` }} />
-        <div style={{ position: 'absolute', top: -60, right: -60, width: 280, height: 280, background: `radial-gradient(circle, ${G.gold}08 0%, transparent 65%)`, pointerEvents: 'none' }} />
-        <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', gap: 48 }}>
+        {/* shine streak */}
+        <div style={{ position: 'absolute', top: 0, left: '5%', right: '5%', height: 1, background: `linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent)` }} />
+        {/* glow blob */}
+        <div style={{ position: 'absolute', top: -80, right: -80, width: 320, height: 320, background: `radial-gradient(circle, ${theme.accent}0a 0%, transparent 65%)`, pointerEvents: 'none' }} />
+
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: isMobile 
+            ? '1fr' 
+            : isTablet 
+              ? '1fr 1px 1fr' 
+              : 'auto 1px 1fr', 
+          alignItems: 'center', 
+          gap: isMobile ? 24 : 48 
+        }}>
           <div>
-            <div style={{ fontFamily: G.mono, fontSize: '0.57rem', letterSpacing: '0.22em', textTransform: 'uppercase', color: G.muted, marginBottom: 8 }}>Total Net Worth</div>
-            <div style={{ fontFamily: G.display, fontSize: '3.4rem', fontWeight: 300, color: G.text, letterSpacing: '-0.02em', lineHeight: 1 }}>{inrCompact(netWorth)}</div>
-            <div style={{ fontFamily: G.mono, fontSize: '0.62rem', color: netWorth > 0 ? G.green : G.red, marginTop: 8, letterSpacing: '0.08em' }}>
-              {netWorth > 0 ? '▲' : '▼'} Assets minus liabilities
+            <div style={{ fontFamily: theme.mono, fontSize: '0.55rem', letterSpacing: '0.22em', textTransform: 'uppercase', color: theme.muted, marginBottom: 10 }}>
+              Total Net Worth
+            </div>
+            <div style={{ 
+              fontFamily: theme.display, 
+              fontSize: isMobile ? '2.5rem' : '3.2rem', 
+              fontWeight: 700, 
+              color: theme.text, 
+              letterSpacing: '-0.02em', 
+              lineHeight: 1, 
+              textShadow: `0 0 40px ${theme.accent + '30'}`,
+              wordBreak: 'break-word',
+            }}>
+              {inrCompact(netWorth)}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10 }}>
+              {netWorth >= 0
+                ? <TrendingUp size={13} style={{ color: theme.green }} strokeWidth={2} />
+                : <TrendingDown size={13} style={{ color: theme.red }} strokeWidth={2} />}
+              <span style={{ fontFamily: theme.mono, fontSize: '0.6rem', color: netWorth >= 0 ? theme.green : theme.red, letterSpacing: '0.06em' }}>
+                Assets minus liabilities
+              </span>
             </div>
           </div>
-          <div style={{ width: 1, height: 60, background: G.border, margin: '0 auto' }} />
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 32 }}>
+
+          {!isMobile && (
+            <div style={{ height: 64, background: `linear-gradient(180deg, transparent, ${theme.border}, transparent)` }} />
+          )}
+
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', 
+            gap: isMobile ? 16 : 32 
+          }}>
             {[
-              { label: 'Portfolio', val: inrCompact(portfolioValue), sub: `${portfolioGainPct >= 0 ? '+' : ''}${portfolioGainPct.toFixed(1)}% all-time`, col: portfolioGainPct >= 0 ? G.green : G.red },
-              { label: 'Savings / mo', val: inr(savings), sub: `${savingsRate.toFixed(1)}% rate`, col: savings >= 0 ? G.green : G.red },
-              { label: 'Emergency', val: `${emergencyMonths}m`, sub: 'of expenses', col: parseFloat(emergencyMonths) >= 6 ? G.green : G.goldLight },
+              { label: 'Portfolio',     val: inrCompact(portfolioValue), sub: `${portfolioGainPct >= 0 ? '+' : ''}${portfolioGainPct.toFixed(1)}% all-time`, col: portfolioGainPct >= 0 ? theme.green : theme.red },
+              { label: 'Savings / mo',  val: inr(savings),               sub: `${savingsRate.toFixed(1)}% rate`,                                             col: savings >= 0 ? theme.green : theme.red },
             ].map((s, i) => (
               <div key={i}>
-                <div style={{ fontFamily: G.mono, fontSize: '0.55rem', letterSpacing: '0.18em', textTransform: 'uppercase', color: G.muted, marginBottom: 6 }}>{s.label}</div>
-                <div style={{ fontFamily: G.display, fontSize: '1.5rem', fontWeight: 300, color: G.text, lineHeight: 1, marginBottom: 4 }}>{s.val}</div>
-                <div style={{ fontFamily: G.mono, fontSize: '0.57rem', color: s.col, letterSpacing: '0.06em' }}>{s.sub}</div>
+                <div style={{ fontFamily: theme.mono, fontSize: '0.53rem', letterSpacing: '0.16em', textTransform: 'uppercase', color: theme.muted, marginBottom: 7 }}>
+                  {s.label}
+                </div>
+                <div style={{ fontFamily: theme.display, fontSize: isMobile ? '1.3rem' : '1.45rem', fontWeight: 700, color: theme.text, lineHeight: 1, marginBottom: 5 }}>
+                  {s.val}
+                </div>
+                <div style={{ fontFamily: theme.mono, fontSize: '0.56rem', color: s.col, letterSpacing: '0.05em' }}>{s.sub}</div>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* ── KPI ROW ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-        <MetricCard label="Net Worth"      value={inrCompact(netWorth)}    sub="Assets minus debts"              accent={G.gold}  delay={60}  />
-        <MetricCard label="Portfolio"      value={inrCompact(portfolioValue)} sub={`${portfolioGainPct >= 0 ? '+' : ''}${portfolioGainPct.toFixed(1)}% all-time`} accent={portfolioGainPct >= 0 ? G.green : G.red} delay={120} />
-        <MetricCard label="Monthly Savings" value={inr(savings)}           sub={`${savingsRate.toFixed(1)}% of income`} accent={savings >= 0 ? G.green : G.red} delay={180} />
-        <MetricCard label="Emergency Fund" value={`${emergencyMonths}m`}   sub="of expenses covered"             accent={parseFloat(emergencyMonths) >= 6 ? G.green : G.goldLight} delay={240} />
+      {/* ── KPI Row ── */}
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: isMobile 
+          ? 'repeat(2, 1fr)' 
+          : isTablet 
+            ? 'repeat(2, 1fr)' 
+            : 'repeat(4, 1fr)', 
+        gap: 12 
+      }}>
+        <MetricCard label="Net Worth"       value={inrCompact(netWorth)}        sub="Assets minus debts"                         icon={BarChart2}   accent={theme.accent}  delay={60}  />
+        <MetricCard label="Portfolio"       value={inrCompact(portfolioValue)}  sub={`${portfolioGainPct >= 0 ? '+' : ''}${portfolioGainPct.toFixed(1)}% all-time`} icon={TrendingUp}  accent={portfolioGainPct >= 0 ? theme.green : theme.red} delay={120} />
+        {!isMobile && (
+          <>
+            <MetricCard label="Monthly Savings" value={inr(savings)}                sub={`${savingsRate.toFixed(1)}% of income`}     icon={Wallet}      accent={savings >= 0 ? theme.green : theme.red} delay={180} />
+            <MetricCard label="Emergency Fund"  value={`${emergencyMonths}m`}       sub="of expenses covered"                        icon={Shield}      accent={parseFloat(emergencyMonths) >= 6 ? theme.green : theme.yellow} delay={240} />
+          </>
+        )}
       </div>
 
-      {/* ── INCOME / EXPENSES / DEBT ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-        <StatPill label="Monthly Income"   value={inr(monthlyIncome)}                                       color={G.green}      delay={100} />
-        <StatPill label="Monthly Expenses" value={inr(monthlyExpenses)}                                     color={G.red}        delay={160} />
-        <StatPill label="Total Debt"       value={inr(totalDebt)}                                           color={G.goldLight}  delay={220} />
+      {/* Mobile - Second row of KPI cards */}
+      {isMobile && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+          <MetricCard label="Monthly Savings" value={inr(savings)} sub={`${savingsRate.toFixed(1)}% of income`} icon={Wallet} accent={savings >= 0 ? theme.green : theme.red} delay={180} />
+          <MetricCard label="Emergency Fund" value={`${emergencyMonths}m`} sub="of expenses covered" icon={Shield} accent={parseFloat(emergencyMonths) >= 6 ? theme.green : theme.yellow} delay={240} />
+        </div>
+      )}
+
+      {/* ── Income / Expenses / Debt ── */}
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: isMobile 
+          ? '1fr' 
+          : 'repeat(3, 1fr)', 
+        gap: 12 
+      }}>
+        <StatPill label="Monthly Income"   value={inr(monthlyIncome)}   color={theme.green}  icon={ArrowUpRight}   delay={100} />
+        <StatPill label="Monthly Expenses" value={inr(monthlyExpenses)} color={theme.red}    icon={ArrowDownRight} delay={160} />
+        <StatPill label="Total Debt"       value={inr(totalDebt)}       color={theme.yellow} icon={DollarSign}     delay={220} />
       </div>
 
-      {/* ── CHARTS ROW ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.55fr 1fr', gap: 16 }}>
+      {/* ── Charts Row ── */}
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: isMobile 
+          ? '1fr' 
+          : '1.55fr 1fr', 
+        gap: 16 
+      }}>
 
         {/* Net Worth Trend */}
-        <div style={{ background: G.card, border: `1px solid ${G.border}`, padding: '24px 24px 16px' }}>
+        <div style={{
+          ...glass(0.04, 20),
+          border: `1px solid ${theme.border}`,
+          borderRadius: 16, 
+          padding: isMobile ? '20px' : '24px 24px 16px',
+          boxShadow: glassInset,
+          position: 'relative', 
+          overflow: 'hidden',
+        }}>
+          <div style={{ position: 'absolute', top: 0, left: '10%', right: '10%', height: 1, background: `linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent)` }} />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <SectionLabel>Net Worth Trend</SectionLabel>
-            <span style={{ fontFamily: G.mono, fontSize: '0.55rem', color: G.muted, letterSpacing: '0.1em' }}>Last {chartData.length} months</span>
+            <span style={{ fontFamily: theme.mono, fontSize: '0.54rem', color: theme.muted, letterSpacing: '0.10em' }}>
+              Last {chartData.length} months
+            </span>
           </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor={G.gold} stopOpacity={0.28} />
-                  <stop offset="95%" stopColor={G.gold} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="month" tick={{ fill: G.muted, fontSize: 9, fontFamily: G.mono }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: G.muted, fontSize: 9, fontFamily: G.mono }} axisLine={false} tickLine={false} tickFormatter={v => '₹' + (v / 1000).toFixed(0) + 'k'} />
-              <Tooltip content={<NWTooltip />} cursor={{ stroke: G.borderHi, strokeWidth: 1 }} />
-              <Area type="monotone" dataKey="value" stroke={G.gold} strokeWidth={1.5} fill="url(#nwGrad)" dot={false} activeDot={{ r: 4, fill: G.gold, stroke: G.card, strokeWidth: 2 }} />
-            </AreaChart>
-          </ResponsiveContainer>
+          <div style={{ height: isMobile ? 150 : 200, width: '100%' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor={theme.accent} stopOpacity={0.25} />
+                    <stop offset="95%" stopColor={theme.accent} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="month" tick={{ fill: theme.muted, fontSize: 9, fontFamily: theme.mono }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: theme.muted, fontSize: 9, fontFamily: theme.mono }} axisLine={false} tickLine={false} tickFormatter={v => '₹' + (v / 1000).toFixed(0) + 'k'} />
+                <Tooltip content={<NWTooltip />} cursor={{ stroke: theme.borderHi, strokeWidth: 1 }} />
+                <Area type="monotone" dataKey="value" stroke={theme.accent} strokeWidth={1.5} fill="url(#nwGrad)" dot={false} activeDot={{ r: 4, fill: theme.accent, stroke: 'rgba(0,0,0,0.5)', strokeWidth: 2 }} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
-        {/* Asset Allocation */}
-        <div style={{ background: G.card, border: `1px solid ${G.border}`, padding: '24px' }}>
+        {/* Allocation */}
+        <div style={{
+          ...glass(0.04, 20),
+          border: `1px solid ${theme.border}`,
+          borderRadius: 16, 
+          padding: isMobile ? '20px' : '24px',
+          boxShadow: glassInset,
+          position: 'relative', 
+          overflow: 'hidden',
+        }}>
+          <div style={{ position: 'absolute', top: 0, left: '10%', right: '10%', height: 1, background: `linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent)` }} />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <SectionLabel>Allocation</SectionLabel>
-            <span style={{ fontFamily: G.mono, fontSize: '0.55rem', color: G.muted }}>{inrCompact(totalAlloc)}</span>
+            <span style={{ fontFamily: theme.mono, fontSize: '0.54rem', color: theme.muted }}>{inrCompact(totalAlloc)}</span>
           </div>
 
-          {allocationDataWithPct.length === 0 ? (
-            <div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: G.muted, fontFamily: G.mono, fontSize: '0.7rem' }}>
+          {allocWithPct.length === 0 ? (
+            <div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.muted, fontFamily: theme.mono, fontSize: '0.7rem' }}>
               No assets to display
             </div>
           ) : (
             <>
-              <ResponsiveContainer width="100%" height={140}>
-                <PieChart>
-                  <Pie 
-                    data={allocationDataWithPct} 
-                    cx="50%" 
-                    cy="50%" 
-                    innerRadius={44} 
-                    outerRadius={64} 
-                    paddingAngle={2} 
-                    dataKey="value" 
-                    strokeWidth={0}
-                  >
-                    {allocationDataWithPct.map((d, i) => <Cell key={i} fill={d.color} />)}
-                  </Pie>
-                  <Tooltip content={<PieTooltip />} />
-                </PieChart>
-              </ResponsiveContainer>
-              {/* Legend */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px 10px', marginTop: 12 }}>
-                {allocationDataWithPct.slice(0, 4).map((item, i) => (
+              <div style={{ height: 140, width: '100%' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={allocWithPct} cx="50%" cy="50%" innerRadius={isMobile ? 35 : 44} outerRadius={isMobile ? 50 : 64} paddingAngle={2} dataKey="value" strokeWidth={0} startAngle={90} endAngle={-270}>
+                      {allocWithPct.map((d, i) => <Cell key={i} fill={d.color} />)}
+                    </Pie>
+                    <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle">
+                      <tspan x="50%" dy="-0.6em" style={{ fontFamily: theme.mono, fontSize: '0.5rem', fill: theme.muted }}>TOTAL</tspan>
+                      <tspan x="50%" dy="1.4em" style={{ fontFamily: theme.mono, fontSize: isMobile ? '0.65rem' : '0.72rem', fill: theme.text, fontWeight: 600 }}>₹{inrCompact(totalAlloc)}</tspan>
+                    </text>
+                    <Tooltip content={<PieTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: isMobile ? 'repeat(1, 1fr)' : 'repeat(2, 1fr)', 
+                gap: '6px 10px', 
+                marginTop: 12,
+                maxHeight: isMobile ? 'none' : 140,
+                overflowY: isMobile ? 'visible' : 'auto',
+              }}>
+                {allocWithPct.slice(0, isMobile ? 5 : 6).map((d, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: item.color, flexShrink: 0 }} />
-                    <span style={{ fontFamily: G.mono, fontSize: '0.57rem', color: G.muted }}>
-                      {item.name} <span style={{ color: G.text }}>({item.percentage}%)</span>
+                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: d.color, flexShrink: 0, boxShadow: `0 0 5px ${d.color + '80'}` }} />
+                    <span style={{ fontFamily: theme.mono, fontSize: '0.54rem', color: theme.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {d.name} <span style={{ color: theme.text }}>({d.percentage}%)</span>
                     </span>
                   </div>
                 ))}
               </div>
-              {allocationDataWithPct.length > 4 && (
-                <div style={{ fontFamily: G.mono, fontSize: '0.52rem', color: G.muted, textAlign: 'center', marginTop: 6 }}>
-                  +{allocationDataWithPct.length - 4} more
+              {allocWithPct.length > (isMobile ? 5 : 6) && (
+                <div style={{ fontFamily: theme.mono, fontSize: '0.50rem', color: theme.muted, textAlign: 'center', marginTop: 6 }}>
+                  +{allocWithPct.length - (isMobile ? 5 : 6)} more
                 </div>
               )}
             </>
@@ -501,14 +691,25 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ── RECENT TRANSACTIONS ── */}
-      <div style={{ background: G.card, border: `1px solid ${G.border}` }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 20px 0' }}>
+      {/* ── Recent Transactions ── */}
+      <div style={{
+        ...glass(0.04, 20),
+        border: `1px solid ${theme.border}`,
+        borderRadius: 16,
+        boxShadow: glassInset,
+        overflow: 'hidden',
+        position: 'relative',
+      }}>
+        <div style={{ position: 'absolute', top: 0, left: '10%', right: '10%', height: 1, background: `linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent)` }} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: isMobile ? '16px 16px 0' : '20px 20px 0' }}>
           <SectionLabel>Recent Transactions</SectionLabel>
-          <span style={{ fontFamily: G.mono, fontSize: '0.55rem', color: G.muted, letterSpacing: '0.1em' }}>Last 7</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <Clock size={10} style={{ color: theme.muted }} />
+            <span style={{ fontFamily: theme.mono, fontSize: '0.53rem', color: theme.muted, letterSpacing: '0.10em' }}>Last 7</span>
+          </div>
         </div>
         {!recentTransactions?.length ? (
-          <div style={{ padding: '40px', textAlign: 'center', fontFamily: G.mono, fontSize: '0.7rem', color: G.muted }}>
+          <div style={{ padding: isMobile ? '30px 20px' : '40px', textAlign: 'center', fontFamily: theme.mono, fontSize: '0.7rem', color: theme.muted }}>
             No transactions yet
           </div>
         ) : (
@@ -518,14 +719,20 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* ── QUICK ACTIONS ── */}
+      {/* ── Quick Actions ── */}
       <div>
         <SectionLabel>Quick Actions</SectionLabel>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-          <ActionBtn label="Add Transaction" icon="＋" href="/budget" />
-          <ActionBtn label="View Portfolio"  icon="◈" href="/portfolio" />
-          <ActionBtn label="Manage Cash"     icon="◎" href="/cash" />
-          <ActionBtn label="Check Goals"     icon="◇" href="/goals" />
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: isMobile 
+            ? 'repeat(2, 1fr)' 
+            : 'repeat(4, 1fr)', 
+          gap: isMobile ? 8 : 10 
+        }}>
+          <ActionBtn label="Add Transaction" icon={Zap}       href="/budget"    color={theme.accent} />
+          <ActionBtn label="View Portfolio"  icon={PieIcon}   href="/portfolio" color={theme.purple} />
+          <ActionBtn label="Manage Cash"     icon={Wallet}    href="/cash"      color={theme.green}  />
+          <ActionBtn label="Check Goals"     icon={Target}    href="/goals"     color={theme.yellow} />
         </div>
       </div>
 

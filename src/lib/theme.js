@@ -1,52 +1,55 @@
 // ── PortaFi Design Tokens ────────────────────────────────────────────────────
-// Gold × Obsidian luxury theme
+// Liquid Glass × Futuristic theme
 
 const theme = {
 
   // ── Backgrounds ────────────────────────────────────────────────────────────
-  bg:       '#09090e',   // deepest ink — page background
-  bg2:      '#0f0e0a',   // surface — sidebar, panels
-  bg3:      '#131109',   // card background
-  bg4:      '#181610',   // card hover / elevated surfaces
+  bg:       'transparent',                              // page — animated canvas behind
+  bg2:      'rgba(6, 18, 32, 0.55)',                   // sidebar / panels
+  bg3:      'rgba(255, 255, 255, 0.04)',               // card glass base
+  bg4:      'rgba(255, 255, 255, 0.08)',               // card hover / elevated
 
   // ── Borders ────────────────────────────────────────────────────────────────
-  border:   'rgba(201,168,76,0.16)',   // resting border
-  borderHi: 'rgba(201,168,76,0.36)',   // hover / active border
+  border:   'rgba(255, 255, 255, 0.10)',               // resting glass edge
+  borderHi: 'rgba(120, 220, 255, 0.35)',               // hover / active — cyan lit
 
-  // ── Brand Accent — Gold ────────────────────────────────────────────────────
-  accent:   '#c9a84c',               // primary gold
-  accentLt: '#e8c96b',               // light gold — highlights, headings
-  accentDim: 'rgba(201,168,76,0.10)', // tinted backgrounds
-  accentGlow:'rgba(201,168,76,0.06)', // subtle ambient glow
+  // ── Brand Accent — Electric Cyan ───────────────────────────────────────────
+  accent:    '#00d4ff',                                // primary cyan
+  accentLt:  '#7eeeff',                               // light — highlights, headings
+  accentDim: 'rgba(0, 212, 255, 0.10)',               // tinted backgrounds
+  accentGlow:'rgba(0, 212, 255, 0.06)',               // ambient glow
 
   // ── Semantic Colors ────────────────────────────────────────────────────────
-  green:    '#5cb87a',   // positive / gain
-  red:      '#d96b6b',   // negative / loss / danger
-  yellow:   '#d4a842',   // warning (matches gold family)
+  green:    '#00e5a0',   // positive / gain — neon mint
+  red:      '#ff4d6d',   // negative / loss
+  yellow:   '#ffd166',   // warning
   blue:     '#4f8eff',   // info / US equity
-  purple:   '#9b5cff',   // ELSS / crypto tags
-  orange:   '#e07d3c',   // debt / expense accent
+  purple:   '#b57bee',   // ELSS / crypto tags
+  orange:   '#ff8c42',   // debt / expense accent
 
   // ── Typography ─────────────────────────────────────────────────────────────
-  text:     '#f0ebe0',   // primary text — warm parchment
-  muted:    '#6e6558',   // secondary / labels
+  text:     '#e8f4ff',   // primary — cool ice white
+  muted:    '#4a7fa5',   // secondary / labels — deep blue-grey
 
   // ── Font Stacks ────────────────────────────────────────────────────────────
-  // Load via: https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@300;400&display=swap
-  display:  "'Cormorant Garamond', Georgia, serif",   // display / financial figures
-  sans:     "'DM Sans', system-ui, sans-serif",       // body / UI copy
-  mono:     "'DM Mono', 'Courier New', monospace",    // labels / data / code
+  // Load via: https://fonts.googleapis.com/css2?family=Syne:wght@300;400;600;700&family=Space+Grotesk:wght@300;400;500&family=Space+Mono:wght@400&display=swap
+  display:  "'Syne', system-ui, sans-serif",
+  sans:     "'Space Grotesk', system-ui, sans-serif",
+  mono:     "'Space Mono', 'Courier New', monospace",
 
-  // Legacy aliases — keeps old components working without changes
+  // Legacy aliases
   get head()  { return this.display },
   get syne()  { return this.display },
   get card()  { return this.bg3     },
 
-  // ── Shadows ────────────────────────────────────────────────────────────────
-  shadow:   '0 4px 24px rgba(0,0,0,0.5)',
-  shadowLg: '0 12px 48px rgba(0,0,0,0.65)',
-  glow:     `0 0 32px rgba(201,168,76,0.14)`,
+  // ── Shadows & Glows ────────────────────────────────────────────────────────
+  shadow:   '0 4px 24px rgba(0, 0, 0, 0.4)',
+  shadowLg: '0 12px 48px rgba(0, 0, 0, 0.6)',
+  glow:     '0 0 40px rgba(0, 212, 255, 0.15)',
 
+  // ── Glass Mixins (use as inline style helpers) ─────────────────────────────
+  glass:       'backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);',
+  glassBorder: '1px solid rgba(255,255,255,0.10)',
 }
 
 export { theme }

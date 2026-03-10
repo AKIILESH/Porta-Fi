@@ -50,6 +50,69 @@ async function fetchUSDINR() {
   return 87.50
 }
 
+// XIRR Calculation Functions
+function calculateXIRR(cashFlows) {
+  if (!cashFlows.length || cashFlows.length < 2) return 0
+  
+  // Sort by date
+  cashFlows.sort((a, b) => a.date - b.date)
+  
+  return calculateXIRRNewton(cashFlows)
+}
+
+function calculateXIRRNewton(cashFlows) {
+  const guess = 0.1 // 10% initial guess
+  const maxIterations = 100
+  const precision = 0.00001
+  
+  let xirr = guess
+  
+  for (let i = 0; i < maxIterations; i++) {
+    const result = calculateNPV(xirr, cashFlows)
+    const derivative = calculateNPVDerivative(xirr, cashFlows)
+    
+    if (Math.abs(result.npv) < precision) break
+    
+    const newXirr = xirr - result.npv / derivative
+    
+    if (Math.abs(newXirr - xirr) < precision) {
+      xirr = newXirr
+      break
+    }
+    
+    xirr = newXirr
+  }
+  
+  // Handle edge cases
+  if (isNaN(xirr) || !isFinite(xirr)) return 0
+  
+  return xirr * 100 // Return as percentage
+}
+
+function calculateNPV(rate, cashFlows) {
+  const startDate = cashFlows[0].date
+  let npv = 0
+  
+  cashFlows.forEach(cf => {
+    const years = (cf.date - startDate) / (1000 * 60 * 60 * 24 * 365)
+    npv += cf.amount / Math.pow(1 + rate, years)
+  })
+  
+  return { npv }
+}
+
+function calculateNPVDerivative(rate, cashFlows) {
+  const startDate = cashFlows[0].date
+  let derivative = 0
+  
+  cashFlows.forEach(cf => {
+    const years = (cf.date - startDate) / (1000 * 60 * 60 * 24 * 365)
+    derivative -= years * cf.amount / Math.pow(1 + rate, years + 1)
+  })
+  
+  return derivative
+}
+
 export function usePortfolioData(userId) {
   return useQuery({
     queryKey: queryKeys.portfolio(userId),
@@ -88,29 +151,42 @@ export function usePortfolioData(userId) {
           console.log(`✅ Found ${prices?.length || 0} price records`)
         }
 
+        // Create a map of the latest price for each ticker
+        const latestPrices = {}
         prices?.forEach(price => {
-          if (!quotesMap[price.ticker]) {
-            const holding = holdings.find(h => h.ticker === price.ticker)
-            const isUSStock = holding?.exchange === 'NYSE' || holding?.exchange === 'NASDAQ' || holding?.exchange === 'PCX'
-            
-            quotesMap[price.ticker] = {
-              price: isUSStock ? price.price * usdInrRate : price.price,
-              usdPrice: isUSStock ? price.price : null,
-              originalPrice: price.price,
-              prevClose: isUSStock ? price.prev_close * usdInrRate : price.prev_close,
-              change: isUSStock ? price.change_amt * usdInrRate : price.change_amt,
-              changePct: price.change_pct,
-              shortName: price.short_name,
-              fromCache: true,
-              fetched_at: price.fetched_at,
-              exchange: holding?.exchange,
-              isUSStock
-            }
+          if (!latestPrices[price.ticker]) {
+            latestPrices[price.ticker] = price
+            console.log(`📊 Using latest price for ${price.ticker}: ${price.price}`)
           }
+        })
+
+        Object.values(latestPrices).forEach(price => {
+          const holding = holdings.find(h => h.ticker === price.ticker)
+          const isUSStock = holding?.exchange === 'NYSE' || holding?.exchange === 'NASDAQ' || holding?.exchange === 'PCX'
+          
+          quotesMap[price.ticker] = {
+            price: price.price, // This is already in INR for all stocks
+            usdPrice: isUSStock ? price.price / usdInrRate : null,
+            originalPrice: price.price,
+            prevClose: price.prev_close,
+            change: price.change_amt,
+            changePct: price.change_pct,
+            shortName: price.short_name,
+            fromCache: true,
+            fetched_at: price.fetched_at,
+            exchange: holding?.exchange,
+            isUSStock
+          }
+          
+          console.log(`📈 Built quote for ${price.ticker}:`, {
+            priceINR: price.price,
+            isUSStock,
+            usdPrice: isUSStock ? price.price / usdInrRate : null
+          })
         })
       }
 
-      // Calculate portfolio metrics - SINGLE LOOP
+      // Calculate portfolio metrics
       console.log('🧮 Calculating portfolio metrics...')
       
       let portfolioValue = 0
@@ -119,27 +195,58 @@ export function usePortfolioData(userId) {
 
       holdings.forEach(h => {
         const quote = quotesMap[h.ticker]
-        const currentPricePerShare = quote?.price || h.avg_cost
+        const isUSStock = h.exchange === 'NYSE' || h.exchange === 'NASDAQ' || h.exchange === 'PCX'
         
-        // CORRECT CALCULATION - using per-share prices
+        console.log(`📊 Processing ${h.ticker}:`, {
+          avg_cost: h.avg_cost,
+          currency: h.currency,
+          isUSStock,
+          quotePrice: quote?.price
+        })
+        
+        // For US stocks, avg_cost is in USD, need to convert to INR for cost calculation
+        // For Indian stocks, avg_cost is already in INR
+        let costPerShareInINR = h.avg_cost
+        if (isUSStock) {
+          costPerShareInINR = h.avg_cost * usdInrRate
+          console.log(`💱 Converted ${h.ticker}: $${h.avg_cost} → ₹${costPerShareInINR} (rate: ${usdInrRate})`)
+        }
+        
+        // Get current price (already in INR from quotesMap)
+        const currentPricePerShare = quote?.price || costPerShareInINR
+        
+        // Calculate values
         const value = h.quantity * currentPricePerShare
-        const cost = h.quantity * h.avg_cost
+        const cost = h.quantity * costPerShareInINR
         const gain = value - cost
         const gainPct = cost > 0 ? (gain / cost) * 100 : 0
         
         portfolioValue += value
         portfolioCost += cost
         
-        breakdown.push({
-          ticker: h.ticker,
+        console.log(`📈 ${h.ticker} calculation:`, {
           quantity: h.quantity,
-          avgCost: h.avg_cost,
+          costPerShareINR: costPerShareInINR,
           currentPrice: currentPricePerShare,
           value,
           cost,
           gain,
+          gainPct: gainPct.toFixed(2) + '%'
+        })
+        
+        breakdown.push({
+          ticker: h.ticker,
+          quantity: h.quantity,
+          avgCostUSD: isUSStock ? h.avg_cost : null,
+          avgCostINR: costPerShareInINR,
+          currentPrice: currentPricePerShare,
+          currentPriceUSD: isUSStock ? (quote?.price / usdInrRate) : null,
+          value,
+          cost,
+          gain,
           gainPct: gainPct.toFixed(2) + '%',
-          exchange: h.exchange
+          exchange: h.exchange,
+          isUSStock
         })
       })
 
@@ -156,24 +263,64 @@ export function usePortfolioData(userId) {
         portfolioGainPct: portfolioGainPct.toFixed(2) + '%'
       })
 
-      // Calculate realised P&L
+      // Calculate realised P&L (already in INR from trades)
       const realisedPnl = trades
         .filter(t => ['sell', 'switch_out'].includes(t.trade_type) && t.realised_pnl != null)
-        .reduce((sum, t) => {
-          let pnl = t.realised_pnl
-          if (t.exchange === 'NYSE' || t.exchange === 'NASDAQ' || t.exchange === 'PCX') {
-            pnl = pnl * usdInrRate
-          }
-          return sum + Number(pnl)
-        }, 0)
+        .reduce((sum, t) => sum + Number(t.realised_pnl), 0)
+
+      // Calculate XIRR with proper currency conversion
+      const buyTransactions = trades.filter(t => ['buy', 'sip'].includes(t.trade_type))
+      
+      // Convert all buy transactions to INR for XIRR calculation
+      const xirrCashFlows = []
+      
+      buyTransactions.forEach(t => {
+        let amount = t.total_value
+        // If trade was in USD, convert to INR
+        if (t.exchange === 'NYSE' || t.exchange === 'NASDAQ' || t.exchange === 'PCX') {
+          amount = t.total_value * usdInrRate
+        }
+        xirrCashFlows.push({
+          amount: -Math.abs(amount), // Negative for investments
+          date: new Date(t.trade_date)
+        })
+      })
+      
+      // Add current portfolio value as positive cash flow
+      if (portfolioValue > 0) {
+        xirrCashFlows.push({
+          amount: portfolioValue,
+          date: new Date()
+        })
+      }
+      
+      // Calculate XIRR
+      const xirr = calculateXIRR(xirrCashFlows)
 
       // Calculate by asset class
       const byAssetClass = {}
       holdings.forEach(h => {
         const quote = quotesMap[h.ticker]
-        const currentPricePerShare = quote?.price || h.avg_cost
+        const isUSStock = h.exchange === 'NYSE' || h.exchange === 'NASDAQ' || h.exchange === 'PCX'
+        
+        // Get current price in INR
+        let currentPricePerShare = h.avg_cost
+        if (quote?.price) {
+          currentPricePerShare = quote.price
+        } else if (isUSStock) {
+          currentPricePerShare = h.avg_cost * usdInrRate
+        }
+        
         const value = h.quantity * currentPricePerShare
         byAssetClass[h.asset_class] = (byAssetClass[h.asset_class] || 0) + value
+      })
+
+      // Log XIRR calculation for debugging
+      console.log('📊 XIRR Calculation:', {
+        numTransactions: buyTransactions.length,
+        firstDate: xirrCashFlows[0]?.date,
+        lastDate: new Date(),
+        xirr: xirr.toFixed(2) + '%'
       })
 
       return {
@@ -185,6 +332,7 @@ export function usePortfolioData(userId) {
         portfolioCost,
         portfolioGain,
         realisedPnl,
+        xirr,
         byAssetClass,
       }
     },
