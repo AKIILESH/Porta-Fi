@@ -1,3 +1,4 @@
+// src/pages/Cash.jsx
 import { useState, useEffect, useRef } from "react"
 import { useFinance } from "../../context/FinanceContext.jsx"
 import { useCashAccounts, useAddCashAccount, useUpdateCashAccount, useDeleteCashAccount } from "../../hooks/useCashAccounts.js"
@@ -7,7 +8,7 @@ import { useTheme } from '../../context/ThemeContext.jsx'
 import {
   Landmark, Calendar, Percent, Plus, X, Edit, Trash2,
   Clock, RefreshCw, Banknote, PiggyBank, TrendingUp, Wallet,
-  ChevronDown,
+  ChevronDown, LayoutGrid, Check
 } from "lucide-react"
 
 // ── Responsive CSS injected once ──────────────────────────────────────────────
@@ -149,6 +150,18 @@ const calcProgress = (start, end) => {
   return Math.min(100, Math.round((daysBetween(s, today) / daysBetween(s, e)) * 100))
 }
 const acctType = v => ACCOUNT_TYPES.find(t => t.value === v) || ACCOUNT_TYPES[0]
+
+function useWindowWidth() {
+  const [w, setW] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : 1200
+  )
+  useEffect(() => {
+    const fn = () => setW(window.innerWidth)
+    window.addEventListener('resize', fn)
+    return () => window.removeEventListener('resize', fn)
+  }, [])
+  return w
+}
 
 // ── Primitives ────────────────────────────────────────────────────────────────
 const FL = ({ children, required }) => {
@@ -671,6 +684,361 @@ function CashSummary({ accounts }) {
   )
 }
 
+// ── Filter Bar — Dropdown on desktop, Scrollable pills on mobile ──────────────
+function FilterBar({ cashAccounts = [], filterType, setFilterType }) {
+  const { theme, isDark } = useTheme()
+  const scrollAccRef  = useRef(0)
+  const scrollTimeout = useRef(null)
+  const touchStartX   = useRef(null)
+  const dropRef       = useRef(null)
+  const [open, setOpen] = useState(false)
+  const w       = useWindowWidth()
+  const isMobile = w <= 768
+
+  const mkGlass = (o = 0.07, b = 18) => ({
+    background:           isDark ? `rgba(255,255,255,${o})` : `rgba(0,0,0,${o * 0.55})`,
+    backdropFilter:       `blur(${b}px) saturate(180%)`,
+    WebkitBackdropFilter: `blur(${b}px) saturate(180%)`,
+  })
+
+  const options = [
+    { value: "all", label: "All Accounts", color: theme.accent, icon: LayoutGrid },
+    ...ACCOUNT_TYPES,
+  ].map(t => ({
+    ...t,
+    count: t.value === "all"
+      ? cashAccounts.length
+      : cashAccounts.filter(a => a.type === t.value).length,
+  })).filter(t => t.value === "all" || t.count > 0)
+
+  const currentIndex = Math.max(0, options.findIndex(o => o.value === filterType))
+  const selected     = options[currentIndex] || options[0]
+  const SelIcon      = selected?.icon
+  const c            = selected?.color || theme.accent
+
+  const cycleFilter = (dir) => {
+    const next = (currentIndex + dir + options.length) % options.length
+    setFilterType(options[next].value)
+  }
+
+  // ── Wheel: accumulate delta, fire on threshold ──────────────────────────
+  const handleWheel = (e) => {
+    e.preventDefault()
+    scrollAccRef.current += e.deltaY + e.deltaX
+    if (scrollTimeout.current) clearTimeout(scrollTimeout.current)
+    scrollTimeout.current = setTimeout(() => { scrollAccRef.current = 0 }, 300)
+    if (Math.abs(scrollAccRef.current) >= 40) {
+      cycleFilter(scrollAccRef.current > 0 ? 1 : -1)
+      scrollAccRef.current = 0
+    }
+  }
+
+  // ── Touch swipe ─────────────────────────────────────────────────────────
+  const handleTouchStart = (e) => { touchStartX.current = e.touches[0].clientX }
+  const handleTouchEnd   = (e) => {
+    if (touchStartX.current === null) return
+    const dx = touchStartX.current - e.changedTouches[0].clientX
+    if (Math.abs(dx) > 28) cycleFilter(dx > 0 ? 1 : -1)
+    touchStartX.current = null
+  }
+
+  // ── Close dropdown on outside click ────────────────────────────────────
+  useEffect(() => {
+    const fn = e => { if (dropRef.current && !dropRef.current.contains(e.target)) setOpen(false) }
+    document.addEventListener("mousedown", fn)
+    return () => document.removeEventListener("mousedown", fn)
+  }, [])
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // MOBILE — single cycling pill
+  // ══════════════════════════════════════════════════════════════════════════
+  if (isMobile) return (
+    <>
+      <style>{`
+        @keyframes slideInPill {
+          from { opacity:0; transform:translateY(6px) scale(0.96); }
+          to   { opacity:1; transform:translateY(0)   scale(1);    }
+        }
+        @keyframes iconPop {
+          0%   { transform: scale(0.65) rotate(-10deg); opacity:0; }
+          60%  { transform: scale(1.18) rotate( 2deg);  opacity:1; }
+          100% { transform: scale(1)    rotate( 0deg);  opacity:1; }
+        }
+      `}</style>
+
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'left', 
+        width: '100%', 
+        marginBottom: 16 
+      }}>
+        <div
+          onWheel={handleWheel}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            ...mkGlass(0.07, 22),
+            border: `1px solid ${theme.borderHi}`,
+            borderRadius: 999,
+            padding: "8px 18px",
+            userSelect: "none",
+            cursor: "ew-resize",
+            position: "relative",
+            overflow: "hidden",
+            boxShadow: isDark
+              ? `0 2px 20px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.10), inset 0 -1px 0 rgba(0,0,0,0.14), 0 0 0 1px ${c}1a`
+              : `0 2px 20px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.88), inset 0 -1px 0 rgba(0,0,0,0.04), 0 0 0 1px ${c}12`,
+            transition: "box-shadow 0.25s ease",
+            WebkitTapHighlightColor: "transparent",
+            width: "auto",
+            minWidth: 200,
+            maxWidth: 280,
+          }}
+        >
+          {/* Top specular sheen */}
+          <div style={{
+            position: "absolute", top: 0, left: 0, right: 0, height: "46%",
+            background: isDark
+              ? "linear-gradient(180deg,rgba(255,255,255,0.10) 0%,transparent 100%)"
+              : "linear-gradient(180deg,rgba(255,255,255,0.78) 0%,transparent 100%)",
+            borderRadius: "999px 999px 0 0",
+            pointerEvents: "none",
+          }}/>
+          {/* Bottom depth shadow */}
+          <div style={{
+            position: "absolute", bottom: 0, left: 0, right: 0, height: "35%",
+            background: isDark
+              ? "linear-gradient(0deg,rgba(0,0,0,0.16) 0%,transparent 100%)"
+              : "linear-gradient(0deg,rgba(0,0,0,0.04) 0%,transparent 100%)",
+            borderRadius: "0 0 999px 999px",
+            pointerEvents: "none",
+          }}/>
+
+          {/* Icon — re-animates on every filter change */}
+          <span
+            key={`icon-${filterType}`}
+            style={{
+              display: "flex", alignItems: "center",
+              animation: "iconPop 0.34s cubic-bezier(0.34,1.56,0.64,1)",
+              position: "relative", zIndex: 1, flexShrink: 0,
+            }}
+          >
+            {SelIcon && (
+              <SelIcon size={14} strokeWidth={2.2}
+                style={{ color: c, filter: `drop-shadow(0 0 5px ${c}90)` }}
+              />
+            )}
+          </span>
+
+          {/* Label — re-animates on every filter change */}
+          <div style={{ 
+            position: "relative", 
+            overflow: "hidden", 
+            height: 18,
+            flex: "0 1 auto",
+          }}>
+            <span
+              key={filterType}
+              style={{
+                position: "relative",
+                fontFamily: theme.mono, 
+                fontSize: "0.65rem",
+                color: theme.text, 
+                letterSpacing: "0.06em",
+                whiteSpace: "nowrap",
+                animation: "slideInPill 0.22s cubic-bezier(0.4,0,0.2,1) forwards",
+                display: "inline-block",
+              }}
+            >
+              {selected?.value === "all"
+                ? `All Accounts · ${selected.count}`
+                : `${selected?.label} · ${selected?.count}`}
+            </span>
+          </div>       
+        </div>
+      </div>
+    </>
+  )
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // DESKTOP — glass dropdown
+  // ══════════════════════════════════════════════════════════════════════════
+  return (
+    <>
+      <style>{`
+        @keyframes ddOpen {
+          from { opacity:0; transform:translateY(-6px) scale(0.98) }
+          to   { opacity:1; transform:translateY(0)    scale(1)    }
+        }
+      `}</style>
+
+      <div ref={dropRef} style={{ position: "relative", display: "inline-block" }}>
+
+        {/* Trigger */}
+        <button
+          onClick={() => setOpen(v => !v)}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 9,
+            padding: "8px 14px",
+            ...mkGlass(open ? 0.08 : 0.05, 18),
+            border: `1px solid ${open ? theme.borderHi : theme.border}`,
+            borderRadius: 11,
+            color: theme.text,
+            fontFamily: theme.mono,
+            fontSize: "0.61rem",
+            letterSpacing: "0.09em",
+            cursor: "pointer",
+            transition: "all 0.2s",
+            position: "relative",
+            overflow: "hidden",
+            minWidth: 178,
+            boxShadow: open
+              ? (isDark
+                  ? "inset 0 1px 0 rgba(255,255,255,0.10), 0 8px 24px rgba(0,0,0,0.30)"
+                  : "inset 0 1px 0 rgba(255,255,255,0.80), 0 8px 24px rgba(0,0,0,0.10)")
+              : (isDark
+                  ? "inset 0 1px 0 rgba(255,255,255,0.06)"
+                  : "inset 0 1px 0 rgba(255,255,255,0.60)"),
+          }}
+          onMouseEnter={e => { if (!open) e.currentTarget.style.borderColor = theme.borderHi }}
+          onMouseLeave={e => { if (!open) e.currentTarget.style.borderColor = theme.border }}
+        >
+          {/* Sheen */}
+          <div style={{
+            position: "absolute", top: 0, left: "8%", right: "8%", height: 1,
+            background: isDark
+              ? "linear-gradient(90deg,transparent,rgba(255,255,255,0.12),transparent)"
+              : "linear-gradient(90deg,transparent,rgba(255,255,255,0.80),transparent)",
+            pointerEvents: "none",
+          }}/>
+
+          {SelIcon && (
+            <SelIcon size={13} strokeWidth={2}
+              style={{ color: c, flexShrink: 0, filter: `drop-shadow(0 0 5px ${c}70)`, transition: "all 0.2s" }}
+            />
+          )}
+
+          <span style={{ flex: 1, textAlign: "left", color: theme.text }}>
+            {selected?.value === "all"
+              ? `All Accounts (${selected.count})`
+              : `${selected?.label} · ${selected?.count}`}
+          </span>
+
+          <svg width={11} height={11} viewBox="0 0 24 24" fill="none"
+            stroke={theme.muted} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+            style={{ flexShrink: 0, transition: "transform 0.22s", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
+          >
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+
+        {/* Dropdown */}
+        {open && (
+          <div style={{
+            position: "absolute", top: "calc(100% + 6px)", left: 0,
+            minWidth: 178,
+            ...mkGlass(0.14, 26),
+            border: `1px solid ${theme.borderHi}`,
+            borderRadius: 13,
+            overflow: "hidden",
+            zIndex: 200,
+            boxShadow: isDark
+              ? "0 16px 48px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.10)"
+              : "0 16px 48px rgba(0,0,0,0.14), inset 0 1px 0 rgba(255,255,255,0.90)",
+            animation: "ddOpen 0.18s cubic-bezier(0.4,0,0.2,1)",
+          }}>
+            <div style={{
+              position: "absolute", top: 0, left: "8%", right: "8%", height: 1,
+              background: isDark
+                ? "linear-gradient(90deg,transparent,rgba(255,255,255,0.14),transparent)"
+                : "linear-gradient(90deg,transparent,rgba(255,255,255,0.90),transparent)",
+              pointerEvents: "none",
+            }}/>
+
+            {options.map((t, i) => {
+              const active = filterType === t.value
+              const Icon   = t.icon
+              const tc     = t.color || theme.accent
+              return (
+                <button
+                  key={t.value}
+                  onClick={() => { setFilterType(t.value); setOpen(false) }}
+                  style={{
+                    width: "100%",
+                    display: "flex", alignItems: "center", gap: 10,
+                    padding: "10px 14px",
+                    background: active
+                      ? (isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.04)")
+                      : "transparent",
+                    border: "none",
+                    borderBottom: i < options.length - 1 ? `1px solid ${theme.border}` : "none",
+                    cursor: "pointer",
+                    transition: "background 0.15s",
+                    textAlign: "left",
+                  }}
+                  onMouseEnter={e => { if (!active) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)" }}
+                  onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent" }}
+                >
+                  {/* Icon badge */}
+                  <div style={{
+                    width: 28, height: 28, flexShrink: 0, borderRadius: 8,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    background: active
+                      ? (isDark ? `${tc}22` : `${tc}18`)
+                      : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"),
+                    border: `1px solid ${active ? tc + "35" : theme.border}`,
+                    transition: "all 0.2s", position: "relative", overflow: "hidden",
+                  }}>
+                    {active && <div style={{
+                      position: "absolute", top: 0, left: "10%", right: "10%", height: "50%",
+                      background: isDark
+                        ? "linear-gradient(180deg,rgba(255,255,255,0.14) 0%,transparent 100%)"
+                        : "linear-gradient(180deg,rgba(255,255,255,0.70) 0%,transparent 100%)",
+                      borderRadius: "50% 50% 0 0", pointerEvents: "none",
+                    }}/>}
+                    {Icon && (
+                      <Icon size={13} strokeWidth={active ? 2.2 : 1.6}
+                        style={{
+                          color: active ? tc : theme.muted,
+                          filter: active ? `drop-shadow(0 0 4px ${tc}70)` : "none",
+                          transition: "all 0.2s", position: "relative", zIndex: 1,
+                        }}
+                      />
+                    )}
+                  </div>
+
+                  <div style={{ flex: 1 }}>
+                    <div style={{
+                      fontFamily: theme.mono, fontSize: "0.63rem", letterSpacing: "0.08em",
+                      color: active ? tc : theme.text, fontWeight: active ? 600 : 400,
+                      transition: "color 0.15s",
+                    }}>
+                      {t.label}
+                    </div>
+                    <div style={{ fontFamily: theme.mono, fontSize: "0.52rem", color: theme.muted, marginTop: 1 }}>
+                      {t.count} {t.count === 1 ? "account" : "accounts"}
+                    </div>
+                  </div>
+
+                  {active && (
+                    <Check size={12} strokeWidth={2.5}
+                      style={{ color: tc, flexShrink: 0, filter: `drop-shadow(0 0 4px ${tc}60)` }}
+                    />
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function Cash() {
   const { theme } = useTheme()
@@ -746,24 +1114,11 @@ export default function Cash() {
       {showForm && <AddCashAccountForm onDone={handleClose} editAccount={editingAccount} />}
 
       {/* Filter bar */}
-      <div className="cash-filter-bar">
-        {[{ value: "all", label: "All", color: theme.text, icon: null }, ...ACCOUNT_TYPES].map(t => {
-          const count = t.value === "all" ? cashAccounts.length : cashAccounts.filter(a => a.type === t.value).length
-          if (t.value !== "all" && count === 0) return null
-          const active = filterType === t.value
-          const Icon = t.icon
-          return (
-            <button key={t.value} onClick={() => setFilterType(t.value)}
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", ...glass(theme, active ? 0.08 : 0.04, 12), border: `1px solid ${active ? (t.color || theme.accent) + "60" : theme.border}`, borderRadius: 9, color: active ? (t.color || theme.accent) : theme.muted, fontFamily: theme.mono, fontSize: "0.59rem", letterSpacing: "0.09em", cursor: "pointer", transition: "all 0.2s", boxShadow: active ? `0 0 12px ${(t.color || theme.accent)}25` : "none" }}
-              onMouseEnter={e => { if (!active) { e.currentTarget.style.borderColor = theme.borderHi; e.currentTarget.style.color = theme.text } }}
-              onMouseLeave={e => { if (!active) { e.currentTarget.style.borderColor = theme.border; e.currentTarget.style.color = theme.muted } }}
-            >
-              {Icon && <Icon size={10} strokeWidth={2} />}
-              {t.value === "all" ? `All (${count})` : `${t.label} (${count})`}
-            </button>
-          )
-        })}
-      </div>
+      <FilterBar 
+        cashAccounts={cashAccounts} 
+        filterType={filterType} 
+        setFilterType={setFilterType} 
+      />
 
       {/* Card grid — 3 cols desktop, 2 tablet, 1 mobile */}
       {filtered.length === 0 ? (

@@ -204,7 +204,15 @@ function PeriodSelector({ periodType, setPeriodType, selectedDate, setSelectedDa
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
       {/* Period Type Tabs */}
-      <div style={{ display: 'flex', gap: 8, background: glass(theme, 0.03, 10), borderRadius: 10, padding: 4 }}>
+      <div style={{ 
+        display: 'flex', 
+        gap: 8, 
+        background: theme.mode === 'dark' 
+          ? 'rgba(255,255,255,0.03)' 
+          : 'rgba(0,0,0,0.03)', 
+        borderRadius: 10, 
+        padding: 4 
+      }}>
         {['day', 'week', 'month', 'period'].map(type => (
           <button
             key={type}
@@ -216,15 +224,44 @@ function PeriodSelector({ periodType, setPeriodType, selectedDate, setSelectedDa
             style={{
               flex: 1,
               padding: '8px 12px',
-              background: periodType === type ? `${theme.accent}20` : 'transparent',
-              border: 'none',
+              background: periodType === type 
+                ? theme.mode === 'dark' 
+                  ? `${theme.accent}25` // Darker background for dark mode
+                  : `${theme.accent}15`  // Lighter background for light mode
+                : 'transparent',
+              border: periodType === type 
+                ? `1px solid ${theme.accent}40` 
+                : 'none',
               borderRadius: 8,
-              color: periodType === type ? theme.accent : theme.muted,
+              color: periodType === type 
+                ? theme.accent 
+                : theme.mode === 'dark' 
+                  ? 'rgba(255,255,255,0.5)' 
+                  : 'rgba(0,0,0,0.5)',
               fontFamily: theme.mono,
               fontSize: '0.65rem',
               textTransform: 'capitalize',
               cursor: 'pointer',
-              transition: 'all 0.2s'
+              transition: 'all 0.2s',
+              fontWeight: periodType === type ? 600 : 400,
+            }}
+            onMouseEnter={(e) => {
+              if (periodType !== type) {
+                e.currentTarget.style.background = theme.mode === 'dark' 
+                  ? 'rgba(255,255,255,0.05)' 
+                  : 'rgba(0,0,0,0.03)'
+                e.currentTarget.style.color = theme.mode === 'dark' 
+                  ? 'rgba(255,255,255,0.8)' 
+                  : 'rgba(0,0,0,0.8)'
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (periodType !== type) {
+                e.currentTarget.style.background = 'transparent'
+                e.currentTarget.style.color = theme.mode === 'dark' 
+                  ? 'rgba(255,255,255,0.5)' 
+                  : 'rgba(0,0,0,0.5)'
+              }
             }}
           >
             {type}
