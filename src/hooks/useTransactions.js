@@ -3,14 +3,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { queryKeys } from './queryKeys'
 
-export function useTransactions(userId, month, page = 1, pageSize = 20) {
+export function useTransactions(userId, filters = {}, page = 1, pageSize = 20) {
   const start = (page - 1) * pageSize
   const end = start + pageSize - 1
+  
+  // Destructure filters
+  const { month, startDate, endDate } = filters
 
   return useQuery({
-    queryKey: queryKeys.transactions(userId, month, page),
+    queryKey: queryKeys.transactions(userId, { month, startDate, endDate, page }),
     queryFn: async () => {
-      console.log(`📋 Fetching transactions for ${month || 'all'}, page ${page}...`)
+      console.log(`📋 Fetching transactions...`, { month, startDate, endDate, page })
+      
       let query = supabase
         .from('transactions')
         .select('*', { count: 'exact' })
@@ -18,14 +22,23 @@ export function useTransactions(userId, month, page = 1, pageSize = 20) {
         .order('date', { ascending: false })
         .range(start, end)
 
+      // Apply month filter if provided
       if (month) {
         query = query
           .gte('date', `${month}-01`)
           .lte('date', `${month}-31`)
       }
+      
+      // Apply custom date range if provided
+      if (startDate && endDate) {
+        query = query
+          .gte('date', startDate)
+          .lte('date', endDate)
+      }
 
       const { data, error, count } = await query
       if (error) throw error
+      
       return { 
         data: data || [], 
         count: count || 0, 
@@ -34,9 +47,32 @@ export function useTransactions(userId, month, page = 1, pageSize = 20) {
         totalPages: Math.ceil((count || 0) / pageSize)
       }
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 2 * 60 * 1000, // 2 minutes
     enabled: !!userId,
     keepPreviousData: true,
+  })
+}
+
+// Hook to get all transactions for a date range (no pagination)
+export function useTransactionsRange(userId, startDate, endDate) {
+  return useQuery({
+    queryKey: ['transactions', userId, 'range', startDate, endDate],
+    queryFn: async () => {
+      console.log(`📋 Fetching all transactions from ${startDate} to ${endDate}...`)
+      
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', userId)
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .order('date', { ascending: false })
+
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!userId && !!startDate && !!endDate,
+    staleTime: 2 * 60 * 1000,
   })
 }
 
@@ -82,10 +118,10 @@ export function useAddTransaction(userId) {
     },
     onSuccess: (data, variables) => {
       const month = variables.date?.substring(0, 7)
-      queryClient.invalidateQueries({ queryKey: queryKeys.transactions(userId, month) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.cashAccounts(userId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard(userId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.budget(userId, month) })
+      // Invalidate all relevant queries
+      queryClient.invalidateQueries({ queryKey: ['transactions', userId] })
+      queryClient.invalidateQueries({ queryKey: ['cashAccounts', userId] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard', userId] })
     },
   })
 }
@@ -129,9 +165,10 @@ export function useDeleteTransaction(userId) {
     },
     onSuccess: (_, variables) => {
       const month = variables.transaction?.date?.substring(0, 7)
-      queryClient.invalidateQueries({ queryKey: queryKeys.transactions(userId, month) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.cashAccounts(userId) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard(userId) })
+      // Invalidate all relevant queries
+      queryClient.invalidateQueries({ queryKey: ['transactions', userId] })
+      queryClient.invalidateQueries({ queryKey: ['cashAccounts', userId] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard', userId] })
     },
   })
 }

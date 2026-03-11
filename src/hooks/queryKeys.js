@@ -7,12 +7,14 @@ export const queryKeys = {
   trades: (userId) => ['trades', userId],
   goals: (userId) => ['goals', userId],
   debts: (userId) => ['debts', userId],
-  budgetLimits: (userId, month) => ['budgetLimits', userId, month],
   nwHistory: (userId) => ['nwHistory', userId],
   dividendEvents: (userId) => ['dividendEvents', userId],
   sipPlans: (userId) => ['sipPlans', userId],
   accounts: (userId) => ['accounts', userId],
   
+  budget: (userId, month) => ['budget', userId, month],
+  budgetLimits: (userId, month) => ['budgetLimits', userId, month],
+
   // Market data (shared across users)
   indices: () => ['indices'],
   quotes: (tickers) => ['quotes', tickers],
