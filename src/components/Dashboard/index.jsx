@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useTheme } from '../../context/ThemeContext.jsx' // 👈 Add this
 import { useFinance } from '../../context/FinanceContext.jsx'
 import { useDashboardData } from '../../hooks/useDashboardData'
 import { useIndices } from '../../hooks/useIndices'
 import { inr, inrCompact, pct, gainColor, fmtDate } from '../../lib/formatters.js'
-import theme from '../../lib/theme.js'
 import {
   AreaChart, Area, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -13,6 +14,7 @@ import {
   ArrowUpRight, ArrowDownRight, Activity,
   PieChart as PieIcon, RefreshCw, Clock,
   DollarSign, Shield, Zap, BarChart2,
+  Home, Briefcase, Landmark, CreditCard,
 } from 'lucide-react'
 
 // ── Glass helpers ─────────────────────────────────────────────────────────────
@@ -21,7 +23,6 @@ const glass = (opacity = 0.04, blur = 20) => ({
   backdropFilter: `blur(${blur}px) saturate(180%)`,
   WebkitBackdropFilter: `blur(${blur}px) saturate(180%)`,
 })
-const glassInset = `inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 rgba(0,0,0,0.12)`
 
 // ── Asset config ──────────────────────────────────────────────────────────────
 const ASSET_COLORS = {
@@ -41,6 +42,8 @@ const ASSET_LABELS = {
 
 // ── Section label ─────────────────────────────────────────────────────────────
 function SectionLabel({ children }) {
+  const { theme } = useTheme() // 👈 Add this
+  
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
       <div style={{ width: 3, height: 14, background: theme.accent, borderRadius: 2, boxShadow: `0 0 8px ${theme.accent}` }} />
@@ -56,6 +59,8 @@ function SectionLabel({ children }) {
 
 // ── Loading skeleton ──────────────────────────────────────────────────────────
 function LoadingSkeleton() {
+  const { theme } = useTheme() // 👈 Add this
+  
   return (
     <div style={{ display: 'grid', gap: 24, padding: '4px 0' }}>
       {[60, 200, 120, 120].map((h, i) => (
@@ -75,6 +80,8 @@ function LoadingSkeleton() {
 
 // ── Tooltips ──────────────────────────────────────────────────────────────────
 function NWTooltip({ active, payload }) {
+  const { theme } = useTheme() // 👈 Add this
+  
   if (!active || !payload?.length) return null
   return (
     <div style={{
@@ -94,6 +101,8 @@ function NWTooltip({ active, payload }) {
 }
 
 function PieTooltip({ active, payload }) {
+  const { theme } = useTheme() // 👈 Add this
+  
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   return (
@@ -112,9 +121,25 @@ function PieTooltip({ active, payload }) {
 
 // ── Metric card ───────────────────────────────────────────────────────────────
 function MetricCard({ label, value, sub, accent, icon: Icon, delay = 0 }) {
+  const { theme } = useTheme() // 👈 Add this
   const [hov, setHov] = useState(false)
   const [vis, setVis] = useState(false)
-  useEffect(() => { const t = setTimeout(() => setVis(true), delay); return () => clearTimeout(t) }, [delay])
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+  
+  useEffect(() => { 
+    const t = setTimeout(() => setVis(true), delay); 
+    return () => clearTimeout(t) 
+  }, [delay])
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  const glassInset = useMemo(() => 
+    `inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 rgba(0,0,0,0.12)`
+  , [])
 
   return (
     <div
@@ -124,7 +149,7 @@ function MetricCard({ label, value, sub, accent, icon: Icon, delay = 0 }) {
         ...glass(hov ? 0.08 : 0.04, 20),
         border: `1px solid ${hov ? (accent || theme.accent) + '50' : theme.border}`,
         borderRadius: 16,
-        padding: window.innerWidth <= 768 ? '16px' : '22px 24px',
+        padding: isMobile ? '16px' : '22px 24px',
         position: 'relative',
         overflow: 'hidden',
         cursor: 'default',
@@ -152,35 +177,35 @@ function MetricCard({ label, value, sub, accent, icon: Icon, delay = 0 }) {
         opacity: hov ? 1 : 0.5,
       }} />
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: window.innerWidth <= 768 ? 10 : 14 }}>
-        <div style={{ fontFamily: theme.mono, fontSize: window.innerWidth <= 768 ? '0.5rem' : '0.55rem', letterSpacing: '0.18em', textTransform: 'uppercase', color: theme.muted }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: isMobile ? 10 : 14 }}>
+        <div style={{ fontFamily: theme.mono, fontSize: isMobile ? '0.5rem' : '0.55rem', letterSpacing: '0.18em', textTransform: 'uppercase', color: theme.muted }}>
           {label}
         </div>
         {Icon && (
           <div style={{
-            width: window.innerWidth <= 768 ? 24 : 28,
-            height: window.innerWidth <= 768 ? 24 : 28,
+            width: isMobile ? 24 : 28,
+            height: isMobile ? 24 : 28,
             ...glass(0.08, 12),
             border: `1px solid ${(accent || theme.accent) + '30'}`,
             borderRadius: 8,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: accent || theme.accent,
           }}>
-            <Icon size={window.innerWidth <= 768 ? 12 : 13} strokeWidth={1.8} />
+            <Icon size={isMobile ? 12 : 13} strokeWidth={1.8} />
           </div>
         )}
       </div>
 
       <div style={{
-        fontFamily: theme.display, fontSize: window.innerWidth <= 768 ? '1.5rem' : '1.85rem', fontWeight: 700,
-        color: theme.text, lineHeight: 1, marginBottom: window.innerWidth <= 768 ? 6 : 8,
+        fontFamily: theme.display, fontSize: isMobile ? '1.5rem' : '1.85rem', fontWeight: 700,
+        color: theme.text, lineHeight: 1, marginBottom: isMobile ? 6 : 8,
         textShadow: hov ? `0 0 20px ${(accent || theme.accent) + '40'}` : 'none',
         transition: 'text-shadow 0.3s',
         wordBreak: 'break-word',
       }}>
         {value}
       </div>
-      <div style={{ fontFamily: theme.mono, fontSize: window.innerWidth <= 768 ? '0.55rem' : '0.6rem', color: accent || theme.accent, letterSpacing: '0.06em' }}>
+      <div style={{ fontFamily: theme.mono, fontSize: isMobile ? '0.55rem' : '0.6rem', color: accent || theme.accent, letterSpacing: '0.06em' }}>
         {sub}
       </div>
     </div>
@@ -189,14 +214,31 @@ function MetricCard({ label, value, sub, accent, icon: Icon, delay = 0 }) {
 
 // ── Stat pill ─────────────────────────────────────────────────────────────────
 function StatPill({ label, value, color, icon: Icon, delay = 0 }) {
+  const { theme } = useTheme() // 👈 Add this
   const [vis, setVis] = useState(false)
-  useEffect(() => { const t = setTimeout(() => setVis(true), delay); return () => clearTimeout(t) }, [delay])
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+  
+  useEffect(() => { 
+    const t = setTimeout(() => setVis(true), delay); 
+    return () => clearTimeout(t) 
+  }, [delay])
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  const glassInset = useMemo(() => 
+    `inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 rgba(0,0,0,0.12)`
+  , [])
+
   return (
     <div style={{
       ...glass(0.05, 16),
       border: `1px solid ${theme.border}`,
       borderRadius: 14,
-      padding: window.innerWidth <= 768 ? '14px 16px' : '18px 22px',
+      padding: isMobile ? '14px 16px' : '18px 22px',
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       opacity: vis ? 1 : 0,
       transform: vis ? 'translateY(0)' : 'translateY(12px)',
@@ -205,26 +247,26 @@ function StatPill({ label, value, color, icon: Icon, delay = 0 }) {
       width: '100%',
       boxSizing: 'border-box',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: window.innerWidth <= 768 ? 6 : 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 10 }}>
         {Icon && (
           <div style={{
-            width: window.innerWidth <= 768 ? 28 : 32,
-            height: window.innerWidth <= 768 ? 28 : 32,
+            width: isMobile ? 28 : 32,
+            height: isMobile ? 28 : 32,
             ...glass(0.08, 12),
             border: `1px solid ${(color || theme.accent) + '30'}`,
             borderRadius: 9,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: color || theme.accent,
           }}>
-            <Icon size={window.innerWidth <= 768 ? 12 : 14} strokeWidth={1.8} />
+            <Icon size={isMobile ? 12 : 14} strokeWidth={1.8} />
           </div>
         )}
-        <span style={{ fontFamily: theme.mono, fontSize: window.innerWidth <= 768 ? '0.52rem' : '0.58rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: theme.muted }}>
+        <span style={{ fontFamily: theme.mono, fontSize: isMobile ? '0.52rem' : '0.58rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: theme.muted }}>
           {label}
         </span>
       </div>
       <span style={{
-        fontFamily: theme.display, fontSize: window.innerWidth <= 768 ? '1.1rem' : '1.25rem', fontWeight: 700,
+        fontFamily: theme.display, fontSize: isMobile ? '1.1rem' : '1.25rem', fontWeight: 700,
         color: color || theme.text,
         textShadow: `0 0 16px ${(color || theme.accent) + '40'}`,
       }}>
@@ -236,10 +278,19 @@ function StatPill({ label, value, color, icon: Icon, delay = 0 }) {
 
 // ── Transaction row ───────────────────────────────────────────────────────────
 function TxRow({ t, i, total }) {
+  const { theme } = useTheme() // 👈 Add this
   const [hov, setHov] = useState(false)
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+  
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+  
   const isCredit = t.amount >= 0
   const color = isCredit ? theme.green : theme.red
-  const isMobile = window.innerWidth <= 768
+  
   return (
     <div
       onMouseEnter={() => setHov(true)}
@@ -290,13 +341,26 @@ function TxRow({ t, i, total }) {
 }
 
 // ── Quick action button ───────────────────────────────────────────────────────
-function ActionBtn({ label, icon: Icon, href, color }) {
+function ActionBtn({ label, icon: Icon, onClick, color }) {
+  const { theme } = useTheme() // 👈 Add this
   const [hov, setHov] = useState(false)
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+  
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+  
   const c = color || theme.accent
-  const isMobile = window.innerWidth <= 768
+
+  const glassInset = useMemo(() => 
+    `inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 rgba(0,0,0,0.12)`
+  , [])
+  
   return (
-    <a
-      href={href}
+    <button
+      onClick={onClick}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
@@ -312,6 +376,7 @@ function ActionBtn({ label, icon: Icon, href, color }) {
         position: 'relative', overflow: 'hidden',
         width: '100%',
         boxSizing: 'border-box',
+        background: 'transparent',
       }}
     >
       <div style={{
@@ -339,13 +404,15 @@ function ActionBtn({ label, icon: Icon, href, color }) {
       }}>
         {label}
       </span>
-    </a>
+    </button>
   )
 }
 
 // ── Main Dashboard ────────────────────────────────────────────────────────────
 export default function Dashboard() {
+  const { theme } = useTheme() // 👈 Add this - get dynamic theme
   const { userId } = useFinance()
+  const navigate = useNavigate()
   const { data: dashboardData, isLoading, error, refetch } = useDashboardData(userId)
   const { data: indices, isLoading: indicesLoading } = useIndices()
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200)
@@ -358,6 +425,62 @@ export default function Dashboard() {
 
   const isMobile = windowWidth <= 768
   const isTablet = windowWidth > 768 && windowWidth <= 1024
+
+  // Memoized calculations
+const {
+  portfolioValue = 0, 
+  cashBalance = 0, 
+  totalDebt = 0,
+  netWorth = 0, 
+  byAssetClass = {}, 
+  recentTransactions = [], 
+  monthTransactions = [], // Add this
+  monthlyIncome = 0, // Add this
+  monthlyExpenses = 0, // Add this
+  nwHistory = []
+} = dashboardData || {}
+
+
+
+  const savings = monthlyIncome - monthlyExpenses
+  const savingsRate = monthlyIncome > 0 ? (savings / monthlyIncome) * 100 : 0
+  const emergencyMonths = monthlyExpenses > 0 ? (cashBalance / monthlyExpenses).toFixed(1) : 'N/A'
+  const portfolioGainPct = 0 // Calculate this from your data
+
+  // Allocation data with percentages
+  const allocationData = useMemo(() => {
+    const data = [
+      ...Object.entries(byAssetClass).map(([k, v]) => ({
+        name: ASSET_LABELS[k] || k, value: v,
+        color: ASSET_COLORS[k] || theme.accent, originalKey: k,
+      })),
+      ...(cashBalance > 0 ? [{ name: 'Cash & Bank', value: cashBalance, color: '#fbbf24', originalKey: 'cash' }] : []),
+    ].filter(d => d.value > 0).sort((a, b) => b.value - a.value)
+
+    const total = data.reduce((s, d) => s + d.value, 0)
+    return data.map(d => ({ ...d, percentage: total > 0 ? ((d.value / total) * 100).toFixed(1) : 0 }))
+  }, [byAssetClass, cashBalance, theme.accent])
+
+  // Calculate total allocation
+  const totalAlloc = useMemo(() => 
+    allocationData.reduce((sum, item) => sum + item.value, 0)
+  , [allocationData])
+
+  // Chart data
+  const chartData = useMemo(() => 
+    nwHistory?.length >= 2
+      ? nwHistory.map(s => ({ month: new Date(s.date).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }), value: Number(s.value) }))
+      : [{ month: 'Now', value: netWorth }]
+  , [nwHistory, netWorth])
+
+  // Navigation handlers
+  const handleNavigate = useCallback((path) => {
+    navigate(path)
+  }, [navigate])
+
+  const glassInset = useMemo(() => 
+    `inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 rgba(255, 255, 255, 0.12)`
+  , [])
 
   if (isLoading || indicesLoading) return <LoadingSkeleton />
 
@@ -382,33 +505,6 @@ export default function Dashboard() {
     </div>
   )
 
-  const {
-    portfolioValue = 0, cashBalance = 0, totalDebt = 0,
-    netWorth = 0, byAssetClass = {}, recentTransactions = [], nwHistory = []
-  } = dashboardData || {}
-
-  const monthlyIncome    = recentTransactions.filter(t => t.amount > 0).reduce((s, t) => s + Number(t.amount), 0)
-  const monthlyExpenses  = recentTransactions.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(Number(t.amount)), 0)
-  const savings          = monthlyIncome - monthlyExpenses
-  const savingsRate      = monthlyIncome > 0 ? (savings / monthlyIncome) * 100 : 0
-  const emergencyMonths  = monthlyExpenses > 0 ? (cashBalance / monthlyExpenses).toFixed(1) : 'N/A'
-  const portfolioGainPct = 0
-
-  const allocationData = [
-    ...Object.entries(byAssetClass).map(([k, v]) => ({
-      name: ASSET_LABELS[k] || k, value: v,
-      color: ASSET_COLORS[k] || theme.accent, originalKey: k,
-    })),
-    ...(cashBalance > 0 ? [{ name: 'Cash & Bank', value: cashBalance, color: '#fbbf24', originalKey: 'cash' }] : []),
-  ].filter(d => d.value > 0).sort((a, b) => b.value - a.value)
-
-  const totalAlloc = allocationData.reduce((s, d) => s + d.value, 0)
-  const allocWithPct = allocationData.map(d => ({ ...d, percentage: totalAlloc > 0 ? ((d.value / totalAlloc) * 100).toFixed(1) : 0 }))
-
-  const chartData = nwHistory?.length >= 2
-    ? nwHistory.map(s => ({ month: new Date(s.date).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }), value: Number(s.value) }))
-    : [{ month: 'Now', value: netWorth }]
-
   return (
     <div style={{ 
       fontFamily: theme.sans, 
@@ -423,6 +519,7 @@ export default function Dashboard() {
       <style>{`
         @keyframes fadeUp { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }
         @keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(200%)} }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
       `}</style>
 
       {/* ── Header ── */}
@@ -525,20 +622,39 @@ export default function Dashboard() {
             gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', 
             gap: isMobile ? 16 : 32 
           }}>
-            {[
-              { label: 'Portfolio',     val: inrCompact(portfolioValue), sub: `${portfolioGainPct >= 0 ? '+' : ''}${portfolioGainPct.toFixed(1)}% all-time`, col: portfolioGainPct >= 0 ? theme.green : theme.red },
-              { label: 'Savings / mo',  val: inr(savings),               sub: `${savingsRate.toFixed(1)}% rate`,                                             col: savings >= 0 ? theme.green : theme.red },
-            ].map((s, i) => (
-              <div key={i}>
-                <div style={{ fontFamily: theme.mono, fontSize: '0.53rem', letterSpacing: '0.16em', textTransform: 'uppercase', color: theme.muted, marginBottom: 7 }}>
-                  {s.label}
-                </div>
-                <div style={{ fontFamily: theme.display, fontSize: isMobile ? '1.3rem' : '1.45rem', fontWeight: 700, color: theme.text, lineHeight: 1, marginBottom: 5 }}>
-                  {s.val}
-                </div>
-                <div style={{ fontFamily: theme.mono, fontSize: '0.56rem', color: s.col, letterSpacing: '0.05em' }}>{s.sub}</div>
+            <div>
+              <div style={{ fontFamily: theme.mono, fontSize: '0.53rem', letterSpacing: '0.16em', textTransform: 'uppercase', color: theme.muted, marginBottom: 7 }}>
+                Portfolio
               </div>
-            ))}
+              <div style={{ fontFamily: theme.display, fontSize: isMobile ? '1.3rem' : '1.45rem', fontWeight: 700, color: theme.text, lineHeight: 1, marginBottom: 5 }}>
+                {inrCompact(portfolioValue)}
+              </div>
+              <div style={{ fontFamily: theme.mono, fontSize: '0.56rem', color: portfolioGainPct >= 0 ? theme.green : theme.red, letterSpacing: '0.05em' }}>
+                {portfolioGainPct >= 0 ? '+' : ''}{portfolioGainPct.toFixed(1)}% all-time
+              </div>
+            </div>
+            <div>
+              <div style={{ fontFamily: theme.mono, fontSize: '0.53rem', letterSpacing: '0.16em', textTransform: 'uppercase', color: theme.muted, marginBottom: 7 }}>
+                Savings / mo
+              </div>
+              <div style={{ fontFamily: theme.display, fontSize: isMobile ? '1.3rem' : '1.45rem', fontWeight: 700, color: theme.text, lineHeight: 1, marginBottom: 5 }}>
+                {inr(savings)}
+              </div>
+              <div style={{ fontFamily: theme.mono, fontSize: '0.56rem', color: savings >= 0 ? theme.green : theme.red, letterSpacing: '0.05em' }}>
+                {savingsRate.toFixed(1)}% rate
+              </div>
+            </div>
+            <div>
+              <div style={{ fontFamily: theme.mono, fontSize: '0.53rem', letterSpacing: '0.16em', textTransform: 'uppercase', color: theme.muted, marginBottom: 7 }}>
+                Emergency Fund
+              </div>
+              <div style={{ fontFamily: theme.display, fontSize: isMobile ? '1.3rem' : '1.45rem', fontWeight: 700, color: theme.text, lineHeight: 1, marginBottom: 5 }}>
+                {emergencyMonths}m
+              </div>
+              <div style={{ fontFamily: theme.mono, fontSize: '0.56rem', color: parseFloat(emergencyMonths) >= 6 ? theme.green : theme.yellow, letterSpacing: '0.05em' }}>
+                of expenses covered
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -641,10 +757,12 @@ export default function Dashboard() {
           <div style={{ position: 'absolute', top: 0, left: '10%', right: '10%', height: 1, background: `linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent)` }} />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <SectionLabel>Allocation</SectionLabel>
-            <span style={{ fontFamily: theme.mono, fontSize: '0.54rem', color: theme.muted }}>{inrCompact(totalAlloc)}</span>
+            <span style={{ fontFamily: theme.mono, fontSize: '0.54rem', color: theme.muted }}>
+              {inrCompact(totalAlloc)}
+            </span>
           </div>
 
-          {allocWithPct.length === 0 ? (
+          {allocationData.length === 0 ? (
             <div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.muted, fontFamily: theme.mono, fontSize: '0.7rem' }}>
               No assets to display
             </div>
@@ -653,8 +771,8 @@ export default function Dashboard() {
               <div style={{ height: 140, width: '100%' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={allocWithPct} cx="50%" cy="50%" innerRadius={isMobile ? 35 : 44} outerRadius={isMobile ? 50 : 64} paddingAngle={2} dataKey="value" strokeWidth={0} startAngle={90} endAngle={-270}>
-                      {allocWithPct.map((d, i) => <Cell key={i} fill={d.color} />)}
+                    <Pie data={allocationData} cx="50%" cy="50%" innerRadius={isMobile ? 35 : 44} outerRadius={isMobile ? 50 : 64} paddingAngle={2} dataKey="value" strokeWidth={0} startAngle={90} endAngle={-270}>
+                      {allocationData.map((d, i) => <Cell key={i} fill={d.color} />)}
                     </Pie>
                     <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle">
                       <tspan x="50%" dy="-0.6em" style={{ fontFamily: theme.mono, fontSize: '0.5rem', fill: theme.muted }}>TOTAL</tspan>
@@ -672,7 +790,7 @@ export default function Dashboard() {
                 maxHeight: isMobile ? 'none' : 140,
                 overflowY: isMobile ? 'visible' : 'auto',
               }}>
-                {allocWithPct.slice(0, isMobile ? 5 : 6).map((d, i) => (
+                {allocationData.slice(0, isMobile ? 5 : 6).map((d, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                     <div style={{ width: 7, height: 7, borderRadius: '50%', background: d.color, flexShrink: 0, boxShadow: `0 0 5px ${d.color + '80'}` }} />
                     <span style={{ fontFamily: theme.mono, fontSize: '0.54rem', color: theme.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -681,9 +799,9 @@ export default function Dashboard() {
                   </div>
                 ))}
               </div>
-              {allocWithPct.length > (isMobile ? 5 : 6) && (
+              {allocationData.length > (isMobile ? 5 : 6) && (
                 <div style={{ fontFamily: theme.mono, fontSize: '0.50rem', color: theme.muted, textAlign: 'center', marginTop: 6 }}>
-                  +{allocWithPct.length - (isMobile ? 5 : 6)} more
+                  +{allocationData.length - (isMobile ? 5 : 6)} more
                 </div>
               )}
             </>
@@ -729,10 +847,30 @@ export default function Dashboard() {
             : 'repeat(4, 1fr)', 
           gap: isMobile ? 8 : 10 
         }}>
-          <ActionBtn label="Add Transaction" icon={Zap}       href="/budget"    color={theme.accent} />
-          <ActionBtn label="View Portfolio"  icon={PieIcon}   href="/portfolio" color={theme.purple} />
-          <ActionBtn label="Manage Cash"     icon={Wallet}    href="/cash"      color={theme.green}  />
-          <ActionBtn label="Check Goals"     icon={Target}    href="/goals"     color={theme.yellow} />
+          <ActionBtn 
+            label="Add Transaction" 
+            icon={Zap}       
+            onClick={() => handleNavigate('/budget')}    
+            color={theme.accent} 
+          />
+          <ActionBtn 
+            label="View Portfolio"  
+            icon={PieIcon}   
+            onClick={() => handleNavigate('/portfolio')} 
+            color={theme.purple} 
+          />
+          <ActionBtn 
+            label="Manage Cash"     
+            icon={Wallet}    
+            onClick={() => handleNavigate('/cash')}      
+            color={theme.green}  
+          />
+          <ActionBtn 
+            label="Check Goals"     
+            icon={Target}    
+            onClick={() => handleNavigate('/goals')}     
+            color={theme.yellow} 
+          />
         </div>
       </div>
 

@@ -5,9 +5,9 @@ import { usePortfolioData } from "../../hooks/usePortfolioData"
 import { useHoldings } from "../../hooks/useHoldings"
 import { useTrades, useAddTrade } from "../../hooks/useTrades"
 import { useDeleteHolding } from "../../hooks/useHoldings"
+import { useTheme } from "../../context/ThemeContext.jsx" // 👈 Add this
 import { Spinner } from "../shared/ui.jsx"
 import { inr, inrCompact, pct, todayISO } from "../../lib/formatters.js"
-import theme from "../../lib/theme.js"
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts"
 import {
   Search, TrendingUp, TrendingDown, BarChart2,
@@ -56,27 +56,37 @@ const CATEGORY_GROUPS = [
   { key: "other",       label: "Other",        color: "#6B7280", includes: ["reit","invit","crypto","other"] },
 ]
 
-const assetColor = k => ASSET_CLASSES.find(a => a.value === k)?.color || theme.muted
+const assetColor = (theme, k) => ASSET_CLASSES.find(a => a.value === k)?.color || theme.muted
 const assetLabel = k => ASSET_CLASSES.find(a => a.value === k)?.label || k
 
 // ── Shared primitives ─────────────────────────────────────────────────────────
-const SectionLabel = ({ children }) => (
-  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18 }}>
-    <div style={{ width: 3, height: 14, background: theme.accent, borderRadius: 2, boxShadow: `0 0 8px ${theme.accent}` }} />
-    <span style={{ fontFamily: theme.mono, fontSize: "0.57rem", letterSpacing: "0.22em", textTransform: "uppercase", color: theme.accent }}>
-      {children}
-    </span>
-  </div>
-)
+const SectionLabel = ({ children }) => {
+  const { theme } = useTheme() // 👈 Add this
+  
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18 }}>
+      <div style={{ width: 3, height: 14, background: theme.accent, borderRadius: 2, boxShadow: `0 0 8px ${theme.accent}` }} />
+      <span style={{ fontFamily: theme.mono, fontSize: "0.57rem", letterSpacing: "0.22em", textTransform: "uppercase", color: theme.accent }}>
+        {children}
+      </span>
+    </div>
+  )
+}
 
-const FieldLabel = ({ children }) => (
-  <div style={{ fontFamily: theme.mono, fontSize: "0.51rem", letterSpacing: "0.18em", textTransform: "uppercase", color: theme.muted, marginBottom: 5 }}>
-    {children}
-  </div>
-)
+const FieldLabel = ({ children }) => {
+  const { theme } = useTheme() // 👈 Add this
+  
+  return (
+    <div style={{ fontFamily: theme.mono, fontSize: "0.51rem", letterSpacing: "0.18em", textTransform: "uppercase", color: theme.muted, marginBottom: 5 }}>
+      {children}
+    </div>
+  )
+}
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 function PortfolioSkeleton() {
+  const { theme } = useTheme() // 👈 Add this
+  
   return (
     <div style={{ display: "grid", gap: 20 }}>
       <style>{`@keyframes gpulse{0%,100%{opacity:.3}50%{opacity:.7}}`}</style>
@@ -97,6 +107,8 @@ function PortfolioSkeleton() {
 
 // ── Tooltips ──────────────────────────────────────────────────────────────────
 const GlassTooltip = ({ active, payload, allData }) => {
+  const { theme } = useTheme() // 👈 Add this
+  
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   const total = allData?.reduce((s, i) => s + i.value, 0) || 0
@@ -116,7 +128,7 @@ const GlassTooltip = ({ active, payload, allData }) => {
 }
 
 // ── Input base style ──────────────────────────────────────────────────────────
-const inputStyle = {
+const inputStyle = (theme) => ({
   ...glass(0.05, 14),
   border: `1px solid ${theme.border}`,
   borderRadius: 9,
@@ -129,17 +141,19 @@ const inputStyle = {
   boxSizing: "border-box",
   transition: "border-color 0.2s, box-shadow 0.2s",
   boxShadow: `inset 0 2px 4px rgba(0,0,0,0.2)`,
-}
-const readonlyStyle = {
-  ...inputStyle,
+})
+
+const readonlyStyle = (theme) => ({
+  ...inputStyle(theme),
   background: "rgba(0,0,0,0.25)",
   color: theme.muted,
   cursor: "not-allowed",
   opacity: 0.7,
-}
+})
 
 // ── Trade Form ────────────────────────────────────────────────────────────────
 function TradeForm({ mode, onDone, prefilledHolding }) {
+  const { theme } = useTheme() // 👈 Add this
   const { userId } = useFinance()
   const addTrade = useAddTrade(userId)
   const { data: holdings = [] } = useHoldings(userId)
@@ -258,7 +272,7 @@ function TradeForm({ mode, onDone, prefilledHolding }) {
           <div style={{ position:"relative" }}>
             <input value={form.name} onChange={e => set("name")(e.target.value)}
               placeholder="Search by name or symbol…"
-              style={{ ...inputStyle, paddingLeft:36 }}
+              style={{ ...inputStyle(theme), paddingLeft:36 }}
               onFocus={e => { e.target.style.borderColor=`${theme.accent}70`; e.target.style.boxShadow=`inset 0 2px 4px rgba(0,0,0,0.2),0 0 0 3px ${theme.accentDim}` }}
               onBlur={e => { e.target.style.borderColor=theme.border; e.target.style.boxShadow=`inset 0 2px 4px rgba(0,0,0,0.2)` }}
             />
@@ -290,11 +304,11 @@ function TradeForm({ mode, onDone, prefilledHolding }) {
           <>
             <div>
               <FieldLabel>Ticker / Symbol</FieldLabel>
-              <input value={form.ticker} readOnly style={{ ...readonlyStyle, textTransform:"uppercase" }} placeholder="Auto-filled"/>
+              <input value={form.ticker} readOnly style={{ ...readonlyStyle(theme), textTransform:"uppercase" }} placeholder="Auto-filled"/>
             </div>
             <div>
               <FieldLabel>Asset Class</FieldLabel>
-              <input value={assetLabel(form.asset_class)} readOnly style={readonlyStyle}/>
+              <input value={assetLabel(form.asset_class)} readOnly style={readonlyStyle(theme)}/>
             </div>
           </>
         )}
@@ -305,11 +319,11 @@ function TradeForm({ mode, onDone, prefilledHolding }) {
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:12 }}>
           <div>
             <FieldLabel>Ticker / Symbol</FieldLabel>
-            <input value={form.ticker} readOnly style={{ ...readonlyStyle, textTransform:"uppercase" }} placeholder="Auto-filled"/>
+            <input value={form.ticker} readOnly style={{ ...readonlyStyle(theme), textTransform:"uppercase" }} placeholder="Auto-filled"/>
           </div>
           <div>
             <FieldLabel>Asset Class</FieldLabel>
-            <input value={assetLabel(form.asset_class)} readOnly style={readonlyStyle}/>
+            <input value={assetLabel(form.asset_class)} readOnly style={readonlyStyle(theme)}/>
           </div>
         </div>
       )}
@@ -318,18 +332,18 @@ function TradeForm({ mode, onDone, prefilledHolding }) {
       <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "2fr 1fr 1fr 1fr", gap:12, marginBottom:12 }}>
         <div>
           <FieldLabel>Sub-Category</FieldLabel>
-          <input value={form.sub_category ? form.sub_category.replace(/_/g," ") : "—"} readOnly style={readonlyStyle}/>
+          <input value={form.sub_category ? form.sub_category.replace(/_/g," ") : "—"} readOnly style={readonlyStyle(theme)}/>
         </div>
         <div>
           <FieldLabel>Exchange</FieldLabel>
-          <input value={form.exchange} readOnly style={readonlyStyle}/>
+          <input value={form.exchange} readOnly style={readonlyStyle(theme)}/>
         </div>
         {!isMobile && (
           <>
             <div>
               <FieldLabel>Trade Type</FieldLabel>
               <select value={form.trade_type} onChange={e => set("trade_type")(e.target.value)}
-                style={{ ...inputStyle, appearance:"none", cursor:"pointer",
+                style={{ ...inputStyle(theme), appearance:"none", cursor:"pointer",
                   backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a7fa5' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
                   backgroundRepeat:"no-repeat", backgroundPosition:"right 10px center", paddingRight:30 }}
                 onFocus={e => e.target.style.borderColor=`${theme.accent}70`}
@@ -344,7 +358,7 @@ function TradeForm({ mode, onDone, prefilledHolding }) {
             <div>
               <FieldLabel>Date</FieldLabel>
               <input value={form.trade_date} onChange={e => set("trade_date")(e.target.value)} type="date"
-                style={inputStyle}
+                style={inputStyle(theme)}
                 onFocus={e => e.target.style.borderColor=`${theme.accent}70`}
                 onBlur={e => e.target.style.borderColor=theme.border}
               />
@@ -359,7 +373,7 @@ function TradeForm({ mode, onDone, prefilledHolding }) {
           <div>
             <FieldLabel>Trade Type</FieldLabel>
             <select value={form.trade_type} onChange={e => set("trade_type")(e.target.value)}
-              style={{ ...inputStyle, appearance:"none", cursor:"pointer",
+              style={{ ...inputStyle(theme), appearance:"none", cursor:"pointer",
                 backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a7fa5' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
                 backgroundRepeat:"no-repeat", backgroundPosition:"right 10px center", paddingRight:30 }}
               onFocus={e => e.target.style.borderColor=`${theme.accent}70`}
@@ -374,7 +388,7 @@ function TradeForm({ mode, onDone, prefilledHolding }) {
           <div>
             <FieldLabel>Date</FieldLabel>
             <input value={form.trade_date} onChange={e => set("trade_date")(e.target.value)} type="date"
-              style={inputStyle}
+              style={inputStyle(theme)}
               onFocus={e => e.target.style.borderColor=`${theme.accent}70`}
               onBlur={e => e.target.style.borderColor=theme.border}
             />
@@ -387,7 +401,7 @@ function TradeForm({ mode, onDone, prefilledHolding }) {
         <div>
           <FieldLabel>{!isB ? `Quantity (max: ${maxSell})` : "Quantity / Units"}</FieldLabel>
           <input value={form.quantity} onChange={e => set("quantity")(e.target.value)} placeholder="0" type="number" min="0" step="0.0001"
-            style={inputStyle}
+            style={inputStyle(theme)}
             onFocus={e => { e.target.style.borderColor=`${theme.accent}70`; e.target.style.boxShadow=`inset 0 2px 4px rgba(0,0,0,0.2),0 0 0 3px ${theme.accentDim}` }}
             onBlur={e => { e.target.style.borderColor=theme.border; e.target.style.boxShadow=`inset 0 2px 4px rgba(0,0,0,0.2)` }}
           />
@@ -395,7 +409,7 @@ function TradeForm({ mode, onDone, prefilledHolding }) {
         <div>
           <FieldLabel>Price / NAV (₹)</FieldLabel>
           <input value={form.price} onChange={e => set("price")(e.target.value)} placeholder="0.00" type="number" min="0" step="0.01"
-            style={inputStyle}
+            style={inputStyle(theme)}
             onFocus={e => { e.target.style.borderColor=`${theme.accent}70`; e.target.style.boxShadow=`inset 0 2px 4px rgba(0,0,0,0.2),0 0 0 3px ${theme.accentDim}` }}
             onBlur={e => { e.target.style.borderColor=theme.border; e.target.style.boxShadow=`inset 0 2px 4px rgba(0,0,0,0.2)` }}
           />
@@ -468,6 +482,7 @@ function TradeForm({ mode, onDone, prefilledHolding }) {
 
 // ── Filter Pill (scroll / swipe to cycle) ─────────────────────────────────────
 function FilterPill({ allClasses, filterClass, setFilterClass }) {
+  const { theme } = useTheme() // 👈 Add this
   const scrollAccRef = useRef(0)
   const scrollTimeoutRef = useRef(null)
   const touchStartX = useRef(null)
@@ -561,6 +576,7 @@ function FilterPill({ allClasses, filterClass, setFilterClass }) {
 
 // ── Holdings Table ────────────────────────────────────────────────────────────
 function HoldingsTable({ onSell }) {
+  const { theme } = useTheme() // 👈 Add this
   const { userId } = useFinance()
   const { data: holdings = [], isLoading } = useHoldings(userId)
   const deleteHolding = useDeleteHolding(userId)
@@ -844,31 +860,31 @@ function HoldingsTable({ onSell }) {
             onMouseLeave={() => setHovered(null)}
             style={{ display:"grid", gridTemplateColumns:colGrid, gap:8, padding:"12px 14px", borderBottom:i<filtered.length-1?`1px solid ${theme.border}`:"none", alignItems:"center", background:isHov?"rgba(255,255,255,0.03)":"transparent", transition:"background 0.2s" }}
           >
-<div style={{ 
-  minWidth: 0,
-  width: "100%"
-}}>
-  <div style={{ 
-    fontFamily: theme.sans, 
-    fontWeight: 500, 
-    fontSize: "0.84rem", 
-    color: theme.text,
-    wordBreak: "break-word",
-    lineHeight: 1.4,
-    marginBottom: 2
-  }}>
-    {h.name}
-  </div>
-  <div style={{ 
-    fontFamily: theme.mono, 
-    fontSize: "0.56rem", 
-    color: theme.accent, 
-    letterSpacing: "0.08em",
-    wordBreak: "break-word"
-  }}>
-    {h.ticker}
-  </div>
-</div>
+            <div style={{ 
+              minWidth: 0,
+              width: "100%"
+            }}>
+              <div style={{ 
+                fontFamily: theme.sans, 
+                fontWeight: 500, 
+                fontSize: "0.84rem", 
+                color: theme.text,
+                wordBreak: "break-word",
+                lineHeight: 1.4,
+                marginBottom: 2
+              }}>
+                {h.name}
+              </div>
+              <div style={{ 
+                fontFamily: theme.mono, 
+                fontSize: "0.56rem", 
+                color: theme.accent, 
+                letterSpacing: "0.08em",
+                wordBreak: "break-word"
+              }}>
+                {h.ticker}
+              </div>
+            </div>
             <div>
               <span style={{ fontFamily:theme.mono, fontSize:"0.58rem", letterSpacing:"0.06em", background:`${ac?.color||theme.muted}18`, color:ac?.color||theme.muted, padding:"3px 8px", border:`1px solid ${ac?.color||theme.muted}28`, borderRadius:6 }}>
                 {ac?.label?.split(" ")[0] || h.asset_class}
@@ -909,6 +925,7 @@ function HoldingsTable({ onSell }) {
 
 // ── Trade History ─────────────────────────────────────────────────────────────
 function TradeRow({ trade, index, total }) {
+  const { theme } = useTheme() // 👈 Add this
   const [hov, setHov] = useState(false)
   const isSell = ["sell","switch_out"].includes(trade.trade_type)
   const c = isSell ? theme.red : theme.green
@@ -987,6 +1004,7 @@ function TradeRow({ trade, index, total }) {
 }
 
 function TradeHistory() {
+  const { theme } = useTheme() // 👈 Add this
   const { userId } = useFinance()
   const { data: trades = [], isLoading } = useTrades(userId)
   const [show, setShow] = useState(10)
@@ -1029,6 +1047,7 @@ function TradeHistory() {
 
 // ── Allocation Chart ──────────────────────────────────────────────────────────
 function AllocationChart() {
+  const { theme } = useTheme() // 👈 Add this
   const { userId } = useFinance()
   const { data: portfolioData } = usePortfolioData(userId)
   const byAssetClass = portfolioData?.byAssetClass || {}
@@ -1043,7 +1062,7 @@ function AllocationChart() {
   const isMobile = windowWidth <= 768
 
   const data = Object.entries(byAssetClass)
-    .map(([k,v]) => ({ name:assetLabel(k), value:v, color:assetColor(k) }))
+    .map(([k,v]) => ({ name:assetLabel(k), value:v, color:assetColor(theme, k) }))
     .filter(d => d.value > 0)
     .sort((a,b) => b.value - a.value)
   if (!data.length) return null
@@ -1089,8 +1108,8 @@ function AllocationChart() {
       </div>
       <style>{`
         ::-webkit-scrollbar { width:4px; height:4px; }
-        ::-webkit-scrollbar-track { background:${theme.bg2}; border-radius:4px; }
-        ::-webkit-scrollbar-thumb { background:${theme.accent}60; border-radius:4px; }
+        ::-webkit-scrollbar-track { background:${theme.bg2}; borderRadius:4px; }
+        ::-webkit-scrollbar-thumb { background:${theme.accent}60; borderRadius:4px; }
         ::-webkit-scrollbar-thumb:hover { background:${theme.accent}; }
       `}</style>
     </div>
@@ -1099,6 +1118,7 @@ function AllocationChart() {
 
 // ── Holdings Breakdown ────────────────────────────────────────────────────────
 function HoldingsBreakdown() {
+  const { theme } = useTheme() // 👈 Add this
   const { userId } = useFinance()
   const { data: portfolioData } = usePortfolioData(userId)
   const { data: holdings = [] } = useHoldings(userId)
@@ -1130,7 +1150,7 @@ function HoldingsBreakdown() {
       const price = quotesMap[h.ticker]?.price || h.avg_cost
       const value = price * h.quantity
       const displayName = (h.name || h.ticker).length > 22 ? (h.name || h.ticker).slice(0,22)+"…" : h.name || h.ticker
-      return { name:h.ticker, displayName, fullName:h.name||h.ticker, value, color:assetColor(h.asset_class), changePct:quotesMap[h.ticker]?.changePct }
+      return { name:h.ticker, displayName, fullName:h.name||h.ticker, value, color:assetColor(theme, h.asset_class), changePct:quotesMap[h.ticker]?.changePct }
     })
     .sort((a,b) => b.value - a.value)
 
@@ -1218,6 +1238,7 @@ function HoldingsBreakdown() {
 
 // ── Portfolio Page ────────────────────────────────────────────────────────────
 export default function Portfolio() {
+  const { theme } = useTheme() // 👈 Add this
   const { userId } = useFinance()
   const { data: portfolioData, isLoading, error, refetch } = usePortfolioData(userId)
   const [mode, setMode] = useState(null)

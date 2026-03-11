@@ -1,9 +1,10 @@
+// src/pages/Debt.jsx
 import { useState, useRef, useEffect } from 'react'
 import { useFinance } from '../../context/FinanceContext.jsx'
 import { useDebts, useAddDebt, useUpdateDebt, useDeleteDebt } from '../../hooks/useDebts.js'
+import { useTheme } from '../../context/ThemeContext.jsx' // 👈 Add this
 import { Spinner } from '../shared/ui.jsx'
 import { inr } from '../../lib/formatters.js'
-import theme from '../../lib/theme.js'
 import {
   Plus, X, AlertTriangle, CreditCard, Home, Car, GraduationCap,
   Briefcase, Heart, ChevronDown, Check, Landmark, Coins,
@@ -13,7 +14,7 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 // CSS + KEYFRAMES
 // ─────────────────────────────────────────────────────────────────────────────
-const CSS = `
+const CSS = (theme) => `
   *, *::before, *::after { box-sizing: border-box; }
 
   @keyframes fadeUp  { from { opacity:0; transform:translateY(14px) } to { opacity:1; transform:translateY(0) } }
@@ -51,12 +52,12 @@ const CSS = `
 // ─────────────────────────────────────────────────────────────────────────────
 // GLASS HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
-const glass  = (o=0.04, b=20) => ({
+const glass = (theme, o=0.04, b=20) => ({
   background:           `rgba(255,255,255,${o})`,
   backdropFilter:       `blur(${b}px) saturate(180%)`,
   WebkitBackdropFilter: `blur(${b}px) saturate(180%)`,
 })
-const gi    = `inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -1px 0 rgba(0,0,0,0.12)`
+const gi    = (theme) => `inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -1px 0 rgba(0,0,0,0.12)`
 const shine = { position:'absolute', top:0, left:'8%', right:'8%', height:1, background:'linear-gradient(90deg,transparent,rgba(255,255,255,0.10),transparent)', pointerEvents:'none' }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -78,14 +79,20 @@ const debtMeta = v => DEBT_TYPES.find(t => t.value === v) || DEBT_TYPES[DEBT_TYP
 // ─────────────────────────────────────────────────────────────────────────────
 // PRIMITIVES
 // ─────────────────────────────────────────────────────────────────────────────
-const FL = ({ children, required }) => (
-  <div style={{ fontFamily:theme.mono, fontSize:'0.51rem', letterSpacing:'0.17em', textTransform:'uppercase', color:theme.muted, marginBottom:6, display:'flex', alignItems:'center', gap:3 }}>
-    {children}{required && <span style={{color:theme.red}}>*</span>}
-  </div>
-)
+const FL = ({ children, required }) => {
+  const { theme } = useTheme()
+  
+  return (
+    <div style={{ fontFamily:theme.mono, fontSize:'0.51rem', letterSpacing:'0.17em', textTransform:'uppercase', color:theme.muted, marginBottom:6, display:'flex', alignItems:'center', gap:3 }}>
+      {children}{required && <span style={{color:theme.red}}>*</span>}
+    </div>
+  )
+}
 
 const SL = ({ children, icon:Icon, color }) => {
+  const { theme } = useTheme()
   const c = color || theme.accent
+  
   return (
     <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:20 }}>
       <div style={{ width:3, height:15, background:c, borderRadius:2, boxShadow:`0 0 10px ${c}80` }}/>
@@ -95,28 +102,33 @@ const SL = ({ children, icon:Icon, color }) => {
   )
 }
 
-const inputBase = {
-  ...glass(0.05,14),
+const inputBase = (theme) => ({
+  ...glass(theme, 0.05, 14),
   border:`1px solid ${theme.border}`, borderRadius:10,
   color:theme.text, fontFamily:theme.mono, fontSize:'0.73rem',
   padding:'10px 13px', outline:'none', width:'100%',
   transition:'border-color 0.2s, box-shadow 0.2s',
   boxShadow:`inset 0 2px 5px rgba(0,0,0,0.22)`,
-}
+})
 
-const GInput = ({ value, onChange, type='text', placeholder, min, step, disabled }) => (
-  <input value={value} type={type} placeholder={placeholder} min={min} step={step}
-    disabled={disabled} onChange={e => onChange(e.target.value)}
-    style={{ ...inputBase, opacity:disabled?0.45:1 }}
-    onFocus={e => { if(!disabled){ e.target.style.borderColor=`${theme.accent}70`; e.target.style.boxShadow=`inset 0 2px 5px rgba(0,0,0,0.22),0 0 0 3px ${theme.accentDim}` }}}
-    onBlur={e  => { e.target.style.borderColor=theme.border; e.target.style.boxShadow=`inset 0 2px 5px rgba(0,0,0,0.22)` }}
-  />
-)
+const GInput = ({ value, onChange, type='text', placeholder, min, step, disabled }) => {
+  const { theme } = useTheme()
+  
+  return (
+    <input value={value} type={type} placeholder={placeholder} min={min} step={step}
+      disabled={disabled} onChange={e => onChange(e.target.value)}
+      style={{ ...inputBase(theme), opacity:disabled?0.45:1 }}
+      onFocus={e => { if(!disabled){ e.target.style.borderColor=`${theme.accent}70`; e.target.style.boxShadow=`inset 0 2px 5px rgba(0,0,0,0.22),0 0 0 3px ${theme.accentDim}` }}}
+      onBlur={e  => { e.target.style.borderColor=theme.border; e.target.style.boxShadow=`inset 0 2px 5px rgba(0,0,0,0.22)` }}
+    />
+  )
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // STYLED DROPDOWN
 // ─────────────────────────────────────────────────────────────────────────────
 function TypeDropdown({ value, onChange }) {
+  const { theme } = useTheme()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const sel = debtMeta(value)
@@ -130,7 +142,7 @@ function TypeDropdown({ value, onChange }) {
   return (
     <div ref={ref} style={{ position:'relative' }}>
       <button type="button" onClick={() => setOpen(v=>!v)} style={{
-        ...inputBase, display:'flex', alignItems:'center', justifyContent:'space-between',
+        ...inputBase(theme), display:'flex', alignItems:'center', justifyContent:'space-between',
         gap:8, cursor:'pointer',
         border:`1px solid ${open ? `${theme.accent}70` : theme.border}`,
         boxShadow: open ? `inset 0 2px 5px rgba(0,0,0,0.22),0 0 0 3px ${theme.accentDim}` : `inset 0 2px 5px rgba(0,0,0,0.22)`,
@@ -145,7 +157,7 @@ function TypeDropdown({ value, onChange }) {
       </button>
 
       {open && (
-        <div className="dd-scroll" style={{ position:'absolute', top:'calc(100% + 6px)', left:0, right:0, ...glass(0.16,26), border:`1px solid ${theme.borderHi}`, borderRadius:13, maxHeight:260, overflowY:'auto', zIndex:1400, boxShadow:'0 20px 50px rgba(0,0,0,0.55)', animation:'fadeIn 0.17s ease', padding:5 }}>
+        <div className="dd-scroll" style={{ position:'absolute', top:'calc(100% + 6px)', left:0, right:0, ...glass(theme, 0.16, 26), border:`1px solid ${theme.borderHi}`, borderRadius:13, maxHeight:260, overflowY:'auto', zIndex:1400, boxShadow:'0 20px 50px rgba(0,0,0,0.55)', animation:'fadeIn 0.17s ease', padding:5 }}>
           {DEBT_TYPES.map(opt => {
             const isAct = value === opt.value
             return (
@@ -173,15 +185,17 @@ function TypeDropdown({ value, onChange }) {
 // KPI TILE
 // ─────────────────────────────────────────────────────────────────────────────
 function KpiTile({ label, value, accent, sub, icon:Icon, index=0 }) {
+  const { theme } = useTheme()
+  
   return (
-    <div style={{ ...glass(0.05,20), border:`1px solid ${theme.border}`, borderRadius:16, padding:'20px 22px', position:'relative', overflow:'hidden', boxShadow:gi, animation:`fadeUp 0.4s ${index*0.07}s both` }}>
+    <div style={{ ...glass(theme, 0.05, 20), border:`1px solid ${theme.border}`, borderRadius:16, padding:'20px 22px', position:'relative', overflow:'hidden', boxShadow:gi(theme), animation:`fadeUp 0.4s ${index*0.07}s both` }}>
       <div style={shine}/>
       <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background:accent, opacity:0.6 }}/>
       <div style={{ position:'absolute', top:-30, right:-30, width:100, height:100, background:`radial-gradient(circle,${accent}18 0%,transparent 70%)`, pointerEvents:'none' }}/>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12 }}>
         <FL>{label}</FL>
         {Icon && (
-          <div style={{ width:28, height:28, ...glass(0.08,10), border:`1px solid ${accent}30`, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', color:accent, flexShrink:0 }}>
+          <div style={{ width:28, height:28, ...glass(theme, 0.08, 10), border:`1px solid ${accent}30`, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', color:accent, flexShrink:0 }}>
             <Icon size={13} strokeWidth={1.8}/>
           </div>
         )}
@@ -196,7 +210,9 @@ function KpiTile({ label, value, accent, sub, icon:Icon, index=0 }) {
 // RATE BADGE
 // ─────────────────────────────────────────────────────────────────────────────
 function RateBadge({ rate }) {
+  const { theme } = useTheme()
   const c = rate > 18 ? theme.red : rate > 10 ? theme.yellow : theme.green
+  
   return (
     <span style={{ fontFamily:theme.mono, fontSize:'0.58rem', letterSpacing:'0.08em', background:`${c}14`, color:c, padding:'3px 9px', border:`1px solid ${c}30`, borderRadius:6, display:'inline-flex', alignItems:'center', gap:4 }}>
       <Zap size={9} strokeWidth={2}/>{rate}% p.a.
@@ -208,9 +224,11 @@ function RateBadge({ rate }) {
 // PROGRESS BAR (glass track + shimmer fill)
 // ─────────────────────────────────────────────────────────────────────────────
 function GlassBar({ value, max, color, height=4 }) {
+  const { theme } = useTheme()
   const p = max > 0 ? Math.min(100, (value/max)*100) : 0
+  
   return (
-    <div style={{ height, ...glass(0.04,8), border:`1px solid ${theme.border}`, borderRadius:height, overflow:'hidden' }}>
+    <div style={{ height, ...glass(theme, 0.04, 8), border:`1px solid ${theme.border}`, borderRadius:height, overflow:'hidden' }}>
       <div style={{ height:'100%', width:`${p}%`, background:`linear-gradient(90deg,${color}80,${color})`, borderRadius:height, transition:'width 0.7s ease', boxShadow:`0 0 8px ${color}50`, position:'relative', overflow:'hidden' }}>
         <div style={{ position:'absolute', inset:0, background:'linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent)', animation:'shimmer 2.2s infinite' }}/>
       </div>
@@ -222,17 +240,19 @@ function GlassBar({ value, max, color, height=4 }) {
 // SKELETON
 // ─────────────────────────────────────────────────────────────────────────────
 function DebtSkeleton() {
+  const { theme } = useTheme()
+  
   return (
     <div style={{ display:'grid', gap:18 }}>
       <div className="d-kpi-grid">
         {[0,1,2,3].map(i => (
-          <div key={i} style={{ ...glass(0.04,16), border:`1px solid ${theme.border}`, borderRadius:16, height:100, animation:`gpulse 1.8s ${i*0.12}s ease-in-out infinite` }}/>
+          <div key={i} style={{ ...glass(theme, 0.04, 16), border:`1px solid ${theme.border}`, borderRadius:16, height:100, animation:`gpulse 1.8s ${i*0.12}s ease-in-out infinite` }}/>
         ))}
       </div>
-      <div style={{ ...glass(0.04,16), border:`1px solid ${theme.border}`, borderRadius:14, height:64, animation:'gpulse 1.8s 0.5s ease-in-out infinite' }}/>
+      <div style={{ ...glass(theme, 0.04, 16), border:`1px solid ${theme.border}`, borderRadius:14, height:64, animation:'gpulse 1.8s 0.5s ease-in-out infinite' }}/>
       <div className="d-cards-grid">
         {[0,1].map(i => (
-          <div key={i} style={{ ...glass(0.04,16), border:`1px solid ${theme.border}`, borderRadius:18, height:280, animation:`gpulse 1.8s ${i*0.2}s ease-in-out infinite` }}/>
+          <div key={i} style={{ ...glass(theme, 0.04, 16), border:`1px solid ${theme.border}`, borderRadius:18, height:280, animation:`gpulse 1.8s ${i*0.2}s ease-in-out infinite` }}/>
         ))}
       </div>
     </div>
@@ -243,6 +263,7 @@ function DebtSkeleton() {
 // ADD DEBT FORM
 // ─────────────────────────────────────────────────────────────────────────────
 function AddDebtForm({ onDone }) {
+  const { theme } = useTheme()
   const { userId } = useFinance()
   const addDebt = useAddDebt(userId)
   const [form, setForm] = useState({ name:'', type:'personal_loan', balance:'', rate:'', min_payment:'' })
@@ -263,7 +284,7 @@ function AddDebtForm({ onDone }) {
   }
 
   return (
-    <div style={{ ...glass(0.06,22), border:`1px solid ${meta.color}30`, borderLeft:`2px solid ${meta.color}`, borderRadius:18, padding:26, position:'relative', overflow:'hidden', boxShadow:`${gi},0 0 30px ${meta.color}0a`, animation:'fadeUp 0.3s ease', marginBottom:4 }}>
+    <div style={{ ...glass(theme, 0.06, 22), border:`1px solid ${meta.color}30`, borderLeft:`2px solid ${meta.color}`, borderRadius:18, padding:26, position:'relative', overflow:'hidden', boxShadow:`${gi(theme)},0 0 30px ${meta.color}0a`, animation:'fadeUp 0.3s ease', marginBottom:4 }}>
       <div style={shine}/>
       <div style={{ position:'absolute', top:-50, right:-50, width:180, height:180, background:`radial-gradient(circle,${meta.color}0c 0%,transparent 70%)`, pointerEvents:'none' }}/>
 
@@ -294,7 +315,7 @@ function AddDebtForm({ onDone }) {
 
       {/* Live preview */}
       {form.balance && form.rate && (
-        <div style={{ padding:'10px 16px', ...glass(0.06,12), border:`1px solid ${isHighRate?theme.red+'40':theme.border}`, borderLeft:`2px solid ${isHighRate?theme.red:meta.color}`, borderRadius:10, marginBottom:14, display:'flex', alignItems:'center', gap:12, flexWrap:'wrap', animation:'fadeUp 0.2s ease' }}>
+        <div style={{ padding:'10px 16px', ...glass(theme, 0.06, 12), border:`1px solid ${isHighRate?theme.red+'40':theme.border}`, borderLeft:`2px solid ${isHighRate?theme.red:meta.color}`, borderRadius:10, marginBottom:14, display:'flex', alignItems:'center', gap:12, flexWrap:'wrap', animation:'fadeUp 0.2s ease' }}>
           <span style={{ fontFamily:theme.mono, fontSize:'0.61rem', color:theme.muted }}>Monthly interest</span>
           <span style={{ fontFamily:theme.display, fontSize:'1.1rem', color:isHighRate?theme.red:meta.color, textShadow:`0 0 12px ${isHighRate?theme.red:meta.color}50` }}>{inr(monthlyInt)}</span>
           {isHighRate && (
@@ -306,19 +327,19 @@ function AddDebtForm({ onDone }) {
       )}
 
       {err && (
-        <div style={{ fontFamily:theme.mono, fontSize:'0.61rem', color:theme.red, padding:'9px 13px', ...glass(0.04,10), border:`1px solid ${theme.red}28`, borderRadius:9, marginBottom:14, display:'flex', alignItems:'center', gap:7 }}>
+        <div style={{ fontFamily:theme.mono, fontSize:'0.61rem', color:theme.red, padding:'9px 13px', ...glass(theme, 0.04, 10), border:`1px solid ${theme.red}28`, borderRadius:9, marginBottom:14, display:'flex', alignItems:'center', gap:7 }}>
           <AlertTriangle size={12} strokeWidth={2}/>{err}
         </div>
       )}
 
       <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
-        <button onClick={submit} disabled={addDebt.isPending} style={{ display:'inline-flex', alignItems:'center', gap:8, ...glass(0.08,12), border:`1px solid ${meta.color}50`, borderRadius:10, color:meta.color, padding:'10px 24px', cursor:addDebt.isPending?'not-allowed':'pointer', fontFamily:theme.mono, fontSize:'0.65rem', letterSpacing:'0.16em', textTransform:'uppercase', opacity:addDebt.isPending?0.6:1, transition:'all 0.2s', boxShadow:`0 0 16px ${meta.color}18` }}
+        <button onClick={submit} disabled={addDebt.isPending} style={{ display:'inline-flex', alignItems:'center', gap:8, ...glass(theme, 0.08, 12), border:`1px solid ${meta.color}50`, borderRadius:10, color:meta.color, padding:'10px 24px', cursor:addDebt.isPending?'not-allowed':'pointer', fontFamily:theme.mono, fontSize:'0.65rem', letterSpacing:'0.16em', textTransform:'uppercase', opacity:addDebt.isPending?0.6:1, transition:'all 0.2s', boxShadow:`0 0 16px ${meta.color}18` }}
           onMouseEnter={e=>{ if(!addDebt.isPending) e.currentTarget.style.boxShadow=`0 0 28px ${meta.color}35` }}
           onMouseLeave={e=>e.currentTarget.style.boxShadow=`0 0 16px ${meta.color}18`}
         >
           {addDebt.isPending ? <Spinner size={13}/> : <><Plus size={14}/>Add Debt</>}
         </button>
-        <button onClick={onDone} style={{ display:'inline-flex', alignItems:'center', gap:7, ...glass(0.04,12), border:`1px solid ${theme.border}`, borderRadius:10, color:theme.muted, padding:'10px 20px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.63rem', letterSpacing:'0.14em', textTransform:'uppercase', transition:'all 0.2s' }}
+        <button onClick={onDone} style={{ display:'inline-flex', alignItems:'center', gap:7, ...glass(theme, 0.04, 12), border:`1px solid ${theme.border}`, borderRadius:10, color:theme.muted, padding:'10px 20px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.63rem', letterSpacing:'0.14em', textTransform:'uppercase', transition:'all 0.2s' }}
           onMouseEnter={e=>{ e.currentTarget.style.borderColor=`${theme.border}`; e.currentTarget.style.color=theme.text }}
           onMouseLeave={e=>{ e.currentTarget.style.color=theme.muted }}
         >
@@ -333,6 +354,7 @@ function AddDebtForm({ onDone }) {
 // DEBT CARD
 // ─────────────────────────────────────────────────────────────────────────────
 function DebtCard({ debt, rank, index=0 }) {
+  const { theme } = useTheme()
   const { userId }  = useFinance()
   const updateDebt  = useUpdateDebt(userId)
   const deleteDebt  = useDeleteDebt(userId)
@@ -362,12 +384,12 @@ function DebtCard({ debt, rank, index=0 }) {
   return (
     <div onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
       style={{
-        ...glass(hov?0.07:0.04, 22),
+        ...glass(theme, hov?0.07:0.04, 22),
         border:`1px solid ${isTop?`${meta.color}45`:hov?theme.borderHi:theme.border}`,
         borderLeft:`2px solid ${isTop?meta.color:hov?`${meta.color}60`:'transparent'}`,
         borderRadius:18, padding:24, position:'relative', overflow:'hidden',
         transition:'all 0.3s ease',
-        boxShadow:hov?`${gi},0 0 30px ${meta.color}12`:gi,
+        boxShadow:hov?`${gi(theme)},0 0 30px ${meta.color}12`:gi(theme),
         animation:`fadeUp 0.4s ${index*0.1}s both`,
       }}
     >
@@ -379,7 +401,7 @@ function DebtCard({ debt, rank, index=0 }) {
 
       {/* Avalanche badge */}
       {isTop && (
-        <div style={{ position:'absolute', top:14, right:52, fontFamily:theme.mono, fontSize:'0.49rem', letterSpacing:'0.18em', textTransform:'uppercase', ...glass(0.1,12), color:theme.red, padding:'3px 9px', border:`1px solid ${theme.red}30`, borderRadius:6, display:'flex', alignItems:'center', gap:5, animation:'pulse-ring 2.5s ease-in-out infinite' }}>
+        <div style={{ position:'absolute', top:14, right:52, fontFamily:theme.mono, fontSize:'0.49rem', letterSpacing:'0.18em', textTransform:'uppercase', ...glass(theme, 0.1, 12), color:theme.red, padding:'3px 9px', border:`1px solid ${theme.red}30`, borderRadius:6, display:'flex', alignItems:'center', gap:5, animation:'pulse-ring 2.5s ease-in-out infinite' }}>
           <Target size={9} strokeWidth={2.5}/> Avalanche Target
         </div>
       )}
@@ -387,13 +409,13 @@ function DebtCard({ debt, rank, index=0 }) {
       {/* Header */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20 }}>
         <div style={{ display:'flex', alignItems:'flex-start', gap:12, minWidth:0, flex:1 }}>
-          <div style={{ width:40, height:40, flexShrink:0, ...glass(0.1,12), border:`1px solid ${meta.color}35`, borderRadius:12, display:'flex', alignItems:'center', justifyContent:'center', color:meta.color, boxShadow:hov?`0 0 16px ${meta.color}40`:'none', transition:'box-shadow 0.3s' }}>
+          <div style={{ width:40, height:40, flexShrink:0, ...glass(theme, 0.1, 12), border:`1px solid ${meta.color}35`, borderRadius:12, display:'flex', alignItems:'center', justifyContent:'center', color:meta.color, boxShadow:hov?`0 0 16px ${meta.color}40`:'none', transition:'box-shadow 0.3s' }}>
             <meta.icon size={18} strokeWidth={1.8}/>
           </div>
           <div style={{ minWidth:0 }}>
             <div style={{ fontFamily:theme.sans, fontWeight:600, fontSize:'0.92rem', color:theme.text, marginBottom:7, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{debt.name}</div>
             <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-              <span style={{ fontFamily:theme.mono, fontSize:'0.56rem', letterSpacing:'0.06em', ...glass(0.06,8), color:theme.muted, padding:'2px 9px', border:`1px solid ${theme.border}`, borderRadius:6 }}>
+              <span style={{ fontFamily:theme.mono, fontSize:'0.56rem', letterSpacing:'0.06em', ...glass(theme, 0.06, 8), color:theme.muted, padding:'2px 9px', border:`1px solid ${theme.border}`, borderRadius:6 }}>
                 {meta.label}
               </span>
               <RateBadge rate={debt.rate}/>
@@ -401,7 +423,7 @@ function DebtCard({ debt, rank, index=0 }) {
           </div>
         </div>
         <button onClick={handleDelete} disabled={deleteDebt.isPending}
-          style={{ ...glass(0.04,8), border:`1px solid transparent`, borderRadius:8, color:theme.muted, padding:'6px', cursor:'pointer', transition:'all 0.2s', display:'flex', alignItems:'center', flexShrink:0 }}
+          style={{ ...glass(theme, 0.04, 8), border:`1px solid transparent`, borderRadius:8, color:theme.muted, padding:'6px', cursor:'pointer', transition:'all 0.2s', display:'flex', alignItems:'center', flexShrink:0 }}
           onMouseEnter={e=>{ e.currentTarget.style.color=theme.red; e.currentTarget.style.borderColor=`${theme.red}40`; e.currentTarget.style.background=`${theme.red}10` }}
           onMouseLeave={e=>{ e.currentTarget.style.color=theme.muted; e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.background='rgba(255,255,255,0.04)' }}
         >
@@ -411,11 +433,11 @@ function DebtCard({ debt, rank, index=0 }) {
 
       {/* Balance grid */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:18 }}>
-        <div style={{ ...glass(0.06,14), border:`1px solid ${theme.red}25`, borderRadius:12, padding:'14px 16px' }}>
+        <div style={{ ...glass(theme, 0.06, 14), border:`1px solid ${theme.red}25`, borderRadius:12, padding:'14px 16px' }}>
           <FL>Remaining</FL>
           <div style={{ fontFamily:theme.display, fontSize:'1.65rem', fontWeight:700, color:theme.red, lineHeight:1, textShadow:`0 0 16px ${theme.red}40` }}>{inr(debt.balance)}</div>
         </div>
-        <div style={{ ...glass(0.04,14), border:`1px solid ${theme.border}`, borderRadius:12, padding:'14px 16px' }}>
+        <div style={{ ...glass(theme, 0.04, 14), border:`1px solid ${theme.border}`, borderRadius:12, padding:'14px 16px' }}>
           <FL>Original</FL>
           <div style={{ fontFamily:theme.display, fontSize:'1.65rem', fontWeight:700, color:theme.muted, lineHeight:1 }}>{inr(origBal)}</div>
           <div style={{ fontFamily:theme.mono, fontSize:'0.56rem', color:rateColor, marginTop:5, display:'flex', alignItems:'center', gap:4 }}>
@@ -440,11 +462,11 @@ function DebtCard({ debt, rank, index=0 }) {
             <GInput value={customAmt} onChange={setAmt} type="number" min="0" placeholder="Enter amount (₹)" disabled={isPending}/>
           </div>
           <button onClick={()=>makePayment(Number(customAmt))} disabled={isPending||!customAmt||+customAmt<=0}
-            style={{ display:'flex', alignItems:'center', gap:6, ...glass(0.08,12), border:`1px solid ${theme.green}50`, borderRadius:9, color:theme.green, padding:'9px 16px', cursor:isPending?'not-allowed':'pointer', fontFamily:theme.mono, fontSize:'0.62rem', letterSpacing:'0.1em', transition:'all 0.2s', opacity:(isPending||!customAmt||+customAmt<=0)?0.5:1, boxShadow:`0 0 12px ${theme.green}18` }}>
+            style={{ display:'flex', alignItems:'center', gap:6, ...glass(theme, 0.08, 12), border:`1px solid ${theme.green}50`, borderRadius:9, color:theme.green, padding:'9px 16px', cursor:isPending?'not-allowed':'pointer', fontFamily:theme.mono, fontSize:'0.62rem', letterSpacing:'0.1em', transition:'all 0.2s', opacity:(isPending||!customAmt||+customAmt<=0)?0.5:1, boxShadow:`0 0 12px ${theme.green}18` }}>
             {isPending ? <Spinner size={11}/> : <><ArrowRight size={13}/>Pay</>}
           </button>
           <button onClick={()=>setPaying(false)}
-            style={{ ...glass(0.04,10), border:`1px solid ${theme.border}`, borderRadius:9, color:theme.muted, padding:'9px 11px', cursor:'pointer', display:'flex', alignItems:'center', transition:'all 0.2s' }}>
+            style={{ ...glass(theme, 0.04, 10), border:`1px solid ${theme.border}`, borderRadius:9, color:theme.muted, padding:'9px 11px', cursor:'pointer', display:'flex', alignItems:'center', transition:'all 0.2s' }}>
             <X size={13}/>
           </button>
         </div>
@@ -452,7 +474,7 @@ function DebtCard({ debt, rank, index=0 }) {
         <div style={{ display:'flex', gap:7, flexWrap:'wrap' }}>
           {debt.min_payment > 0 && (
             <button onClick={()=>makePayment(debt.min_payment)} disabled={isPending}
-              style={{ ...glass(0.06,10), border:`1px solid ${theme.blue}30`, color:theme.blue, padding:'7px 13px', cursor:isPending?'not-allowed':'pointer', fontFamily:theme.mono, fontSize:'0.59rem', letterSpacing:'0.1em', borderRadius:9, transition:'all 0.2s', opacity:isPending?0.5:1, display:'flex', alignItems:'center', gap:5 }}
+              style={{ ...glass(theme, 0.06, 10), border:`1px solid ${theme.blue}30`, color:theme.blue, padding:'7px 13px', cursor:isPending?'not-allowed':'pointer', fontFamily:theme.mono, fontSize:'0.59rem', letterSpacing:'0.1em', borderRadius:9, transition:'all 0.2s', opacity:isPending?0.5:1, display:'flex', alignItems:'center', gap:5 }}
               onMouseEnter={e=>{ if(!isPending) e.currentTarget.style.boxShadow=`0 0 14px ${theme.blue}30` }}
               onMouseLeave={e=>e.currentTarget.style.boxShadow='none'}
             >
@@ -461,13 +483,13 @@ function DebtCard({ debt, rank, index=0 }) {
           )}
           {[5000,10000].map(a => (
             <button key={a} onClick={()=>makePayment(a)} disabled={isPending}
-              style={{ ...glass(0.06,10), border:`1px solid ${theme.accent}30`, color:theme.accent, padding:'7px 13px', cursor:isPending?'not-allowed':'pointer', fontFamily:theme.mono, fontSize:'0.59rem', letterSpacing:'0.1em', borderRadius:9, transition:'all 0.2s', opacity:isPending?0.5:1 }}
+              style={{ ...glass(theme, 0.06, 10), border:`1px solid ${theme.accent}30`, color:theme.accent, padding:'7px 13px', cursor:isPending?'not-allowed':'pointer', fontFamily:theme.mono, fontSize:'0.59rem', letterSpacing:'0.1em', borderRadius:9, transition:'all 0.2s', opacity:isPending?0.5:1 }}
               onMouseEnter={e=>{ if(!isPending) e.currentTarget.style.boxShadow=`0 0 14px ${theme.accent}28` }}
               onMouseLeave={e=>e.currentTarget.style.boxShadow='none'}
             >+{inr(a)}</button>
           ))}
           <button onClick={()=>setPaying(true)} disabled={isPending}
-            style={{ ...glass(0.04,10), border:`1px solid ${theme.border}`, color:theme.muted, padding:'7px 13px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.59rem', letterSpacing:'0.1em', borderRadius:9, transition:'all 0.2s' }}
+            style={{ ...glass(theme, 0.04, 10), border:`1px solid ${theme.border}`, color:theme.muted, padding:'7px 13px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.59rem', letterSpacing:'0.1em', borderRadius:9, transition:'all 0.2s' }}
             onMouseEnter={e=>{ e.currentTarget.style.borderColor=`${theme.accent}60`; e.currentTarget.style.color=theme.accentLt }}
             onMouseLeave={e=>{ e.currentTarget.style.borderColor=theme.border; e.currentTarget.style.color=theme.muted }}
           >Custom</button>
@@ -481,19 +503,32 @@ function DebtCard({ debt, rank, index=0 }) {
 // DEBT PAGE
 // ─────────────────────────────────────────────────────────────────────────────
 export default function Debt() {
+  const { theme } = useTheme()
   const { userId } = useFinance()
   const { data:debts=[], isLoading, error, refetch } = useDebts(userId)
   const [adding, setAdding] = useState(false)
 
-  if (isLoading) return <><style>{CSS}</style><DebtSkeleton/></>
+  // Update CSS variables when theme changes
+  useEffect(() => {
+    const style = document.createElement('style')
+    style.textContent = CSS(theme)
+    style.id = 'debt-dynamic-styles'
+    const oldStyle = document.getElementById('debt-dynamic-styles')
+    if (oldStyle) oldStyle.remove()
+    document.head.appendChild(style)
+    
+    return () => style.remove()
+  }, [theme])
+
+  if (isLoading) return <><style>{CSS(theme)}</style><DebtSkeleton /></>
 
   if (error) return (
-    <div style={{ ...glass(0.06,20), border:`1px solid ${theme.red}40`, borderRadius:18, padding:40, textAlign:'center' }}>
+    <div style={{ ...glass(theme, 0.06, 20), border:`1px solid ${theme.red}40`, borderRadius:18, padding:40, textAlign:'center' }}>
       <div style={{ fontFamily:theme.mono, fontSize:'0.68rem', color:theme.red, marginBottom:20 }}>
         <AlertTriangle size={24} strokeWidth={1.5} style={{ display:'block', margin:'0 auto 12px', opacity:0.7 }}/>
         Error loading debts: {error.message}
       </div>
-      <button onClick={()=>refetch()} style={{ display:'inline-flex', alignItems:'center', gap:8, ...glass(0.08,12), border:`1px solid ${theme.accent}50`, borderRadius:10, color:theme.accent, padding:'10px 22px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.63rem', letterSpacing:'0.16em', textTransform:'uppercase' }}>
+      <button onClick={()=>refetch()} style={{ display:'inline-flex', alignItems:'center', gap:8, ...glass(theme, 0.08, 12), border:`1px solid ${theme.accent}50`, borderRadius:10, color:theme.accent, padding:'10px 22px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.63rem', letterSpacing:'0.16em', textTransform:'uppercase' }}>
         <RefreshCw size={13}/> Retry
       </button>
     </div>
@@ -507,7 +542,7 @@ export default function Debt() {
 
   return (
     <div style={{ display:'grid', gap:22, fontFamily:theme.sans }}>
-      <style>{CSS}</style>
+      <style>{CSS(theme)}</style>
 
       {/* Header */}
       <div className="d-header">
@@ -523,7 +558,7 @@ export default function Debt() {
         </div>
         <button className="d-hdr-btn"
           onClick={()=>setAdding(v=>!v)}
-          style={{ display:'inline-flex', alignItems:'center', gap:8, ...glass(adding?0.04:0.08,14), border:`1px solid ${adding?theme.border:theme.red+'60'}`, borderRadius:10, color:adding?theme.muted:theme.red, padding:'10px 22px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.63rem', letterSpacing:'0.14em', textTransform:'uppercase', transition:'all 0.25s', boxShadow:adding?'none':`0 0 20px ${theme.red}12` }}
+          style={{ display:'inline-flex', alignItems:'center', gap:8, ...glass(theme, adding?0.04:0.08, 14), border:`1px solid ${adding?theme.border:theme.red+'60'}`, borderRadius:10, color:adding?theme.muted:theme.red, padding:'10px 22px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.63rem', letterSpacing:'0.14em', textTransform:'uppercase', transition:'all 0.25s', boxShadow:adding?'none':`0 0 20px ${theme.red}12` }}
         >
           {adding ? <><X size={13}/>Cancel</> : <><Plus size={13}/>Add Debt</>}
         </button>
@@ -539,7 +574,7 @@ export default function Debt() {
 
       {/* Avalanche tip */}
       {debts.length > 1 && (
-        <div style={{ ...glass(0.05,18), border:`1px solid ${theme.yellow}30`, borderLeft:`2px solid ${theme.yellow}`, borderRadius:14, padding:'14px 18px', display:'flex', alignItems:'flex-start', gap:12, animation:'fadeUp 0.4s 0.3s both' }}>
+        <div style={{ ...glass(theme, 0.05, 18), border:`1px solid ${theme.yellow}30`, borderLeft:`2px solid ${theme.yellow}`, borderRadius:14, padding:'14px 18px', display:'flex', alignItems:'flex-start', gap:12, animation:'fadeUp 0.4s 0.3s both' }}>
           <AlertTriangle size={14} style={{color:theme.yellow, flexShrink:0, marginTop:1}} strokeWidth={1.8}/>
           <div style={{ fontFamily:theme.mono, fontSize:'0.61rem', color:theme.muted, lineHeight:1.8 }}>
             <span style={{ color:theme.accentLt, letterSpacing:'0.08em' }}>Avalanche strategy</span>
@@ -555,7 +590,7 @@ export default function Debt() {
 
       {/* Empty state */}
       {debts.length===0 && !adding && (
-        <div style={{ ...glass(0.04,18), border:`1px dashed ${theme.border}`, borderRadius:18, padding:'60px 0', textAlign:'center' }}>
+        <div style={{ ...glass(theme, 0.04, 18), border:`1px dashed ${theme.border}`, borderRadius:18, padding:'60px 0', textAlign:'center' }}>
           <TrendingDown size={36} strokeWidth={1} style={{ color:theme.muted, margin:'0 auto 14px', opacity:0.25, display:'block' }}/>
           <div style={{ fontFamily:theme.mono, fontSize:'0.68rem', color:theme.muted, opacity:0.5 }}>
             No debts tracked yet.<br/>Add your loans and credit cards above.

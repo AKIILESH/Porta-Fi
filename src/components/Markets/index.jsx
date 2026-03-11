@@ -1,8 +1,10 @@
+// src/pages/Markets.jsx
+import { useState } from 'react'
 import { useFinance } from '../../context/FinanceContext.jsx'
 import { useIndices } from '../../hooks/useIndices.js'
+import { useTheme } from '../../context/ThemeContext.jsx' // 👈 Add this
 import { Spinner } from '../shared/ui.jsx'
 import { pct } from '../../lib/formatters.js'
-import theme from '../../lib/theme.js'
 import {
   TrendingUp, TrendingDown, RefreshCw, Activity,
   AlertTriangle, Clock, Info, ArrowUpRight, ArrowDownRight,
@@ -12,7 +14,7 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 // CSS
 // ─────────────────────────────────────────────────────────────────────────────
-const CSS = `
+const CSS = (theme) => `
   *, *::before, *::after { box-sizing: border-box; }
 
   @keyframes fadeUp   { from { opacity:0; transform:translateY(14px) } to { opacity:1; transform:translateY(0) } }
@@ -48,16 +50,18 @@ const CSS = `
 // ─────────────────────────────────────────────────────────────────────────────
 // GLASS HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
-const glass  = (o=0.04, b=20) => ({
+const glass = (theme, o=0.04, b=20) => ({
   background:           `rgba(255,255,255,${o})`,
   backdropFilter:       `blur(${b}px) saturate(180%)`,
   WebkitBackdropFilter: `blur(${b}px) saturate(180%)`,
 })
-const gi    = `inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -1px 0 rgba(0,0,0,0.12)`
+const gi    = (theme) => `inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -1px 0 rgba(0,0,0,0.12)`
 const shine = { position:'absolute', top:0, left:'8%', right:'8%', height:1, background:'linear-gradient(90deg,transparent,rgba(255,255,255,0.10),transparent)', pointerEvents:'none' }
 
 const SL = ({ children, icon:Icon, color }) => {
+  const { theme } = useTheme()
   const c = color || theme.accent
+  
   return (
     <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:20 }}>
       <div style={{ width:3, height:15, background:c, borderRadius:2, boxShadow:`0 0 10px ${c}80` }}/>
@@ -102,24 +106,25 @@ function MiniSparkline({ up, color }) {
 // INDEX CARD
 // ─────────────────────────────────────────────────────────────────────────────
 function IndexCard({ symbol, data, isLoading, index=0 }) {
+  const { theme } = useTheme()
   const cfg = INDEX_CONFIG[symbol]
   const up  = data ? data.changePct >= 0 : null
   const c   = up === null ? theme.muted : up ? theme.green : theme.red
 
   if (isLoading || !data) {
     return (
-      <div style={{ ...glass(0.04,20), border:`1px solid ${theme.border}`, borderRadius:18, padding:22, position:'relative', overflow:'hidden', boxShadow:gi, animation:`gpulse 1.8s ${index*0.15}s ease-in-out infinite` }}>
+      <div style={{ ...glass(theme, 0.04, 20), border:`1px solid ${theme.border}`, borderRadius:18, padding:22, position:'relative', overflow:'hidden', boxShadow:gi(theme), animation:`gpulse 1.8s ${index*0.15}s ease-in-out infinite` }}>
         <div style={shine}/>
         <div style={{ fontFamily:theme.mono, fontSize:'0.55rem', color:theme.muted, marginBottom:8, letterSpacing:'0.1em' }}>{cfg?.label}</div>
-        <div style={{ height:32, ...glass(0.04,8), borderRadius:8, marginBottom:8, animation:'gpulse 1.8s ease-in-out infinite' }}/>
-        <div style={{ height:14, width:'60%', ...glass(0.04,8), borderRadius:6, animation:'gpulse 1.8s 0.3s ease-in-out infinite' }}/>
+        <div style={{ height:32, ...glass(theme, 0.04, 8), borderRadius:8, marginBottom:8, animation:'gpulse 1.8s ease-in-out infinite' }}/>
+        <div style={{ height:14, width:'60%', ...glass(theme, 0.04, 8), borderRadius:6, animation:'gpulse 1.8s 0.3s ease-in-out infinite' }}/>
       </div>
     )
   }
 
   return (
     <div className="m-card"
-      style={{ ...glass(0.05,22), border:`1px solid ${c}28`, borderRadius:18, padding:22, position:'relative', overflow:'hidden', boxShadow:`${gi},0 0 0 0 ${c}`, transition:'all 0.3s', animation:`fadeUp 0.4s ${index*0.08}s both`, cursor:'default' }}
+      style={{ ...glass(theme, 0.05, 22), border:`1px solid ${c}28`, borderRadius:18, padding:22, position:'relative', overflow:'hidden', boxShadow:`${gi(theme)},0 0 0 0 ${c}`, transition:'all 0.3s', animation:`fadeUp 0.4s ${index*0.08}s both`, cursor:'default' }}
     >
       <div style={shine}/>
       {/* Ambient glow */}
@@ -136,7 +141,7 @@ function IndexCard({ symbol, data, isLoading, index=0 }) {
           </div>
           <div style={{ fontFamily:theme.mono, fontSize:'0.62rem', color:theme.text, letterSpacing:'0.08em' }}>{cfg.label}</div>
         </div>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', width:30, height:30, ...glass(0.08,10), border:`1px solid ${c}35`, borderRadius:9, color:c, flexShrink:0 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', width:30, height:30, ...glass(theme, 0.08, 10), border:`1px solid ${c}35`, borderRadius:9, color:c, flexShrink:0 }}>
           {up ? <TrendingUp size={14} strokeWidth={2}/> : <TrendingDown size={14} strokeWidth={2}/>}
         </div>
       </div>
@@ -175,23 +180,25 @@ function IndexCard({ symbol, data, isLoading, index=0 }) {
 // MARKET SIGNAL CARD  (actionable insight)
 // ─────────────────────────────────────────────────────────────────────────────
 function SignalCard({ icon:Icon, color, title, value, note, action, index=0 }) {
+  const { theme } = useTheme()
+  
   return (
-    <div style={{ ...glass(0.04,20), border:`1px solid ${color}28`, borderRadius:16, padding:'18px 20px', position:'relative', overflow:'hidden', boxShadow:gi, animation:`fadeUp 0.4s ${0.3+index*0.06}s both` }}>
+    <div style={{ ...glass(theme, 0.04, 20), border:`1px solid ${color}28`, borderRadius:16, padding:'18px 20px', position:'relative', overflow:'hidden', boxShadow:gi(theme), animation:`fadeUp 0.4s ${0.3+index*0.06}s both` }}>
       <div style={shine}/>
       <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background:color, opacity:0.5 }}/>
       <div style={{ position:'absolute', top:-30, right:-30, width:90, height:90, background:`radial-gradient(circle,${color}18 0%,transparent 70%)`, pointerEvents:'none' }}/>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10 }}>
-        <div style={{ width:32, height:32, ...glass(0.08,10), border:`1px solid ${color}30`, borderRadius:9, display:'flex', alignItems:'center', justifyContent:'center', color, flexShrink:0 }}>
+        <div style={{ width:32, height:32, ...glass(theme, 0.08, 10), border:`1px solid ${color}30`, borderRadius:9, display:'flex', alignItems:'center', justifyContent:'center', color, flexShrink:0 }}>
           <Icon size={15} strokeWidth={1.8}/>
         </div>
         {value && (
-          <span style={{ fontFamily:theme.mono, fontSize:'0.62rem', color, ...glass(0.08,8), padding:'3px 9px', border:`1px solid ${color}30`, borderRadius:7 }}>{value}</span>
+          <span style={{ fontFamily:theme.mono, fontSize:'0.62rem', color, ...glass(theme, 0.08, 8), padding:'3px 9px', border:`1px solid ${color}30`, borderRadius:7 }}>{value}</span>
         )}
       </div>
       <div style={{ fontFamily:theme.sans, fontSize:'0.84rem', color:theme.text, fontWeight:600, marginBottom:5 }}>{title}</div>
       <div style={{ fontFamily:theme.mono, fontSize:'0.6rem', color:theme.muted, lineHeight:1.7, marginBottom:action?12:0 }}>{note}</div>
       {action && (
-        <div style={{ fontFamily:theme.mono, fontSize:'0.57rem', color, display:'flex', alignItems:'center', gap:5, ...glass(0.06,8), padding:'5px 10px', borderRadius:7, border:`1px solid ${color}25`, width:'fit-content' }}>
+        <div style={{ fontFamily:theme.mono, fontSize:'0.57rem', color, display:'flex', alignItems:'center', gap:5, ...glass(theme, 0.06, 8), padding:'5px 10px', borderRadius:7, border:`1px solid ${color}25`, width:'fit-content' }}>
           <Zap size={9} strokeWidth={2.5}/>{action}
         </div>
       )}
@@ -203,14 +210,16 @@ function SignalCard({ icon:Icon, color, title, value, note, action, index=0 }) {
 // WATCH ITEM  (key indicator row)
 // ─────────────────────────────────────────────────────────────────────────────
 function WatchItem({ icon:Icon, color, label, note, tip }) {
+  const { theme } = useTheme()
   const [showTip, setShowTip] = useState(false)
+  
   return (
     <div
-      style={{ display:'flex', alignItems:'flex-start', gap:12, padding:'12px 14px', ...glass(showTip?0.06:0.03,12), border:`1px solid ${showTip?color+'35':theme.border}`, borderRadius:12, transition:'all 0.2s', cursor:'default', marginBottom:8 }}
+      style={{ display:'flex', alignItems:'flex-start', gap:12, padding:'12px 14px', ...glass(theme, showTip?0.06:0.03, 12), border:`1px solid ${showTip?color+'35':theme.border}`, borderRadius:12, transition:'all 0.2s', cursor:'default', marginBottom:8 }}
       onMouseEnter={() => setShowTip(true)}
       onMouseLeave={() => setShowTip(false)}
     >
-      <div style={{ width:30, height:30, flexShrink:0, ...glass(0.08,8), border:`1px solid ${color}30`, borderRadius:9, display:'flex', alignItems:'center', justifyContent:'center', color }}>
+      <div style={{ width:30, height:30, flexShrink:0, ...glass(theme, 0.08, 8), border:`1px solid ${color}30`, borderRadius:9, display:'flex', alignItems:'center', justifyContent:'center', color }}>
         <Icon size={14} strokeWidth={1.8}/>
       </div>
       <div style={{ flex:1, minWidth:0 }}>
@@ -226,20 +235,18 @@ function WatchItem({ icon:Icon, color, label, note, tip }) {
   )
 }
 
-
-// need useState import
-import { useState } from 'react'
-
 // ─────────────────────────────────────────────────────────────────────────────
 // SKELETON
 // ─────────────────────────────────────────────────────────────────────────────
 function MarketsSkeleton() {
+  const { theme } = useTheme()
+  
   return (
     <div style={{ display:'grid', gap:18 }}>
-      <div style={{ ...glass(0.04,16), borderRadius:12, height:42, animation:'gpulse 1.8s ease-in-out infinite' }}/>
+      <div style={{ ...glass(theme, 0.04, 16), borderRadius:12, height:42, animation:'gpulse 1.8s ease-in-out infinite' }}/>
       <div className="m-index-grid">
         {[0,1,2,3].map(i => (
-          <div key={i} style={{ ...glass(0.04,16), border:`1px solid ${theme.border}`, borderRadius:18, height:180, animation:`gpulse 1.8s ${i*0.12}s ease-in-out infinite` }}/>
+          <div key={i} style={{ ...glass(theme, 0.04, 16), border:`1px solid ${theme.border}`, borderRadius:18, height:180, animation:`gpulse 1.8s ${i*0.12}s ease-in-out infinite` }}/>
         ))}
       </div>
     </div>
@@ -250,17 +257,30 @@ function MarketsSkeleton() {
 // MARKETS PAGE
 // ─────────────────────────────────────────────────────────────────────────────
 export default function Markets() {
+  const { theme } = useTheme()
   const { data:indices={}, isLoading, error, refetch } = useIndices()
 
-  if (isLoading) return <><style>{CSS}</style><MarketsSkeleton/></>
+  // Update CSS variables when theme changes
+  useState(() => {
+    const style = document.createElement('style')
+    style.textContent = CSS(theme)
+    style.id = 'markets-dynamic-styles'
+    const oldStyle = document.getElementById('markets-dynamic-styles')
+    if (oldStyle) oldStyle.remove()
+    document.head.appendChild(style)
+    
+    return () => style.remove()
+  }, [theme])
+
+  if (isLoading) return <><style>{CSS(theme)}</style><MarketsSkeleton /></>
 
   if (error) return (
-    <div style={{ ...glass(0.06,20), border:`1px solid ${theme.red}40`, borderRadius:18, padding:40, textAlign:'center' }}>
+    <div style={{ ...glass(theme, 0.06, 20), border:`1px solid ${theme.red}40`, borderRadius:18, padding:40, textAlign:'center' }}>
       <AlertTriangle size={28} strokeWidth={1.5} style={{ color:theme.red, display:'block', margin:'0 auto 14px', opacity:0.6 }}/>
       <div style={{ fontFamily:theme.mono, fontSize:'0.68rem', color:theme.red, marginBottom:20 }}>
         Error loading market data: {error.message}
       </div>
-      <button onClick={()=>refetch()} style={{ display:'inline-flex', alignItems:'center', gap:8, ...glass(0.08,12), border:`1px solid ${theme.accent}50`, borderRadius:10, color:theme.accent, padding:'10px 22px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.63rem', letterSpacing:'0.16em', textTransform:'uppercase' }}>
+      <button onClick={()=>refetch()} style={{ display:'inline-flex', alignItems:'center', gap:8, ...glass(theme, 0.08, 12), border:`1px solid ${theme.accent}50`, borderRadius:10, color:theme.accent, padding:'10px 22px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.63rem', letterSpacing:'0.16em', textTransform:'uppercase' }}>
         <RefreshCw size={13}/> Retry
       </button>
     </div>
@@ -273,7 +293,7 @@ export default function Markets() {
 
   return (
     <div style={{ display:'grid', gap:22, fontFamily:theme.sans }}>
-      <style>{CSS}</style>
+      <style>{CSS(theme)}</style>
 
       {/* Header */}
       <div className="m-header">
@@ -293,7 +313,7 @@ export default function Markets() {
           </p>
         </div>
         <button onClick={()=>refetch()}
-          style={{ display:'inline-flex', alignItems:'center', gap:7, ...glass(0.06,12), border:`1px solid ${theme.border}`, borderRadius:9, color:theme.muted, padding:'8px 16px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.6rem', letterSpacing:'0.12em', textTransform:'uppercase', transition:'all 0.2s' }}
+          style={{ display:'inline-flex', alignItems:'center', gap:7, ...glass(theme, 0.06, 12), border:`1px solid ${theme.border}`, borderRadius:9, color:theme.muted, padding:'8px 16px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.6rem', letterSpacing:'0.12em', textTransform:'uppercase', transition:'all 0.2s' }}
           onMouseEnter={e=>{ e.currentTarget.style.borderColor=`${theme.accent}60`; e.currentTarget.style.color=theme.accent }}
           onMouseLeave={e=>{ e.currentTarget.style.borderColor=theme.border; e.currentTarget.style.color=theme.muted }}
         >
@@ -360,7 +380,7 @@ export default function Markets() {
       </div>
 
       {/* What to watch — actionable hover tips */}
-      <div style={{ ...glass(0.04,20), border:`1px solid ${theme.border}`, borderRadius:18, padding:26, position:'relative', overflow:'hidden', boxShadow:gi, animation:'fadeUp 0.5s 0.5s both' }}>
+      <div style={{ ...glass(theme, 0.04, 20), border:`1px solid ${theme.border}`, borderRadius:18, padding:26, position:'relative', overflow:'hidden', boxShadow:gi(theme), animation:'fadeUp 0.5s 0.5s both' }}>
         <div style={shine}/>
         <div className="m-watch-grid">
           <div>
@@ -381,8 +401,8 @@ export default function Markets() {
       </div>
 
       {/* SIP reminder */}
-      <div style={{ ...glass(0.05,20), border:`1px solid ${theme.green}30`, borderLeft:`2px solid ${theme.green}`, borderRadius:16, padding:'16px 20px', display:'flex', alignItems:'flex-start', gap:14, animation:'fadeUp 0.5s 0.6s both' }}>
-        <div style={{ width:36, height:36, flexShrink:0, ...glass(0.1,12), border:`1px solid ${theme.green}35`, borderRadius:11, display:'flex', alignItems:'center', justifyContent:'center', color:theme.green }}>
+      <div style={{ ...glass(theme, 0.05, 20), border:`1px solid ${theme.green}30`, borderLeft:`2px solid ${theme.green}`, borderRadius:16, padding:'16px 20px', display:'flex', alignItems:'flex-start', gap:14, animation:'fadeUp 0.5s 0.6s both' }}>
+        <div style={{ width:36, height:36, flexShrink:0, ...glass(theme, 0.1, 12), border:`1px solid ${theme.green}35`, borderRadius:11, display:'flex', alignItems:'center', justifyContent:'center', color:theme.green }}>
           <Zap size={16} strokeWidth={2}/>
         </div>
         <div>

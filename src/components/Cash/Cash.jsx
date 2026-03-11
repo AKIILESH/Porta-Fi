@@ -3,7 +3,7 @@ import { useFinance } from "../../context/FinanceContext.jsx"
 import { useCashAccounts, useAddCashAccount, useUpdateCashAccount, useDeleteCashAccount } from "../../hooks/useCashAccounts.js"
 import { Spinner } from "../shared/ui.jsx"
 import { inr, inrCompact, todayISO } from "../../lib/formatters.js"
-import theme from "../../lib/theme.js"
+import { useTheme } from '../../context/ThemeContext.jsx'
 import {
   Landmark, Calendar, Percent, Plus, X, Edit, Trash2,
   Clock, RefreshCw, Banknote, PiggyBank, TrendingUp, Wallet,
@@ -50,7 +50,7 @@ const RESPONSIVE_CSS = `
     justify-content: space-between;
     align-items: flex-end;
     padding-bottom: 20px;
-    border-bottom: 1px solid ${theme.border};
+    border-bottom: 1px solid var(--theme-border, rgba(255,255,255,0.10));
   }
   .cash-filter-bar {
     display: flex;
@@ -62,8 +62,8 @@ const RESPONSIVE_CSS = `
     grid-template-columns: repeat(3, 1fr);
     gap: 10px;
     padding: 14px 0;
-    border-top: 1px solid ${theme.border};
-    border-bottom: 1px solid ${theme.border};
+    border-top: 1px solid var(--theme-border, rgba(255,255,255,0.10));
+    border-bottom: 1px solid var(--theme-border, rgba(255,255,255,0.10));
     margin-bottom: 14px;
   }
   .card-actions { display: flex; gap: 4px; }
@@ -98,12 +98,12 @@ const RESPONSIVE_CSS = `
 `
 
 // ── Glass helpers ─────────────────────────────────────────────────────────────
-const glass = (o = 0.04, b = 20) => ({
+const glass = (theme, o = 0.04, b = 20) => ({
   background: `rgba(255,255,255,${o})`,
   backdropFilter: `blur(${b}px) saturate(180%)`,
   WebkitBackdropFilter: `blur(${b}px) saturate(180%)`,
 })
-const gi = `inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -1px 0 rgba(0,0,0,0.10)`
+const gi = (theme) => `inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -1px 0 rgba(0,0,0,0.10)`
 const shine = {
   position: "absolute", top: 0, left: "10%", right: "10%", height: 1,
   background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.10),transparent)",
@@ -151,54 +151,68 @@ const calcProgress = (start, end) => {
 const acctType = v => ACCOUNT_TYPES.find(t => t.value === v) || ACCOUNT_TYPES[0]
 
 // ── Primitives ────────────────────────────────────────────────────────────────
-const FL = ({ children, required }) => (
-  <div style={{ fontFamily: theme.mono, fontSize: "0.51rem", letterSpacing: "0.18em", textTransform: "uppercase", color: theme.muted, marginBottom: 5, display: "flex", alignItems: "center", gap: 3 }}>
-    {children}{required && <span style={{ color: theme.red }}>*</span>}
-  </div>
-)
+const FL = ({ children, required }) => {
+  const { theme } = useTheme()
+  
+  return (
+    <div style={{ fontFamily: theme.mono, fontSize: "0.51rem", letterSpacing: "0.18em", textTransform: "uppercase", color: theme.muted, marginBottom: 5, display: "flex", alignItems: "center", gap: 3 }}>
+      {children}{required && <span style={{ color: theme.red }}>*</span>}
+    </div>
+  )
+}
 
-const inputSt = {
-  ...glass(0.05, 14),
+const inputSt = (theme) => ({
+  ...glass(theme, 0.05, 14),
   border: `1px solid ${theme.border}`, borderRadius: 9,
   color: theme.text, fontFamily: theme.mono, fontSize: "0.72rem",
   padding: "9px 12px", outline: "none", width: "100%",
   boxSizing: "border-box", transition: "border-color 0.2s, box-shadow 0.2s",
   boxShadow: `inset 0 2px 4px rgba(0,0,0,0.2)`,
+})
+
+const GInput = ({ value, onChange, type = "text", placeholder, min, step, readOnly, style = {} }) => {
+  const { theme } = useTheme()
+  
+  return (
+    <input
+      value={value}
+      onChange={e => onChange && onChange(e.target.value)}
+      type={type} placeholder={placeholder} min={min} step={step} readOnly={readOnly}
+      style={{ ...inputSt(theme), ...(readOnly ? { opacity: 0.6, cursor: "not-allowed", background: "rgba(0,0,0,0.25)" } : {}), ...style }}
+      onFocus={e => { if (!readOnly) { e.target.style.borderColor = `${theme.accent}70`; e.target.style.boxShadow = `inset 0 2px 4px rgba(0,0,0,0.2),0 0 0 3px ${theme.accentDim}` } }}
+      onBlur={e => { e.target.style.borderColor = theme.border; e.target.style.boxShadow = `inset 0 2px 4px rgba(0,0,0,0.2)` }}
+    />
+  )
 }
 
-const GInput = ({ value, onChange, type = "text", placeholder, min, step, readOnly, style = {} }) => (
-  <input
-    value={value}
-    onChange={e => onChange && onChange(e.target.value)}
-    type={type} placeholder={placeholder} min={min} step={step} readOnly={readOnly}
-    style={{ ...inputSt, ...(readOnly ? { opacity: 0.6, cursor: "not-allowed", background: "rgba(0,0,0,0.25)" } : {}), ...style }}
-    onFocus={e => { if (!readOnly) { e.target.style.borderColor = `${theme.accent}70`; e.target.style.boxShadow = `inset 0 2px 4px rgba(0,0,0,0.2),0 0 0 3px ${theme.accentDim}` } }}
-    onBlur={e => { e.target.style.borderColor = theme.border; e.target.style.boxShadow = `inset 0 2px 4px rgba(0,0,0,0.2)` }}
-  />
-)
-
-const GSelect = ({ value, onChange, children }) => (
-  <select
-    value={value} onChange={e => onChange(e.target.value)}
-    style={{
-      ...inputSt, cursor: "pointer", appearance: "none", WebkitAppearance: "none",
-      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a7fa5' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
-      backgroundRepeat: "no-repeat", backgroundPosition: "right 10px center", paddingRight: 30,
-    }}
-    onFocus={e => e.target.style.borderColor = `${theme.accent}70`}
-    onBlur={e => e.target.style.borderColor = theme.border}
-  >
-    {children}
-  </select>
-)
+const GSelect = ({ value, onChange, children }) => {
+  const { theme } = useTheme()
+  
+  return (
+    <select
+      value={value} onChange={e => onChange(e.target.value)}
+      style={{
+        ...inputSt(theme), cursor: "pointer", appearance: "none", WebkitAppearance: "none",
+        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a7fa5' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
+        backgroundRepeat: "no-repeat", backgroundPosition: "right 10px center", paddingRight: 30,
+      }}
+      onFocus={e => e.target.style.borderColor = `${theme.accent}70`}
+      onBlur={e => e.target.style.borderColor = theme.border}
+    >
+      {children}
+    </select>
+  )
+}
 
 // ── Bank Logo ─────────────────────────────────────────────────────────────────
 function BankLogo({ bankName, size = 40 }) {
+  const { theme } = useTheme()
   const [err, setErr] = useState(false)
   const logo = BANK_LOGOS[bankName]
+  
   if (!bankName || !logo || err) {
     return (
-      <div style={{ width: size, height: size, ...glass(0.08, 10), border: `1px solid ${theme.border}`, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: theme.mono, fontSize: "0.9rem", color: theme.accent, flexShrink: 0 }}>
+      <div style={{ width: size, height: size, ...glass(theme, 0.08, 10), border: `1px solid ${theme.border}`, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: theme.mono, fontSize: "0.9rem", color: theme.accent, flexShrink: 0 }}>
         {bankName?.[0] || "B"}
       </div>
     )
@@ -208,6 +222,7 @@ function BankLogo({ bankName, size = 40 }) {
 
 // ── Bank Select ───────────────────────────────────────────────────────────────
 function BankSelect({ value, onChange }) {
+  const { theme } = useTheme()
   const [search, setSearch] = useState("")
   const [show, setShow] = useState(false)
   const ref = useRef(null)
@@ -227,14 +242,14 @@ function BankSelect({ value, onChange }) {
           onChange={e => { setSearch(e.target.value); setShow(true); if (!BANK_NAMES.includes(e.target.value)) onChange(e.target.value) }}
           onFocus={() => setShow(true)}
           placeholder="Search bank name"
-          style={{ ...inputSt, flex: 1 }}
+          style={{ ...inputSt(theme), flex: 1 }}
         />
-        <button onClick={() => setShow(v => !v)} style={{ ...glass(0.06, 10), border: `1px solid ${theme.border}`, borderRadius: 9, color: theme.muted, padding: "0 12px", cursor: "pointer", flexShrink: 0 }}>
+        <button onClick={() => setShow(v => !v)} style={{ ...glass(theme, 0.06, 10), border: `1px solid ${theme.border}`, borderRadius: 9, color: theme.muted, padding: "0 12px", cursor: "pointer", flexShrink: 0 }}>
           <ChevronDown size={13} />
         </button>
       </div>
       {show && filtered.length > 0 && (
-        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, marginTop: 4, ...glass(0.12, 20), border: `1px solid ${theme.borderHi}`, borderRadius: 10, maxHeight: 200, overflowY: "auto", zIndex: 1000, boxShadow: "0 12px 40px rgba(0,0,0,0.5)" }}>
+        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, marginTop: 4, ...glass(theme, 0.12, 20), border: `1px solid ${theme.borderHi}`, borderRadius: 10, maxHeight: 200, overflowY: "auto", zIndex: 1000, boxShadow: "0 12px 40px rgba(0,0,0,0.5)" }}>
           {filtered.map(bank => (
             <button key={bank} onClick={() => { onChange(bank); setSearch(bank); setShow(false) }}
               style={{ width: "100%", padding: "10px 14px", background: "transparent", border: "none", borderBottom: `1px solid ${theme.border}`, color: theme.text, textAlign: "left", cursor: "pointer", fontFamily: theme.mono, fontSize: "0.68rem", transition: "background 0.15s" }}
@@ -252,14 +267,28 @@ function BankSelect({ value, onChange }) {
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 function CashSkeleton() {
+  const { theme } = useTheme()
+  
+  // Update CSS variables for skeleton
+  useEffect(() => {
+    const style = document.createElement('style')
+    style.textContent = `
+      .cash-kpi-grid .skeleton-item {
+        border: 1px solid ${theme.border};
+      }
+    `
+    document.head.appendChild(style)
+    return () => style.remove()
+  }, [theme])
+
   return (
     <div style={{ display: "grid", gap: 20 }}>
-      <div style={{ ...glass(0.04, 16), border: `1px solid ${theme.border}`, borderRadius: 14, height: 80, animation: "gpulse 1.8s infinite" }} />
+      <div style={{ ...glass(theme, 0.04, 16), border: `1px solid ${theme.border}`, borderRadius: 14, height: 80, animation: "gpulse 1.8s infinite" }} />
       <div className="cash-kpi-grid">
-        {[1,2,3,4].map(i => <div key={i} style={{ ...glass(0.04, 16), border: `1px solid ${theme.border}`, borderRadius: 14, height: 120, animation: `gpulse 1.8s ${i*0.15}s infinite` }} />)}
+        {[1,2,3,4].map(i => <div key={i} className="skeleton-item" style={{ ...glass(theme, 0.04, 16), border: `1px solid ${theme.border}`, borderRadius: 14, height: 120, animation: `gpulse 1.8s ${i*0.15}s infinite` }} />)}
       </div>
       <div className="cash-card-grid">
-        {[1,2,3].map(i => <div key={i} style={{ ...glass(0.04, 16), border: `1px solid ${theme.border}`, borderRadius: 16, height: 280, animation: `gpulse 1.8s ${i*0.2}s infinite` }} />)}
+        {[1,2,3].map(i => <div key={i} style={{ ...glass(theme, 0.04, 16), border: `1px solid ${theme.border}`, borderRadius: 16, height: 280, animation: `gpulse 1.8s ${i*0.2}s infinite` }} />)}
       </div>
     </div>
   )
@@ -267,6 +296,7 @@ function CashSkeleton() {
 
 // ── Add / Edit Form ───────────────────────────────────────────────────────────
 function AddCashAccountForm({ onDone, editAccount = null }) {
+  const { theme } = useTheme()
   const { userId } = useFinance()
   const addCashAccount = useAddCashAccount(userId)
   const updateCashAccount = useUpdateCashAccount(userId)
@@ -338,7 +368,7 @@ function AddCashAccountForm({ onDone, editAccount = null }) {
   const AccIcon = at.icon
 
   return (
-    <div style={{ ...glass(0.06, 22), border: `1px solid ${at.color}30`, borderLeft: `2px solid ${at.color}`, borderRadius: 16, padding: 24, marginBottom: 20, position: "relative", overflow: "hidden", boxShadow: `${gi}, 0 0 32px ${at.color}10`, animation: "fadeUp 0.3s ease" }}>
+    <div style={{ ...glass(theme, 0.06, 22), border: `1px solid ${at.color}30`, borderLeft: `2px solid ${at.color}`, borderRadius: 16, padding: 24, marginBottom: 20, position: "relative", overflow: "hidden", boxShadow: `${gi(theme)}, 0 0 32px ${at.color}10`, animation: "fadeUp 0.3s ease" }}>
       <div style={shine} />
       <div style={{ position: "absolute", top: -40, right: -40, width: 160, height: 160, background: `radial-gradient(circle,${at.color}0c 0%,transparent 70%)`, pointerEvents: "none" }} />
 
@@ -351,7 +381,7 @@ function AddCashAccountForm({ onDone, editAccount = null }) {
           </span>
         </div>
         <button onClick={onDone}
-          style={{ ...glass(0.05, 10), border: `1px solid ${theme.border}`, borderRadius: 8, color: theme.muted, padding: "5px 7px", cursor: "pointer", transition: "all 0.2s" }}
+          style={{ ...glass(theme, 0.05, 10), border: `1px solid ${theme.border}`, borderRadius: 8, color: theme.muted, padding: "5px 7px", cursor: "pointer", transition: "all 0.2s" }}
           onMouseEnter={e => { e.currentTarget.style.color = theme.red; e.currentTarget.style.borderColor = theme.red + "40" }}
           onMouseLeave={e => { e.currentTarget.style.color = theme.muted; e.currentTarget.style.borderColor = theme.border }}
         >
@@ -422,7 +452,7 @@ function AddCashAccountForm({ onDone, editAccount = null }) {
           </div>
 
           {form.opening_date && form.maturity_date && (
-            <div style={{ ...glass(0.05, 12), border: `1px solid ${theme.border}`, borderLeft: `2px solid ${theme.accent}`, borderRadius: 10, padding: "9px 14px", marginBottom: 12, display: "flex", alignItems: "center", gap: 10, fontFamily: theme.mono, fontSize: "0.61rem", color: theme.muted, flexWrap: "wrap" }}>
+            <div style={{ ...glass(theme, 0.05, 12), border: `1px solid ${theme.border}`, borderLeft: `2px solid ${theme.accent}`, borderRadius: 10, padding: "9px 14px", marginBottom: 12, display: "flex", alignItems: "center", gap: 10, fontFamily: theme.mono, fontSize: "0.61rem", color: theme.muted, flexWrap: "wrap" }}>
               <Calendar size={12} style={{ color: theme.accent }} strokeWidth={1.5} />
               Tenure: <span style={{ color: theme.text }}>{daysBetween(form.opening_date, form.maturity_date)} days</span>
               <span style={{ color: theme.border }}>·</span>
@@ -440,19 +470,19 @@ function AddCashAccountForm({ onDone, editAccount = null }) {
       </div>
 
       {err && (
-        <div style={{ fontFamily: theme.mono, fontSize: "0.61rem", color: theme.red, padding: "8px 12px", ...glass(0.04, 10), border: `1px solid ${theme.red}30`, borderRadius: 9, marginBottom: 14, letterSpacing: "0.05em" }}>
+        <div style={{ fontFamily: theme.mono, fontSize: "0.61rem", color: theme.red, padding: "8px 12px", ...glass(theme, 0.04, 10), border: `1px solid ${theme.red}30`, borderRadius: 9, marginBottom: 14, letterSpacing: "0.05em" }}>
           {err}
         </div>
       )}
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <button onClick={submit} disabled={isPending}
-          style={{ display: "inline-flex", alignItems: "center", gap: 8, ...glass(0.08, 12), border: `1px solid ${at.color}50`, borderRadius: 9, color: at.color, padding: "10px 24px", cursor: isPending ? "not-allowed" : "pointer", fontFamily: theme.mono, fontSize: "0.63rem", letterSpacing: "0.16em", textTransform: "uppercase", opacity: isPending ? 0.6 : 1, transition: "all 0.2s", boxShadow: `0 0 16px ${at.color}18` }}
+          style={{ display: "inline-flex", alignItems: "center", gap: 8, ...glass(theme, 0.08, 12), border: `1px solid ${at.color}50`, borderRadius: 9, color: at.color, padding: "10px 24px", cursor: isPending ? "not-allowed" : "pointer", fontFamily: theme.mono, fontSize: "0.63rem", letterSpacing: "0.16em", textTransform: "uppercase", opacity: isPending ? 0.6 : 1, transition: "all 0.2s", boxShadow: `0 0 16px ${at.color}18` }}
         >
           {isPending ? <Spinner size={12} /> : <><AccIcon size={13} strokeWidth={2} />{isEdit ? "Update Account" : "Add Account"}</>}
         </button>
         <button onClick={onDone}
-          style={{ ...glass(0.03, 10), border: `1px solid ${theme.border}`, borderRadius: 9, color: theme.muted, padding: "10px 20px", cursor: "pointer", fontFamily: theme.mono, fontSize: "0.63rem", letterSpacing: "0.13em", textTransform: "uppercase", transition: "all 0.2s" }}
+          style={{ ...glass(theme, 0.03, 10), border: `1px solid ${theme.border}`, borderRadius: 9, color: theme.muted, padding: "10px 20px", cursor: "pointer", fontFamily: theme.mono, fontSize: "0.63rem", letterSpacing: "0.13em", textTransform: "uppercase", transition: "all 0.2s" }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = theme.borderHi; e.currentTarget.style.color = theme.text }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = theme.border; e.currentTarget.style.color = theme.muted }}
         >
@@ -465,6 +495,7 @@ function AddCashAccountForm({ onDone, editAccount = null }) {
 
 // ── Account Card ──────────────────────────────────────────────────────────────
 function AccountCard({ account, onEdit, onDelete }) {
+  const { theme } = useTheme()
   const [hov, setHov] = useState(false)
   const at = acctType(account.type)
   const AccIcon = at.icon
@@ -489,7 +520,7 @@ function AccountCard({ account, onEdit, onDelete }) {
     <div
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
-      style={{ ...glass(hov ? 0.08 : 0.04, 20), border: `1px solid ${hov ? at.color + "40" : theme.border}`, borderRadius: 16, padding: 22, position: "relative", overflow: "hidden", transition: "all 0.3s ease", boxShadow: hov ? `${gi}, 0 0 28px ${at.color}15` : gi }}
+      style={{ ...glass(theme, hov ? 0.08 : 0.04, 20), border: `1px solid ${hov ? at.color + "40" : theme.border}`, borderRadius: 16, padding: 22, position: "relative", overflow: "hidden", transition: "all 0.3s ease", boxShadow: hov ? `${gi(theme)}, 0 0 28px ${at.color}15` : gi(theme) }}
     >
       <div style={shine} />
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: at.color, opacity: hov ? 0.8 : 0.35, transition: "opacity 0.3s" }} />
@@ -515,7 +546,7 @@ function AccountCard({ account, onEdit, onDelete }) {
             { icon: <Trash2 size={13} />, action: () => onDelete(account.id), hc: theme.red },
           ].map(({ icon, action, hc }, i) => (
             <button key={i} onClick={action}
-              style={{ ...glass(0.04, 10), border: `1px solid transparent`, borderRadius: 8, padding: "6px 7px", cursor: "pointer", color: theme.muted, transition: "all 0.2s" }}
+              style={{ ...glass(theme, 0.04, 10), border: `1px solid transparent`, borderRadius: 8, padding: "6px 7px", cursor: "pointer", color: theme.muted, transition: "all 0.2s" }}
               onMouseEnter={e => { e.currentTarget.style.color = hc; e.currentTarget.style.borderColor = `${hc}40`; e.currentTarget.style.background = `${hc}12` }}
               onMouseLeave={e => { e.currentTarget.style.color = theme.muted; e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.background = "rgba(255,255,255,0.04)" }}
             >{icon}</button>
@@ -544,7 +575,7 @@ function AccountCard({ account, onEdit, onDelete }) {
             <span style={{ fontFamily: theme.mono, fontSize: "0.51rem", letterSpacing: "0.14em", textTransform: "uppercase", color: theme.muted }}>Progress to Maturity</span>
             <span style={{ fontFamily: theme.mono, fontSize: "0.57rem", color: progress >= 100 ? theme.green : at.color }}>{progress}%</span>
           </div>
-          <div style={{ height: 3, ...glass(0.04, 8), border: `1px solid ${theme.border}`, borderRadius: 4, overflow: "hidden" }}>
+          <div style={{ height: 3, ...glass(theme, 0.04, 8), border: `1px solid ${theme.border}`, borderRadius: 4, overflow: "hidden" }}>
             <div style={{ height: "100%", width: `${progress}%`, background: `linear-gradient(90deg,${at.color}90,${at.color})`, borderRadius: 4, transition: "width 0.6s ease", boxShadow: `0 0 8px ${at.color}60`, position: "relative", overflow: "hidden" }}>
               <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.25),transparent)", animation: "shimmer 2s infinite" }} />
             </div>
@@ -602,6 +633,8 @@ function AccountCard({ account, onEdit, onDelete }) {
 
 // ── Summary KPIs ──────────────────────────────────────────────────────────────
 function CashSummary({ accounts }) {
+  const { theme } = useTheme()
+
   const total = accounts.reduce((s, a) => s + (["fd","rd"].includes(a.type) ? a.current_value || a.deposit_amount || 0 : a.balance), 0)
   const bankTotal = accounts.filter(a => ["savings","current"].includes(a.type)).reduce((s, a) => s + a.balance, 0)
   const fdTotal = accounts.filter(a => a.type === "fd").reduce((s, a) => s + (a.current_value || a.deposit_amount || 0), 0)
@@ -620,12 +653,12 @@ function CashSummary({ accounts }) {
       {kpis.map((k, i) => {
         const Icon = k.icon
         return (
-          <div key={i} style={{ ...glass(0.05, 20), border: `1px solid ${theme.border}`, borderRadius: 16, padding: "22px 24px", position: "relative", overflow: "hidden", boxShadow: gi, animation: `fadeUp 0.4s ${i * 0.07}s both` }}>
+          <div key={i} style={{ ...glass(theme, 0.05, 20), border: `1px solid ${theme.border}`, borderRadius: 16, padding: "22px 24px", position: "relative", overflow: "hidden", boxShadow: gi(theme), animation: `fadeUp 0.4s ${i * 0.07}s both` }}>
             <div style={shine} />
             <div style={{ position: "absolute", top: -30, right: -30, width: 100, height: 100, background: `radial-gradient(circle,${k.color}18 0%,transparent 70%)`, pointerEvents: "none" }} />
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
               <FL>{k.label}</FL>
-              <div style={{ width: 28, height: 28, ...glass(0.08, 10), border: `1px solid ${k.color}30`, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: k.color, flexShrink: 0 }}>
+              <div style={{ width: 28, height: 28, ...glass(theme, 0.08, 10), border: `1px solid ${k.color}30`, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: k.color, flexShrink: 0 }}>
                 <Icon size={13} strokeWidth={1.8} />
               </div>
             </div>
@@ -640,12 +673,33 @@ function CashSummary({ accounts }) {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function Cash() {
+  const { theme } = useTheme()
   const { userId } = useFinance()
   const { data: cashAccounts = [], isLoading, error, refetch } = useCashAccounts(userId)
   const deleteCashAccount = useDeleteCashAccount(userId)
   const [showForm, setShowForm] = useState(false)
   const [editingAccount, setEditingAccount] = useState(null)
   const [filterType, setFilterType] = useState("all")
+
+  // Update CSS variables when theme changes
+  useEffect(() => {
+    const style = document.createElement('style')
+    style.textContent = `
+      .cash-header {
+        border-bottom: 1px solid ${theme.border};
+      }
+      .cash-detail-grid {
+        border-top: 1px solid ${theme.border};
+        border-bottom: 1px solid ${theme.border};
+      }
+    `
+    style.id = 'cash-dynamic-styles'
+    const oldStyle = document.getElementById('cash-dynamic-styles')
+    if (oldStyle) oldStyle.remove()
+    document.head.appendChild(style)
+    
+    return () => style.remove()
+  }, [theme])
 
   const filtered = cashAccounts.filter(a => filterType === "all" || a.type === filterType)
   const handleEdit = a => { setEditingAccount(a); setShowForm(true) }
@@ -654,9 +708,9 @@ export default function Cash() {
 
   if (isLoading) return <CashSkeleton />
   if (error) return (
-    <div style={{ ...glass(0.06, 20), border: `1px solid ${theme.red}40`, borderRadius: 16, padding: "40px", textAlign: "center", color: theme.red, fontFamily: theme.mono }}>
+    <div style={{ ...glass(theme, 0.06, 20), border: `1px solid ${theme.red}40`, borderRadius: 16, padding: "40px", textAlign: "center", color: theme.red, fontFamily: theme.mono }}>
       Error loading cash accounts: {error.message}
-      <button onClick={() => refetch()} style={{ display: "flex", alignItems: "center", gap: 8, margin: "20px auto 0", padding: "9px 20px", ...glass(0.08, 12), border: `1px solid ${theme.red}40`, borderRadius: 10, color: theme.red, fontFamily: theme.mono, fontSize: 12, cursor: "pointer" }}>
+      <button onClick={() => refetch()} style={{ display: "flex", alignItems: "center", gap: 8, margin: "20px auto 0", padding: "9px 20px", ...glass(theme, 0.08, 12), border: `1px solid ${theme.red}40`, borderRadius: 10, color: theme.red, fontFamily: theme.mono, fontSize: 12, cursor: "pointer" }}>
         <RefreshCw size={13} /> Retry
       </button>
     </div>
@@ -679,7 +733,7 @@ export default function Cash() {
         <button
           className="cash-header-btn"
           onClick={() => { setShowForm(v => !v); if (showForm) setEditingAccount(null) }}
-          style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, ...glass(showForm ? 0.04 : 0.08, 14), border: `1px solid ${showForm ? theme.border : theme.accent + "60"}`, borderRadius: 10, color: showForm ? theme.muted : theme.accent, padding: "10px 22px", cursor: "pointer", fontFamily: theme.mono, fontSize: "0.63rem", letterSpacing: "0.16em", textTransform: "uppercase", transition: "all 0.25s", boxShadow: showForm ? "none" : `0 0 20px ${theme.accentGlow}` }}
+          style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, ...glass(theme, showForm ? 0.04 : 0.08, 14), border: `1px solid ${showForm ? theme.border : theme.accent + "60"}`, borderRadius: 10, color: showForm ? theme.muted : theme.accent, padding: "10px 22px", cursor: "pointer", fontFamily: theme.mono, fontSize: "0.63rem", letterSpacing: "0.16em", textTransform: "uppercase", transition: "all 0.25s", boxShadow: showForm ? "none" : `0 0 20px ${theme.accentGlow}` }}
         >
           {showForm ? <><X size={13} /> Cancel</> : <><Plus size={13} /> Add Account</>}
         </button>
@@ -700,7 +754,7 @@ export default function Cash() {
           const Icon = t.icon
           return (
             <button key={t.value} onClick={() => setFilterType(t.value)}
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", ...glass(active ? 0.08 : 0.04, 12), border: `1px solid ${active ? (t.color || theme.accent) + "60" : theme.border}`, borderRadius: 9, color: active ? (t.color || theme.accent) : theme.muted, fontFamily: theme.mono, fontSize: "0.59rem", letterSpacing: "0.09em", cursor: "pointer", transition: "all 0.2s", boxShadow: active ? `0 0 12px ${(t.color || theme.accent)}25` : "none" }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", ...glass(theme, active ? 0.08 : 0.04, 12), border: `1px solid ${active ? (t.color || theme.accent) + "60" : theme.border}`, borderRadius: 9, color: active ? (t.color || theme.accent) : theme.muted, fontFamily: theme.mono, fontSize: "0.59rem", letterSpacing: "0.09em", cursor: "pointer", transition: "all 0.2s", boxShadow: active ? `0 0 12px ${(t.color || theme.accent)}25` : "none" }}
               onMouseEnter={e => { if (!active) { e.currentTarget.style.borderColor = theme.borderHi; e.currentTarget.style.color = theme.text } }}
               onMouseLeave={e => { if (!active) { e.currentTarget.style.borderColor = theme.border; e.currentTarget.style.color = theme.muted } }}
             >

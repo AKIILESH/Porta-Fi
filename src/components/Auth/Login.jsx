@@ -3,11 +3,14 @@ import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase.js'
 import { isAdmin } from '../../lib/admin.js'
-import theme from '../../lib/theme.js'
+import { useTheme } from '../../context/ThemeContext.jsx' // 👈 Add this
 import AnimatedBackground from '../shared/AnimatedBackground.jsx'
 
-// Inject global styles
-if (!document.getElementById('portafi-auth-styles')) {
+// Inject global styles (these will be updated when theme changes)
+const injectStyles = (theme) => {
+  const existingStyle = document.getElementById('portafi-auth-styles')
+  if (existingStyle) existingStyle.remove()
+  
   const s = document.createElement('style')
   s.id = 'portafi-auth-styles'
   s.textContent = `
@@ -43,6 +46,7 @@ if (!document.getElementById('portafi-auth-styles')) {
 
 // Input field component
 function InputField({ label, type, value, onChange, placeholder, autoComplete, error }) {
+  const { theme } = useTheme() // 👈 Add this
   const [focused, setFocused] = useState(false)
   
   return (
@@ -87,6 +91,7 @@ function InputField({ label, type, value, onChange, placeholder, autoComplete, e
 
 // Button component
 function Button({ children, onClick, disabled, loading, fullWidth = true, variant = 'primary' }) {
+  const { theme } = useTheme() // 👈 Add this
   const [hovered, setHovered] = useState(false)
   
   const isPrimary = variant === 'primary'
@@ -139,12 +144,18 @@ function Button({ children, onClick, disabled, loading, fullWidth = true, varian
 
 // Main Login Component
 export default function Login() {
+  const { theme } = useTheme() // 👈 Add this
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200)
+
+  // Inject styles when theme changes
+  useEffect(() => {
+    injectStyles(theme)
+  }, [theme])
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth)

@@ -25,6 +25,8 @@ import theme from "./lib/theme.js";
 import AnimatedBackground from './components/shared/AnimatedBackground.jsx';
 import { useMediaQuery } from 'react-responsive';
 import { Menu, X } from 'lucide-react';
+import { ThemeProvider } from './context/ThemeContext.jsx'
+
 
 import { supabase } from "./lib/supabase.js";
 
@@ -51,6 +53,7 @@ globalStyle.textContent = `
   
   @keyframes pulse  { 0%,100%{opacity:1} 50%{opacity:.4} }
   @keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
   @keyframes spin   { to{transform:rotate(360deg)} }
   @keyframes ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
   
@@ -69,6 +72,12 @@ document.head.appendChild(globalStyle);
 
 // ── Mobile Menu Component ────────────────────────────────────────────────────
 function MobileMenu({ tab, setTab, onSignOut, isOpen, setIsOpen }) {
+  // Close menu when clicking a nav item
+  const handleNavClick = (newTab) => {
+    setTab(newTab);
+    setIsOpen(false);
+  };
+
   return (
     <>
       {/* Overlay */}
@@ -81,8 +90,8 @@ function MobileMenu({ tab, setTab, onSignOut, isOpen, setIsOpen }) {
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'rgba(0,0,0,0.5)',
-            backdropFilter: 'blur(4px)',
+            background: 'rgba(0,0,0,0.7)',
+            backdropFilter: 'blur(8px)',
             zIndex: 998,
             animation: 'fadeIn 0.2s ease',
           }}
@@ -100,13 +109,44 @@ function MobileMenu({ tab, setTab, onSignOut, isOpen, setIsOpen }) {
           background: theme.bg2,
           borderRight: `1px solid ${theme.border}`,
           transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
-          transition: 'transform 0.3s ease',
+          transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           zIndex: 999,
           overflowY: 'auto',
-          boxShadow: '4px 0 20px rgba(0,0,0,0.3)',
+          boxShadow: `4px 0 30px rgba(0,0,0,0.5), inset -1px 0 0 ${theme.border}`,
         }}
       >
-        <Sidebar tab={tab} setTab={setTab} onSignOut={onSignOut} mobile />
+        {/* Close button */}
+        <button
+          onClick={() => setIsOpen(false)}
+          style={{
+            position: 'absolute',
+            top: 16,
+            right: 16,
+            width: 36,
+            height: 36,
+            borderRadius: '50%',
+            background: theme.bg3,
+            border: `1px solid ${theme.border}`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            color: theme.muted,
+            zIndex: 1000,
+          }}
+        >
+          <X size={18} />
+        </button>
+
+        <Sidebar 
+          tab={tab} 
+          setTab={handleNavClick} 
+          onSignOut={() => {
+            onSignOut();
+            setIsOpen(false);
+          }} 
+          mobile 
+        />
       </div>
     </>
   );
@@ -138,10 +178,22 @@ function Page({ tab }) {
 
 // ── Dashboard App ────────────────────────────────────────────────────────────
 function DashboardApp({ userId }) {
-  const [tab, setTab] = useState("dashboard");
+  const [tab, setTab] = useState(() => {
+    // Get initial tab from URL path
+    const path = window.location.pathname.slice(1);
+    return path || "dashboard";
+  });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isMobile = useMediaQuery({ maxWidth: 768 });
   const isTablet = useMediaQuery({ minWidth: 769, maxWidth: 1024 });
+
+  // Update tab when URL changes
+  useEffect(() => {
+    const path = window.location.pathname.slice(1);
+    if (path && path !== tab) {
+      setTab(path);
+    }
+  }, [window.location.pathname]);
 
   if (!userId) {
     return (
@@ -187,6 +239,7 @@ function DashboardApp({ userId }) {
               position: 'sticky',
               top: 0,
               zIndex: 100,
+              backdropFilter: 'blur(10px)',
             }}
           >
             <button
@@ -197,13 +250,23 @@ function DashboardApp({ userId }) {
                 color: theme.text,
                 cursor: 'pointer',
                 padding: 8,
+                borderRadius: 8,
+                transition: 'background 0.2s',
               }}
+              onMouseEnter={(e) => e.currentTarget.style.background = theme.bg3}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
             >
               <Menu size={24} />
             </button>
             
-            <div style={{ fontFamily: theme.syne, fontSize: 18, fontWeight: 700, color: theme.accent }}>
-              Porta<span style={{ color: theme.text }}>Fi</span>
+            <div style={{ 
+              fontFamily: theme.syne, 
+              fontSize: 20, 
+              fontWeight: 700,
+              letterSpacing: '0.02em',
+            }}>
+              <span style={{ color: theme.accent }}>Porta</span>
+              <span style={{ color: theme.text }}>Fi</span>
             </div>
             
             <div style={{ width: 40 }} /> {/* Spacer for alignment */}
@@ -214,10 +277,7 @@ function DashboardApp({ userId }) {
         {isMobile && (
           <MobileMenu
             tab={tab}
-            setTab={(newTab) => {
-              setTab(newTab);
-              setMobileMenuOpen(false);
-            }}
+            setTab={setTab}
             onSignOut={() => supabase.auth.signOut()}
             isOpen={mobileMenuOpen}
             setIsOpen={setMobileMenuOpen}
@@ -247,6 +307,7 @@ function DashboardApp({ userId }) {
             overflow: "auto", 
             padding: isMobile ? '16px' : isTablet ? '20px 24px' : '24px 28px',
             WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS
+            scrollbarWidth: 'thin',
           }}>
             <Page tab={tab} />
           </main>
@@ -308,12 +369,14 @@ export default function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<PortaFi />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
 
+          {/* Protected routes all use DashboardApp */}
           <Route
             path="/dashboard"
             element={
@@ -378,6 +441,8 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          
+          {/* Admin route */}
           <Route
             path="/admin"
             element={
@@ -386,10 +451,18 @@ export default function App() {
               </AdminRoute>
             }
           />
-          {/* Remove duplicate root route */}
+          
+          {/* Catch all - redirect to dashboard if logged in, otherwise home */}
+          <Route
+            path="*"
+            element={
+              userId ? <Navigate to="/dashboard" replace /> : <Navigate to="/" replace />
+            }
+          />
         </Routes>
       </BrowserRouter>
       <ReactQueryDevtools initialIsOpen={false} />
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

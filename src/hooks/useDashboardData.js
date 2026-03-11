@@ -2,6 +2,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { queryKeys } from './queryKeys'
+import { currentMonth } from '../lib/formatters'
 
 // Reuse the same USD/INR helper
 async function fetchUSDINR() {
@@ -53,6 +54,11 @@ export function useDashboardData(userId) {
     queryFn: async () => {
       console.log('🏠 Fetching dashboard data for user:', userId)
       
+      // Get current month for filtering transactions
+      const month = currentMonth()
+      const startDate = `${month}-01`
+      const endDate = new Date().toISOString().split('T')[0] // Today's date
+      
       // First fetch holdings to get tickers
       const holdingsRes = await supabase
         .from('holdings')
@@ -74,17 +80,32 @@ export function useDashboardData(userId) {
       }
 
       // Fetch all other data in parallel
-      const [cashRes, accountsRes, recentTxRes, debtsRes, nwRes] = await Promise.all([
+      const [cashRes, accountsRes, monthTxRes, recentTxRes, debtsRes, nwRes] = await Promise.all([
         supabase.from('cash_accounts').select('balance').eq('user_id', userId),
         supabase.from('accounts').select('balance').eq('user_id', userId),
-        supabase.from('transactions').select('*').eq('user_id', userId).order('date', { ascending: false }).limit(7),
+        // Fetch ALL transactions for the current month (for monthly calculations)
+        supabase
+          .from('transactions')
+          .select('*')
+          .eq('user_id', userId)
+          .gte('date', startDate)
+          .lte('date', endDate)
+          .order('date', { ascending: false }),
+        // Fetch recent transactions (last 7) for display
+        supabase
+          .from('transactions')
+          .select('*')
+          .eq('user_id', userId)
+          .order('date', { ascending: false })
+          .limit(7),
         supabase.from('debts').select('balance').eq('user_id', userId),
         supabase.from('net_worth_snapshots').select('net_worth, snapshot_date').eq('user_id', userId).order('snapshot_date', { ascending: false }).limit(12),
       ])
 
       const cashAccounts = cashRes.data || []
       const accounts = accountsRes.data || []
-      const recentTransactions = recentTxRes.data || []
+      const monthTransactions = monthTxRes.data || [] // All transactions this month
+      const recentTransactions = recentTxRes.data || [] // Last 7 transactions for display
       const debts = debtsRes.data || []
       const nwHistory = nwRes.data || []
 
@@ -117,12 +138,25 @@ export function useDashboardData(userId) {
       const totalDebt = debts.reduce((sum, d) => sum + Number(d.balance), 0)
       const netWorth = portfolioValue + cashBalance + accountBalance - totalDebt
 
+      // Calculate monthly income and expenses from ALL month transactions
+      const monthlyIncome = monthTransactions
+        .filter(t => t.amount > 0)
+        .reduce((sum, t) => sum + Number(t.amount), 0)
+      
+      const monthlyExpenses = monthTransactions
+        .filter(t => t.amount < 0)
+        .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0)
+
       console.log('📊 Dashboard Summary:', {
         portfolioValue: portfolioValue.toFixed(2),
         cashBalance: cashBalance.toFixed(2),
         accountBalance: accountBalance.toFixed(2),
         totalDebt: totalDebt.toFixed(2),
-        netWorth: netWorth.toFixed(2)
+        netWorth: netWorth.toFixed(2),
+        monthlyIncome: monthlyIncome.toFixed(2),
+        monthlyExpenses: monthlyExpenses.toFixed(2),
+        monthTransactionsCount: monthTransactions.length,
+        recentTransactionsCount: recentTransactions.length
       })
 
       return {
@@ -132,11 +166,15 @@ export function useDashboardData(userId) {
         totalDebt,
         netWorth,
         byAssetClass,
-        recentTransactions,
+        recentTransactions, // Last 7 transactions for display
+        monthTransactions, // All transactions this month for calculations
+        monthlyIncome,
+        monthlyExpenses,
         nwHistory: nwHistory.map(s => ({
           date: s.snapshot_date,
           value: s.net_worth
         })),
+        usdInrRate
       }
     },
     staleTime: 3 * 60 * 1000,

@@ -3,10 +3,10 @@ import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { useFinance } from '../../context/FinanceContext.jsx'
 import { useTransactionsRange, useAddTransaction, useDeleteTransaction } from '../../hooks/useTransactions.js'
 import { useCashAccounts } from '../../hooks/useCashAccounts.js'
-import { useFlexBudget } from '../../hooks/useFlexBudget.js' // Import the new hook
+import { useFlexBudget } from '../../hooks/useFlexBudget.js'
+import { useTheme } from '../../context/ThemeContext.jsx' // 👈 Add this
 import { Spinner } from '../shared/ui.jsx'
 import { inr, fmtDate, todayISO, currentMonth } from '../../lib/formatters.js'
-import theme from '../../lib/theme.js'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import {
   TrendingUp, TrendingDown, ArrowUpCircle, ArrowDownCircle,
@@ -28,7 +28,7 @@ const CSS = `
   .bg-summary-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
   .bg-main-grid   { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
   .bg-form-two    { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  .bg-header      { display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:12px; margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid ${theme.border}; }
+  .bg-header      { display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:12px; margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid var(--theme-border); }
   .bg-period-nav  { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
   .bg-flex-grid   { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:16px; margin-top:20px; }
 
@@ -49,10 +49,18 @@ const CSS = `
   }
 `
 
-// ── Glass ────────────────────────────────────────────────────────────────────
-const glass  = (o=0.04, b=20) => ({ background:`rgba(255,255,255,${o})`, backdropFilter:`blur(${b}px) saturate(180%)`, WebkitBackdropFilter:`blur(${b}px) saturate(180%)` })
-const gi     = `inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -1px 0 rgba(0,0,0,0.10)`
-const shine  = { position:'absolute', top:0, left:'10%', right:'10%', height:1, background:'linear-gradient(90deg,transparent,rgba(255,255,255,0.10),transparent)', pointerEvents:'none' }
+// ── Glass helpers ────────────────────────────────────────────────────────────
+const glass = (theme, o = 0.04, b = 20) => ({
+  background: `rgba(255,255,255,${o})`,
+  backdropFilter: `blur(${b}px) saturate(180%)`,
+  WebkitBackdropFilter: `blur(${b}px) saturate(180%)`,
+})
+const gi = (theme) => `inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -1px 0 rgba(0,0,0,0.10)`
+const shine = {
+  position: 'absolute', top: 0, left: '10%', right: '10%', height: 1,
+  background: 'linear-gradient(90deg,transparent,rgba(255,255,255,0.10),transparent)',
+  pointerEvents: 'none',
+}
 
 // ── Category config ───────────────────────────────────────────────────────────
 const EXPENSE_CATS = [
@@ -86,42 +94,55 @@ const INCOME_CATS = [
   { value:'Other Income',       icon:Hash,        color:'#6b7280' },
 ]
 
-const catMeta = v => [...EXPENSE_CATS, ...INCOME_CATS].find(c=>c.value===v) || { icon:Hash, color:theme.muted }
+const catMeta = (theme, v) => [...EXPENSE_CATS, ...INCOME_CATS].find(c=>c.value===v) || { icon:Hash, color:theme.muted }
 
 // ── Primitives ────────────────────────────────────────────────────────────────
-const FL = ({children,required}) => (
-  <div style={{ fontFamily:theme.mono, fontSize:'0.51rem', letterSpacing:'0.17em', textTransform:'uppercase', color:theme.muted, marginBottom:5, display:'flex', alignItems:'center', gap:3 }}>
-    {children}{required && <span style={{color:theme.red}}>*</span>}
-  </div>
-)
+const FL = ({children,required}) => {
+  const { theme } = useTheme()
+  
+  return (
+    <div style={{ fontFamily:theme.mono, fontSize:'0.51rem', letterSpacing:'0.17em', textTransform:'uppercase', color:theme.muted, marginBottom:5, display:'flex', alignItems:'center', gap:3 }}>
+      {children}{required && <span style={{color:theme.red}}>*</span>}
+    </div>
+  )
+}
 
-const SL = ({children,icon:Icon}) => (
-  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:18 }}>
-    <div style={{ width:3, height:14, background:theme.accent, borderRadius:2, boxShadow:`0 0 8px ${theme.accent}` }}/>
-    {Icon && <Icon size={13} style={{color:theme.accent}} strokeWidth={2}/>}
-    <span style={{ fontFamily:theme.mono, fontSize:'0.57rem', letterSpacing:'0.22em', textTransform:'uppercase', color:theme.accent }}>{children}</span>
-  </div>
-)
+const SL = ({children,icon:Icon}) => {
+  const { theme } = useTheme()
+  
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:18 }}>
+      <div style={{ width:3, height:14, background:theme.accent, borderRadius:2, boxShadow:`0 0 8px ${theme.accent}` }}/>
+      {Icon && <Icon size={13} style={{color:theme.accent}} strokeWidth={2}/>}
+      <span style={{ fontFamily:theme.mono, fontSize:'0.57rem', letterSpacing:'0.22em', textTransform:'uppercase', color:theme.accent }}>{children}</span>
+    </div>
+  )
+}
 
-const inputSt = {
-  ...glass(0.05,14),
+const inputSt = (theme) => ({
+  ...glass(theme, 0.05, 14),
   border:`1px solid ${theme.border}`, borderRadius:9,
   color:theme.text, fontFamily:theme.mono, fontSize:'0.73rem',
   padding:'10px 12px', outline:'none', width:'100%', boxSizing:'border-box',
   transition:'border-color 0.2s, box-shadow 0.2s',
   boxShadow:`inset 0 2px 4px rgba(0,0,0,0.2)`,
-}
+})
 
-const GInput = ({value,onChange,type='text',placeholder,min,step}) => (
-  <input value={value} onChange={e=>onChange(e.target.value)} type={type} placeholder={placeholder} min={min} step={step}
-    style={inputSt}
-    onFocus={e=>{e.target.style.borderColor=`${theme.accent}70`;e.target.style.boxShadow=`inset 0 2px 4px rgba(0,0,0,0.2),0 0 0 3px ${theme.accentDim}`}}
-    onBlur={e=>{e.target.style.borderColor=theme.border;e.target.style.boxShadow=`inset 0 2px 4px rgba(0,0,0,0.2)`}}
-  />
-)
+const GInput = ({value,onChange,type='text',placeholder,min,step}) => {
+  const { theme } = useTheme()
+  
+  return (
+    <input value={value} onChange={e=>onChange(e.target.value)} type={type} placeholder={placeholder} min={min} step={step}
+      style={inputSt(theme)}
+      onFocus={e=>{e.target.style.borderColor=`${theme.accent}70`;e.target.style.boxShadow=`inset 0 2px 4px rgba(0,0,0,0.2),0 0 0 3px ${theme.accentDim}`}}
+      onBlur={e=>{e.target.style.borderColor=theme.border;e.target.style.boxShadow=`inset 0 2px 4px rgba(0,0,0,0.2)`}}
+    />
+  )
+}
 
 // ── Period Selector Component ─────────────────────────────────────────────────
 function PeriodSelector({ periodType, setPeriodType, selectedDate, setSelectedDate, customStartDate, setCustomStartDate, customEndDate, setCustomEndDate, showCustomPicker, setShowCustomPicker }) {
+  const { theme } = useTheme()
   
   const formatDisplayDate = () => {
     const date = new Date(selectedDate)
@@ -183,7 +204,7 @@ function PeriodSelector({ periodType, setPeriodType, selectedDate, setSelectedDa
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
       {/* Period Type Tabs */}
-      <div style={{ display: 'flex', gap: 8, background: glass(0.03, 10), borderRadius: 10, padding: 4 }}>
+      <div style={{ display: 'flex', gap: 8, background: glass(theme, 0.03, 10), borderRadius: 10, padding: 4 }}>
         {['day', 'week', 'month', 'period'].map(type => (
           <button
             key={type}
@@ -217,7 +238,7 @@ function PeriodSelector({ periodType, setPeriodType, selectedDate, setSelectedDa
           <button
             onClick={navigatePrevious}
             style={{
-              ...glass(0.05, 10),
+              ...glass(theme, 0.05, 10),
               border: `1px solid ${theme.border}`,
               borderRadius: 8,
               padding: '8px 12px',
@@ -238,7 +259,7 @@ function PeriodSelector({ periodType, setPeriodType, selectedDate, setSelectedDa
             fontFamily: theme.mono, 
             fontSize: '0.75rem', 
             color: theme.text,
-            ...glass(0.03, 10),
+            ...glass(theme, 0.03, 10),
             padding: '8px 16px',
             borderRadius: 20,
             border: `1px solid ${theme.border}`
@@ -249,7 +270,7 @@ function PeriodSelector({ periodType, setPeriodType, selectedDate, setSelectedDa
           <button
             onClick={navigateNext}
             style={{
-              ...glass(0.05, 10),
+              ...glass(theme, 0.05, 10),
               border: `1px solid ${theme.border}`,
               borderRadius: 8,
               padding: '8px 12px',
@@ -269,7 +290,7 @@ function PeriodSelector({ periodType, setPeriodType, selectedDate, setSelectedDa
       {/* Custom Date Range Picker */}
       {showCustomPicker && (
         <div style={{ 
-          ...glass(0.08, 16), 
+          ...glass(theme, 0.08, 16), 
           border: `1px solid ${theme.border}`,
           borderRadius: 12,
           padding: 16,
@@ -302,6 +323,7 @@ function PeriodSelector({ periodType, setPeriodType, selectedDate, setSelectedDa
 
 // ── Styled Dropdown ────────────────────────────────────────────────────────────
 function StyledDropdown({ options, value, onChange, placeholder='Select…', disabled }) {
+  const { theme } = useTheme()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const sel = options.find(o=>o.value===value)
@@ -315,7 +337,7 @@ function StyledDropdown({ options, value, onChange, placeholder='Select…', dis
   return (
     <div ref={ref} style={{ position:'relative', width:'100%' }}>
       <button type="button" onClick={()=>!disabled&&setOpen(v=>!v)}
-        style={{ ...inputSt, display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, cursor:disabled?'not-allowed':'pointer', opacity:disabled?0.5:1, border:`1px solid ${open?`${theme.accent}70`:theme.border}`, boxShadow:open?`inset 0 2px 4px rgba(0,0,0,0.2),0 0 0 3px ${theme.accentDim}`:`inset 0 2px 4px rgba(0,0,0,0.2)`, padding:'10px 12px' }}
+        style={{ ...inputSt(theme), display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, cursor:disabled?'not-allowed':'pointer', opacity:disabled?0.5:1, border:`1px solid ${open?`${theme.accent}70`:theme.border}`, boxShadow:open?`inset 0 2px 4px rgba(0,0,0,0.2),0 0 0 3px ${theme.accentDim}`:`inset 0 2px 4px rgba(0,0,0,0.2)`, padding:'10px 12px' }}
       >
         <div style={{ display:'flex', alignItems:'center', gap:10, minWidth:0 }}>
           {sel ? (
@@ -333,7 +355,7 @@ function StyledDropdown({ options, value, onChange, placeholder='Select…', dis
       </button>
 
       {open && (
-        <div style={{ position:'absolute', top:'calc(100% + 6px)', left:0, right:0, ...glass(0.14,24), border:`1px solid ${theme.borderHi}`, borderRadius:12, maxHeight:260, overflowY:'auto', zIndex:1200, boxShadow:'0 16px 40px rgba(0,0,0,0.5)', animation:'fadeIn 0.18s ease' }}>
+        <div style={{ position:'absolute', top:'calc(100% + 6px)', left:0, right:0, ...glass(theme, 0.14, 24), border:`1px solid ${theme.borderHi}`, borderRadius:12, maxHeight:260, overflowY:'auto', zIndex:1200, boxShadow:'0 16px 40px rgba(0,0,0,0.5)', animation:'fadeIn 0.18s ease' }}>
           <div style={{ padding:6, display:'grid', gap:2 }}>
             {options.map(opt => {
               const isActive = value===opt.value
@@ -361,6 +383,7 @@ function StyledDropdown({ options, value, onChange, placeholder='Select…', dis
 
 // ── Account Dropdown ──────────────────────────────────────────────────────────
 function AccountDropdown({ accounts, value, onChange }) {
+  const { theme } = useTheme()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const sel = accounts.find(a=>a.id===value)
@@ -374,10 +397,10 @@ function AccountDropdown({ accounts, value, onChange }) {
   return (
     <div ref={ref} style={{ position:'relative' }}>
       <button type="button" onClick={()=>setOpen(v=>!v)}
-        style={{ ...inputSt, display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, cursor:'pointer', border:`1px solid ${open?`${theme.accent}70`:theme.border}`, boxShadow:open?`inset 0 2px 4px rgba(0,0,0,0.2),0 0 0 3px ${theme.accentDim}`:`inset 0 2px 4px rgba(0,0,0,0.2)`, padding:'10px 12px' }}
+        style={{ ...inputSt(theme), display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, cursor:'pointer', border:`1px solid ${open?`${theme.accent}70`:theme.border}`, boxShadow:open?`inset 0 2px 4px rgba(0,0,0,0.2),0 0 0 3px ${theme.accentDim}`:`inset 0 2px 4px rgba(0,0,0,0.2)`, padding:'10px 12px' }}
       >
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <div style={{ width:26, height:26, borderRadius:8, ...glass(0.1,8), border:`1px solid ${theme.border}`, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <div style={{ width:26, height:26, borderRadius:8, ...glass(theme, 0.1, 8), border:`1px solid ${theme.border}`, display:'flex', alignItems:'center', justifyContent:'center' }}>
             <Wallet size={13} style={{color:theme.accent}}/>
           </div>
           {sel ? (
@@ -390,7 +413,7 @@ function AccountDropdown({ accounts, value, onChange }) {
         <ChevronDown size={14} style={{ color:theme.muted, transform:open?'rotate(180deg)':'none', transition:'transform 0.25s', flexShrink:0 }}/>
       </button>
       {open && (
-        <div style={{ position:'absolute', top:'calc(100% + 6px)', left:0, right:0, ...glass(0.14,24), border:`1px solid ${theme.borderHi}`, borderRadius:12, zIndex:1200, boxShadow:'0 16px 40px rgba(0,0,0,0.5)', animation:'fadeIn 0.18s ease', overflow:'hidden' }}>
+        <div style={{ position:'absolute', top:'calc(100% + 6px)', left:0, right:0, ...glass(theme, 0.14, 24), border:`1px solid ${theme.borderHi}`, borderRadius:12, zIndex:1200, boxShadow:'0 16px 40px rgba(0,0,0,0.5)', animation:'fadeIn 0.18s ease', overflow:'hidden' }}>
           {accounts.map(acc => (
             <button key={acc.id} type="button"
               onClick={()=>{ onChange(acc.id); setOpen(false) }}
@@ -410,6 +433,7 @@ function AccountDropdown({ accounts, value, onChange }) {
 
 // ── Add Transaction Form ───────────────────────────────────────────────────────
 function AddTransactionForm({ onSuccess }) {
+  const { theme } = useTheme()
   const { userId } = useFinance()
   const addTransaction = useAddTransaction(userId)
   const { data:cashAccounts=[] } = useCashAccounts(userId)
@@ -441,13 +465,13 @@ function AddTransactionForm({ onSuccess }) {
   }
 
   return (
-    <div style={{ ...glass(0.06,22), border:`1px solid ${accentC}30`, borderLeft:`2px solid ${accentC}`, borderRadius:16, padding:24, position:'relative', overflow:'hidden', boxShadow:`${gi},0 0 28px ${accentC}10`, animation:'fadeUp 0.3s ease' }}>
+    <div style={{ ...glass(theme, 0.06, 22), border:`1px solid ${accentC}30`, borderLeft:`2px solid ${accentC}`, borderRadius:16, padding:24, position:'relative', overflow:'hidden', boxShadow:`${gi(theme)},0 0 28px ${accentC}10`, animation:'fadeUp 0.3s ease' }}>
       <div style={shine}/>
       <div style={{ position:'absolute', top:-40, right:-40, width:160, height:160, background:`radial-gradient(circle,${accentC}0c 0%,transparent 70%)`, pointerEvents:'none' }}/>
 
       <SL icon={type==='income'?TrendingUp:TrendingDown}>Add Transaction</SL>
 
-      <div style={{ display:'flex', ...glass(0.05,12), border:`1px solid ${theme.border}`, borderRadius:10, overflow:'hidden', marginBottom:20 }}>
+      <div style={{ display:'flex', ...glass(theme, 0.05, 12), border:`1px solid ${theme.border}`, borderRadius:10, overflow:'hidden', marginBottom:20 }}>
         {[['expense','Expense',ArrowDownCircle,theme.red],['income','Income',ArrowUpCircle,theme.green]].map(([t,lbl,Icon,c])=>(
           <button key={t} onClick={()=>handleTypeChange(t)} style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:7, padding:'10px 16px', border:'none', background:type===t?`${c}18`:'transparent', color:type===t?c:theme.muted, fontFamily:theme.mono, fontSize:'0.63rem', letterSpacing:'0.12em', textTransform:'uppercase', cursor:'pointer', transition:'all 0.2s', borderBottom:type===t?`2px solid ${c}`:'2px solid transparent', borderRight:t==='expense'?`1px solid ${theme.border}`:'none' }}>
             <Icon size={12} strokeWidth={2}/>{lbl}
@@ -479,7 +503,7 @@ function AddTransactionForm({ onSuccess }) {
       </div>
 
       {form.description && form.amount && form.category && (
-        <div style={{ padding:'9px 14px', ...glass(0.06,12), border:`1px solid ${theme.border}`, borderLeft:`2px solid ${accentC}`, borderRadius:10, marginBottom:14, display:'flex', alignItems:'center', gap:10, fontFamily:theme.mono, fontSize:'0.62rem', color:theme.muted, flexWrap:'wrap', animation:'fadeUp 0.2s ease' }}>
+        <div style={{ padding:'9px 14px', ...glass(theme, 0.06, 12), border:`1px solid ${theme.border}`, borderLeft:`2px solid ${accentC}`, borderRadius:10, marginBottom:14, display:'flex', alignItems:'center', gap:10, fontFamily:theme.mono, fontSize:'0.62rem', color:theme.muted, flexWrap:'wrap', animation:'fadeUp 0.2s ease' }}>
           {type==='income'?<ArrowUpCircle size={12} style={{color:accentC}}/>:<ArrowDownCircle size={12} style={{color:accentC}}/>}
           <span style={{ color:theme.accentLt, fontFamily:theme.display, fontSize:'1.05rem' }}>{inr(Math.abs(+form.amount))}</span>
           <span>·</span><span style={{color:theme.text}}>{form.description}</span>
@@ -488,12 +512,12 @@ function AddTransactionForm({ onSuccess }) {
       )}
 
       {err && (
-        <div style={{ fontFamily:theme.mono, fontSize:'0.61rem', color:theme.red, padding:'8px 12px', ...glass(0.04,10), border:`1px solid ${theme.red}28`, borderRadius:9, marginBottom:12 }}>
+        <div style={{ fontFamily:theme.mono, fontSize:'0.61rem', color:theme.red, padding:'8px 12px', ...glass(theme, 0.04, 10), border:`1px solid ${theme.red}28`, borderRadius:9, marginBottom:12 }}>
           {err}
         </div>
       )}
 
-      <button onClick={submit} disabled={addTransaction.isPending} style={{ width:'100%', ...glass(0.08,12), border:`1px solid ${accentC}50`, borderRadius:10, color:accentC, padding:'12px', cursor:addTransaction.isPending?'not-allowed':'pointer', fontFamily:theme.mono, fontSize:'0.66rem', letterSpacing:'0.18em', textTransform:'uppercase', opacity:addTransaction.isPending?0.6:1, transition:'all 0.2s', display:'flex', alignItems:'center', justifyContent:'center', gap:8, boxShadow:`0 0 16px ${accentC}18` }}
+      <button onClick={submit} disabled={addTransaction.isPending} style={{ width:'100%', ...glass(theme, 0.08, 12), border:`1px solid ${accentC}50`, borderRadius:10, color:accentC, padding:'12px', cursor:addTransaction.isPending?'not-allowed':'pointer', fontFamily:theme.mono, fontSize:'0.66rem', letterSpacing:'0.18em', textTransform:'uppercase', opacity:addTransaction.isPending?0.6:1, transition:'all 0.2s', display:'flex', alignItems:'center', justifyContent:'center', gap:8, boxShadow:`0 0 16px ${accentC}18` }}
         onMouseEnter={e=>{ if(!addTransaction.isPending) e.currentTarget.style.boxShadow=`0 0 28px ${accentC}35` }}
         onMouseLeave={e=>e.currentTarget.style.boxShadow=`0 0 16px ${accentC}18`}
       >
@@ -505,7 +529,8 @@ function AddTransactionForm({ onSuccess }) {
 
 // ── Category Bubble Component (Flex Fund) ─────────────────────────────────────
 function CategoryBubble({ name, data, onDragStart, onDragEnd, onDrop, isDragging, isOverTarget }) {
-  const Icon = catMeta(name).icon
+  const { theme } = useTheme()
+  const Icon = catMeta(theme, name).icon
   const percent = data.percentUsed || 0
   const isOver = data.isOver
   const color = isOver ? theme.red : percent > 80 ? theme.yellow : theme.green
@@ -529,7 +554,7 @@ function CategoryBubble({ name, data, onDragStart, onDragEnd, onDrop, isDragging
         }
       }}
       style={{
-        ...glass(0.08, 16),
+        ...glass(theme, 0.08, 16),
         border: `2px solid ${isOverTarget ? theme.accent : color}`,
         borderRadius: 16,
         padding: 16,
@@ -622,11 +647,13 @@ function CategoryBubble({ name, data, onDragStart, onDragEnd, onDrop, isDragging
 
 // ── Smart Suggestion Component ────────────────────────────────────────────────
 function SmartSuggestion({ suggestion, onAccept, onDecline }) {
+  const { theme } = useTheme()
+  
   if (!suggestion) return null
 
   return (
     <div style={{
-      ...glass(0.12, 20),
+      ...glass(theme, 0.12, 20),
       border: `1px solid ${theme.accent}`,
       borderRadius: 16,
       padding: 20,
@@ -654,7 +681,7 @@ function SmartSuggestion({ suggestion, onAccept, onDecline }) {
               alignItems: 'center',
               justifyContent: 'space-between',
               padding: '12px 16px',
-              background: glass(0.06, 10),
+              background: glass(theme, 0.06, 10),
               border: `1px solid ${theme.border}`,
               borderRadius: 12,
               cursor: 'pointer',
@@ -662,11 +689,11 @@ function SmartSuggestion({ suggestion, onAccept, onDecline }) {
               transition: 'all 0.2s'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = glass(0.1, 10)
+              e.currentTarget.style.background = glass(theme, 0.1, 10)
               e.currentTarget.style.borderColor = theme.accent
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = glass(0.06, 10)
+              e.currentTarget.style.background = glass(theme, 0.06, 10)
               e.currentTarget.style.borderColor = theme.border
             }}
           >
@@ -708,14 +735,15 @@ function SmartSuggestion({ suggestion, onAccept, onDecline }) {
 
 // ── Donut Chart ───────────────────────────────────────────────────────────────
 function DonutChart({ data }) {
+  const { theme } = useTheme()
   const [active, setActive] = useState(null)
 
   const chartData = useMemo(()=>
     Object.entries(data||{})
-      .map(([name,value])=>({ name, value, meta:catMeta(name) }))
+      .map(([name,value])=>({ name, value, meta:catMeta(theme, name) }))
       .sort((a,b)=>b.value-a.value)
       .slice(0,8)
-  , [data])
+  , [data, theme])
 
   const total = chartData.reduce((s,d)=>s+d.value,0)
   const activeItem = active!==null ? chartData[active] : null
@@ -731,7 +759,7 @@ function DonutChart({ data }) {
     if (!a||!payload?.length) return null
     const d = payload[0].payload
     return (
-      <div style={{ ...glass(0.18,24), border:`1px solid ${theme.borderHi}`, padding:'12px 16px', borderRadius:12, boxShadow:`0 12px 32px rgba(0,0,0,0.5),0 0 0 1px ${d.meta.color}20` }}>
+      <div style={{ ...glass(theme, 0.18, 24), border:`1px solid ${theme.borderHi}`, padding:'12px 16px', borderRadius:12, boxShadow:`0 12px 32px rgba(0,0,0,0.5),0 0 0 1px ${d.meta.color}20` }}>
         <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
           <div style={{ width:28, height:28, borderRadius:8, background:`${d.meta.color}20`, border:`1px solid ${d.meta.color}35`, display:'flex', alignItems:'center', justifyContent:'center' }}>
             <d.meta.icon size={14} style={{color:d.meta.color}}/>
@@ -802,7 +830,7 @@ function DonutChart({ data }) {
             <div key={i}
               onMouseEnter={()=>setActive(i)}
               onMouseLeave={()=>setActive(null)}
-              style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 8px', ...glass(isAct?0.08:0.03,10), border:`1px solid ${isAct?d.meta.color+'40':theme.border}`, borderRadius:9, cursor:'pointer', transition:'all 0.2s' }}
+              style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 8px', ...glass(theme, isAct?0.08:0.03, 10), border:`1px solid ${isAct?d.meta.color+'40':theme.border}`, borderRadius:9, cursor:'pointer', transition:'all 0.2s' }}
             >
               <div style={{ width:22, height:22, borderRadius:6, background:`${d.meta.color}20`, border:`1px solid ${d.meta.color}30`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                 <d.meta.icon size={11} style={{color:d.meta.color}} strokeWidth={2}/>
@@ -819,14 +847,16 @@ function DonutChart({ data }) {
 
 // ── KPI Summary Card ─────────────────────────────────────────────────────────
 function SummaryCard({ label, value, accent, icon:Icon, sub, index=0 }) {
+  const { theme } = useTheme()
+  
   return (
-    <div style={{ ...glass(0.05,20), border:`1px solid ${theme.border}`, borderRadius:16, padding:'20px 22px', position:'relative', overflow:'hidden', boxShadow:gi, animation:`fadeUp 0.4s ${index*0.08}s both` }}>
+    <div style={{ ...glass(theme, 0.05, 20), border:`1px solid ${theme.border}`, borderRadius:16, padding:'20px 22px', position:'relative', overflow:'hidden', boxShadow:gi(theme), animation:`fadeUp 0.4s ${index*0.08}s both` }}>
       <div style={shine}/>
       <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background:accent, opacity:0.6 }}/>
       <div style={{ position:'absolute', top:-30, right:-30, width:100, height:100, background:`radial-gradient(circle,${accent}18 0%,transparent 70%)`, pointerEvents:'none' }}/>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12 }}>
         <div style={{ fontFamily:theme.mono, fontSize:'0.51rem', letterSpacing:'0.17em', textTransform:'uppercase', color:theme.muted }}>{label}</div>
-        <div style={{ width:28, height:28, ...glass(0.08,10), border:`1px solid ${accent}30`, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', color:accent, flexShrink:0 }}>
+        <div style={{ width:28, height:28, ...glass(theme, 0.08, 10), border:`1px solid ${accent}30`, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', color:accent, flexShrink:0 }}>
           <Icon size={13} strokeWidth={1.8}/>
         </div>
       </div>
@@ -838,10 +868,11 @@ function SummaryCard({ label, value, accent, icon:Icon, sub, index=0 }) {
 
 // ── Transaction Item ──────────────────────────────────────────────────────────
 function TransactionItem({ transaction, onDelete }) {
+  const { theme } = useTheme()
   const [hov, setHov] = useState(false)
   const isIncome = transaction.amount > 0
   const c = isIncome ? theme.green : theme.red
-  const meta = catMeta(transaction.category)
+  const meta = catMeta(theme, transaction.category)
   const CatIcon = meta.icon
 
   return (
@@ -849,7 +880,7 @@ function TransactionItem({ transaction, onDelete }) {
       style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'11px 10px', background:hov?'rgba(255,255,255,0.028)':'transparent', borderRadius:hov?10:0, borderBottom:`1px solid ${theme.border}`, transition:'all 0.2s', gap:8 }}
     >
       <div style={{ display:'flex', alignItems:'center', gap:11, minWidth:0, flex:1 }}>
-        <div style={{ width:36, height:36, flexShrink:0, ...glass(0.08,10), border:`1px solid ${meta.color}30`, borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center', color:meta.color, transition:'all 0.2s', boxShadow:hov?`0 0 12px ${meta.color}30`:'none' }}>
+        <div style={{ width:36, height:36, flexShrink:0, ...glass(theme, 0.08, 10), border:`1px solid ${meta.color}30`, borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center', color:meta.color, transition:'all 0.2s', boxShadow:hov?`0 0 12px ${meta.color}30`:'none' }}>
           <CatIcon size={16} strokeWidth={2}/>
         </div>
         <div style={{ minWidth:0 }}>
@@ -870,7 +901,7 @@ function TransactionItem({ transaction, onDelete }) {
           {isIncome?'+':''}{inr(Math.abs(transaction.amount))}
         </div>
         <button onClick={()=>onDelete(transaction.id,transaction)}
-          style={{ ...glass(0.04,8), border:`1px solid transparent`, borderRadius:8, color:theme.muted, padding:'5px 6px', cursor:'pointer', transition:'all 0.2s', display:'flex', alignItems:'center', opacity:hov?1:0.4 }}
+          style={{ ...glass(theme, 0.04, 8), border:`1px solid transparent`, borderRadius:8, color:theme.muted, padding:'5px 6px', cursor:'pointer', transition:'all 0.2s', display:'flex', alignItems:'center', opacity:hov?1:0.4 }}
           onMouseEnter={e=>{ e.currentTarget.style.color=theme.red; e.currentTarget.style.borderColor=`${theme.red}40`; e.currentTarget.style.background=`${theme.red}10` }}
           onMouseLeave={e=>{ e.currentTarget.style.color=theme.muted; e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.background='rgba(255,255,255,0.04)' }}
         >
@@ -883,6 +914,7 @@ function TransactionItem({ transaction, onDelete }) {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function Budget() {
+  const { theme } = useTheme()
   const { userId } = useFinance()
   const [showForm, setShowForm] = useState(false)
   const [showFlexFund, setShowFlexFund] = useState(false)
@@ -1010,6 +1042,22 @@ export default function Budget() {
     acceptSuggestion(fromCategory, amount)
   }
 
+  // Update CSS variables when theme changes
+  useEffect(() => {
+    const style = document.createElement('style')
+    style.textContent = `
+      .bg-header {
+        border-bottom: 1px solid ${theme.border};
+      }
+    `
+    style.id = 'budget-dynamic-styles'
+    const oldStyle = document.getElementById('budget-dynamic-styles')
+    if (oldStyle) oldStyle.remove()
+    document.head.appendChild(style)
+    
+    return () => style.remove()
+  }, [theme])
+
   if (isLoading) return (
     <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:'60vh' }}>
       <Spinner size={36}/>
@@ -1036,7 +1084,7 @@ export default function Budget() {
           <button
             onClick={() => setShowFlexFund(!showFlexFund)}
             style={{
-              ...glass(0.08, 14),
+              ...glass(theme, 0.08, 14),
               border: `1px solid ${showFlexFund ? theme.accent : theme.border}`,
               borderRadius: 10,
               padding: '10px 22px',
@@ -1057,7 +1105,7 @@ export default function Budget() {
           </button>
           <button className="bg-header-btn"
             onClick={()=>setShowForm(v=>!v)}
-            style={{ display:'inline-flex', alignItems:'center', gap:8, ...glass(showForm?0.04:0.08,14), border:`1px solid ${showForm?theme.border:theme.accent+'60'}`, borderRadius:10, color:showForm?theme.muted:theme.accent, padding:'10px 22px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.63rem', letterSpacing:'0.14em', textTransform:'uppercase', transition:'all 0.25s', boxShadow:showForm?'none':`0 0 20px ${theme.accentGlow}` }}
+            style={{ display:'inline-flex', alignItems:'center', gap:8, ...glass(theme, showForm?0.04:0.08, 14), border:`1px solid ${showForm?theme.border:theme.accent+'60'}`, borderRadius:10, color:showForm?theme.muted:theme.accent, padding:'10px 22px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.63rem', letterSpacing:'0.14em', textTransform:'uppercase', transition:'all 0.25s', boxShadow:showForm?'none':`0 0 20px ${theme.accentGlow}` }}
           >
             {showForm ? <><X size={13}/> Cancel</> : <><Plus size={13}/> Add Transaction</>}
           </button>
@@ -1118,7 +1166,7 @@ export default function Budget() {
                 onClick={() => rolloverToNextMonth()}
                 disabled={isRollingOver || flexFund.flexReserve === 0}
                 style={{
-                  ...glass(0.08, 12),
+                  ...glass(theme, 0.08, 12),
                   border: `1px solid ${theme.accent}`,
                   borderRadius: 8,
                   padding: '8px 16px',
@@ -1171,7 +1219,7 @@ export default function Budget() {
           <div style={{
             marginTop: 16,
             padding: 12,
-            ...glass(0.04, 10),
+            ...glass(theme, 0.04, 10),
             borderRadius: 12,
             textAlign: 'center',
             fontFamily: theme.mono,
@@ -1186,14 +1234,14 @@ export default function Budget() {
       {/* Main content: chart + transactions */}
       <div className="bg-main-grid">
         {/* Donut chart card */}
-        <div style={{ ...glass(0.04,20), border:`1px solid ${theme.border}`, borderRadius:16, padding:24, position:'relative', overflow:'hidden', boxShadow:gi }}>
+        <div style={{ ...glass(theme, 0.04, 20), border:`1px solid ${theme.border}`, borderRadius:16, padding:24, position:'relative', overflow:'hidden', boxShadow:gi(theme) }}>
           <div style={shine}/>
           <SL icon={TrendingDown}>Spending Breakdown</SL>
           <DonutChart data={spendingByCategory}/>
         </div>
 
         {/* Transactions card */}
-        <div style={{ ...glass(0.04,20), border:`1px solid ${theme.border}`, borderRadius:16, padding:24, position:'relative', overflow:'hidden', boxShadow:gi }}>
+        <div style={{ ...glass(theme, 0.04, 20), border:`1px solid ${theme.border}`, borderRadius:16, padding:24, position:'relative', overflow:'hidden', boxShadow:gi(theme) }}>
           <div style={shine}/>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18, flexWrap:'wrap', gap:8 }}>
             <SL icon={Wallet}>Recent Transactions</SL>

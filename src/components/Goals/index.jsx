@@ -1,9 +1,10 @@
+// src/pages/Goals.jsx
 import { useState, useRef, useEffect } from 'react'
 import { useFinance } from '../../context/FinanceContext.jsx'
 import { useGoals, useAddGoal, useUpdateGoal, useDeleteGoal } from '../../hooks/useGoals.js'
+import { useTheme } from '../../context/ThemeContext.jsx' // 👈 Add this
 import { Spinner } from '../shared/ui.jsx'
 import { inr, inrCompact } from '../../lib/formatters.js'
-import theme from '../../lib/theme.js'
 import {
   Target, Home, Plane, GraduationCap, Car, Heart, Laptop, Shield,
   TrendingUp, Umbrella, Dumbbell, Music, Globe, Coins, Gift,
@@ -14,7 +15,7 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 // CSS
 // ─────────────────────────────────────────────────────────────────────────────
-const CSS = `
+const CSS = (theme) => `
   *, *::before, *::after { box-sizing: border-box; }
 
   @keyframes fadeUp    { from { opacity:0; transform:translateY(16px) } to { opacity:1; transform:translateY(0) } }
@@ -58,12 +59,12 @@ const CSS = `
 // ─────────────────────────────────────────────────────────────────────────────
 // GLASS HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
-const glass = (o=0.04, b=20) => ({
+const glass = (theme, o=0.04, b=20) => ({
   background:           `rgba(255,255,255,${o})`,
   backdropFilter:       `blur(${b}px) saturate(180%)`,
   WebkitBackdropFilter: `blur(${b}px) saturate(180%)`,
 })
-const gi    = `inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -1px 0 rgba(0,0,0,0.12)`
+const gi    = (theme) => `inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -1px 0 rgba(0,0,0,0.12)`
 const shine = { position:'absolute', top:0, left:'8%', right:'8%', height:1, background:'linear-gradient(90deg,transparent,rgba(255,255,255,0.10),transparent)', pointerEvents:'none' }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -92,14 +93,20 @@ const iconByName = name => GOAL_ICONS.find(i => i.name === name) || GOAL_ICONS[0
 // ─────────────────────────────────────────────────────────────────────────────
 // PRIMITIVES
 // ─────────────────────────────────────────────────────────────────────────────
-const FL = ({ children, required }) => (
-  <div style={{ fontFamily:theme.mono, fontSize:'0.51rem', letterSpacing:'0.17em', textTransform:'uppercase', color:theme.muted, marginBottom:6, display:'flex', alignItems:'center', gap:3 }}>
-    {children}{required && <span style={{color:theme.red}}>*</span>}
-  </div>
-)
+const FL = ({ children, required }) => {
+  const { theme } = useTheme()
+  
+  return (
+    <div style={{ fontFamily:theme.mono, fontSize:'0.51rem', letterSpacing:'0.17em', textTransform:'uppercase', color:theme.muted, marginBottom:6, display:'flex', alignItems:'center', gap:3 }}>
+      {children}{required && <span style={{color:theme.red}}>*</span>}
+    </div>
+  )
+}
 
 const SL = ({ children, icon:Icon, color }) => {
+  const { theme } = useTheme()
   const c = color || theme.accent
+  
   return (
     <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:20 }}>
       <div style={{ width:3, height:15, background:c, borderRadius:2, boxShadow:`0 0 10px ${c}80` }}/>
@@ -109,28 +116,33 @@ const SL = ({ children, icon:Icon, color }) => {
   )
 }
 
-const inputBase = {
-  ...glass(0.05,14),
+const inputBase = (theme) => ({
+  ...glass(theme, 0.05, 14),
   border:`1px solid ${theme.border}`, borderRadius:10,
   color:theme.text, fontFamily:theme.mono, fontSize:'0.73rem',
   padding:'10px 13px', outline:'none', width:'100%',
   transition:'border-color 0.2s, box-shadow 0.2s',
   boxShadow:`inset 0 2px 5px rgba(0,0,0,0.22)`,
-}
+})
 
-const GInput = ({ value, onChange, type='text', placeholder, min, step, disabled }) => (
-  <input value={value} type={type} placeholder={placeholder} min={min} step={step}
-    disabled={disabled} onChange={e => onChange(e.target.value)}
-    style={{ ...inputBase, opacity:disabled?0.45:1 }}
-    onFocus={e => { if(!disabled){ e.target.style.borderColor=`${theme.accent}70`; e.target.style.boxShadow=`inset 0 2px 5px rgba(0,0,0,0.22),0 0 0 3px ${theme.accentDim}` }}}
-    onBlur={e  => { e.target.style.borderColor=theme.border; e.target.style.boxShadow=`inset 0 2px 5px rgba(0,0,0,0.22)` }}
-  />
-)
+const GInput = ({ value, onChange, type='text', placeholder, min, step, disabled }) => {
+  const { theme } = useTheme()
+  
+  return (
+    <input value={value} type={type} placeholder={placeholder} min={min} step={step}
+      disabled={disabled} onChange={e => onChange(e.target.value)}
+      style={{ ...inputBase(theme), opacity:disabled?0.45:1 }}
+      onFocus={e => { if(!disabled){ e.target.style.borderColor=`${theme.accent}70`; e.target.style.boxShadow=`inset 0 2px 5px rgba(0,0,0,0.22),0 0 0 3px ${theme.accentDim}` }}}
+      onBlur={e  => { e.target.style.borderColor=theme.border; e.target.style.boxShadow=`inset 0 2px 5px rgba(0,0,0,0.22)` }}
+    />
+  )
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ICON PICKER DROPDOWN
 // ─────────────────────────────────────────────────────────────────────────────
 function IconPickerDropdown({ value, onChange }) {
+  const { theme } = useTheme()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const sel = iconByName(value)
@@ -144,7 +156,7 @@ function IconPickerDropdown({ value, onChange }) {
   return (
     <div ref={ref} style={{ position:'relative' }}>
       <button type="button" onClick={() => setOpen(v=>!v)} style={{
-        ...inputBase, display:'flex', alignItems:'center', justifyContent:'space-between',
+        ...inputBase(theme), display:'flex', alignItems:'center', justifyContent:'space-between',
         gap:8, cursor:'pointer',
         border:`1px solid ${open?`${theme.accent}70`:theme.border}`,
         boxShadow: open ? `inset 0 2px 5px rgba(0,0,0,0.22),0 0 0 3px ${theme.accentDim}` : `inset 0 2px 5px rgba(0,0,0,0.22)`,
@@ -159,7 +171,7 @@ function IconPickerDropdown({ value, onChange }) {
       </button>
 
       {open && (
-        <div style={{ position:'absolute', top:'calc(100% + 6px)', left:0, right:0, ...glass(0.16,26), border:`1px solid ${theme.borderHi}`, borderRadius:13, zIndex:1400, boxShadow:'0 20px 50px rgba(0,0,0,0.55)', animation:'fadeIn 0.17s ease', padding:8 }}>
+        <div style={{ position:'absolute', top:'calc(100% + 6px)', left:0, right:0, ...glass(theme, 0.16, 26), border:`1px solid ${theme.borderHi}`, borderRadius:13, zIndex:1400, boxShadow:'0 20px 50px rgba(0,0,0,0.55)', animation:'fadeIn 0.17s ease', padding:8 }}>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:5 }}>
             {GOAL_ICONS.map(opt => {
               const isAct = value === opt.name
@@ -167,7 +179,7 @@ function IconPickerDropdown({ value, onChange }) {
                 <button key={opt.name} type="button"
                   onClick={() => { onChange(opt.name); setOpen(false) }}
                   title={opt.label}
-                  style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:4, padding:'8px 4px', ...glass(isAct?0.1:0.02,8), border:`1px solid ${isAct?opt.color+'50':theme.border}`, borderRadius:9, cursor:'pointer', transition:'all 0.15s', background:isAct?`${opt.color}18`:'transparent' }}
+                  style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:4, padding:'8px 4px', ...glass(theme, isAct?0.1:0.02, 8), border:`1px solid ${isAct?opt.color+'50':theme.border}`, borderRadius:9, cursor:'pointer', transition:'all 0.15s', background:isAct?`${opt.color}18`:'transparent' }}
                   onMouseEnter={e=>{ if(!isAct) e.currentTarget.style.background='rgba(255,255,255,0.06)' }}
                   onMouseLeave={e=>{ if(!isAct) e.currentTarget.style.background='transparent' }}
                 >
@@ -187,6 +199,7 @@ function IconPickerDropdown({ value, onChange }) {
 // MONTHS DROPDOWN  (for emergency fund)
 // ─────────────────────────────────────────────────────────────────────────────
 function MonthsDropdown({ value, onChange }) {
+  const { theme } = useTheme()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const opts = [
@@ -205,7 +218,7 @@ function MonthsDropdown({ value, onChange }) {
 
   return (
     <div ref={ref} style={{ position:'relative' }}>
-      <button type="button" onClick={() => setOpen(v=>!v)} style={{ ...inputBase, display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, cursor:'pointer', border:`1px solid ${open?`${theme.accent}70`:theme.border}`, boxShadow: open?`inset 0 2px 5px rgba(0,0,0,0.22),0 0 0 3px ${theme.accentDim}`:`inset 0 2px 5px rgba(0,0,0,0.22)` }}>
+      <button type="button" onClick={() => setOpen(v=>!v)} style={{ ...inputBase(theme), display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, cursor:'pointer', border:`1px solid ${open?`${theme.accent}70`:theme.border}`, boxShadow: open?`inset 0 2px 5px rgba(0,0,0,0.22),0 0 0 3px ${theme.accentDim}`:`inset 0 2px 5px rgba(0,0,0,0.22)` }}>
         <div>
           <span style={{ color:theme.text, fontSize:'0.72rem' }}>{sel.label}</span>
           <span style={{ color:theme.muted, fontSize:'0.62rem', marginLeft:8 }}>{sel.sub}</span>
@@ -213,7 +226,7 @@ function MonthsDropdown({ value, onChange }) {
         <ChevronDown size={13} style={{ color:theme.muted, transform:open?'rotate(180deg)':'none', transition:'transform 0.22s', flexShrink:0 }}/>
       </button>
       {open && (
-        <div style={{ position:'absolute', top:'calc(100% + 6px)', left:0, right:0, ...glass(0.16,26), border:`1px solid ${theme.borderHi}`, borderRadius:12, zIndex:1400, boxShadow:'0 16px 40px rgba(0,0,0,0.5)', animation:'fadeIn 0.17s ease', overflow:'hidden' }}>
+        <div style={{ position:'absolute', top:'calc(100% + 6px)', left:0, right:0, ...glass(theme, 0.16, 26), border:`1px solid ${theme.borderHi}`, borderRadius:12, zIndex:1400, boxShadow:'0 16px 40px rgba(0,0,0,0.5)', animation:'fadeIn 0.17s ease', overflow:'hidden' }}>
           {opts.map(o => (
             <button key={o.v} type="button"
               onClick={() => { onChange(o.v); setOpen(false) }}
@@ -235,9 +248,10 @@ function MonthsDropdown({ value, onChange }) {
 // GLASS PROGRESS BAR
 // ─────────────────────────────────────────────────────────────────────────────
 function GlassBar({ value, max, color, height=5 }) {
+  const { theme } = useTheme()
   const p = max > 0 ? Math.min(100, (value/max)*100) : 0
   return (
-    <div style={{ height, ...glass(0.04,8), border:`1px solid ${theme.border}`, borderRadius:height, overflow:'hidden' }}>
+    <div style={{ height, ...glass(theme, 0.04, 8), border:`1px solid ${theme.border}`, borderRadius:height, overflow:'hidden' }}>
       <div style={{ height:'100%', width:`${p}%`, background:`linear-gradient(90deg,${color}70,${color})`, borderRadius:height, transition:'width 0.8s ease', boxShadow:`0 0 10px ${color}50`, position:'relative', overflow:'hidden' }}>
         <div style={{ position:'absolute', inset:0, background:'linear-gradient(90deg,transparent,rgba(255,255,255,0.20),transparent)', animation:'shimmer 2.5s infinite' }}/>
       </div>
@@ -249,15 +263,17 @@ function GlassBar({ value, max, color, height=5 }) {
 // KPI TILE
 // ─────────────────────────────────────────────────────────────────────────────
 function KpiTile({ label, value, accent, sub, icon:Icon, index=0 }) {
+  const { theme } = useTheme()
+  
   return (
-    <div style={{ ...glass(0.05,20), border:`1px solid ${theme.border}`, borderRadius:16, padding:'20px 22px', position:'relative', overflow:'hidden', boxShadow:gi, animation:`fadeUp 0.4s ${index*0.08}s both` }}>
+    <div style={{ ...glass(theme, 0.05, 20), border:`1px solid ${theme.border}`, borderRadius:16, padding:'20px 22px', position:'relative', overflow:'hidden', boxShadow:gi(theme), animation:`fadeUp 0.4s ${index*0.08}s both` }}>
       <div style={shine}/>
       <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background:accent, opacity:0.6 }}/>
       <div style={{ position:'absolute', top:-30, right:-30, width:100, height:100, background:`radial-gradient(circle,${accent}18 0%,transparent 70%)`, pointerEvents:'none' }}/>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12 }}>
         <FL>{label}</FL>
         {Icon && (
-          <div style={{ width:28, height:28, ...glass(0.08,10), border:`1px solid ${accent}30`, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', color:accent, flexShrink:0 }}>
+          <div style={{ width:28, height:28, ...glass(theme, 0.08, 10), border:`1px solid ${accent}30`, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', color:accent, flexShrink:0 }}>
             <Icon size={13} strokeWidth={1.8}/>
           </div>
         )}
@@ -272,14 +288,16 @@ function KpiTile({ label, value, accent, sub, icon:Icon, index=0 }) {
 // SKELETON
 // ─────────────────────────────────────────────────────────────────────────────
 function GoalsSkeleton() {
+  const { theme } = useTheme()
+  
   return (
     <div style={{ display:'grid', gap:18 }}>
-      <div style={{ ...glass(0.04,16), border:`1px solid ${theme.border}`, borderRadius:18, height:220, animation:'gpulse 1.8s ease-in-out infinite' }}/>
+      <div style={{ ...glass(theme, 0.04, 16), border:`1px solid ${theme.border}`, borderRadius:18, height:220, animation:'gpulse 1.8s ease-in-out infinite' }}/>
       <div className="g-kpi-grid">
-        {[0,1,2].map(i => <div key={i} style={{ ...glass(0.04,16), border:`1px solid ${theme.border}`, borderRadius:16, height:100, animation:`gpulse 1.8s ${i*0.15}s ease-in-out infinite` }}/>)}
+        {[0,1,2].map(i => <div key={i} style={{ ...glass(theme, 0.04, 16), border:`1px solid ${theme.border}`, borderRadius:16, height:100, animation:`gpulse 1.8s ${i*0.15}s ease-in-out infinite` }}/>)}
       </div>
       <div className="g-goals-grid">
-        {[0,1,2].map(i => <div key={i} style={{ ...glass(0.04,16), border:`1px solid ${theme.border}`, borderRadius:18, height:240, animation:`gpulse 1.8s ${i*0.2}s ease-in-out infinite` }}/>)}
+        {[0,1,2].map(i => <div key={i} style={{ ...glass(theme, 0.04, 16), border:`1px solid ${theme.border}`, borderRadius:18, height:240, animation:`gpulse 1.8s ${i*0.2}s ease-in-out infinite` }}/>)}
       </div>
     </div>
   )
@@ -289,6 +307,7 @@ function GoalsSkeleton() {
 // EMERGENCY FUND CARD
 // ─────────────────────────────────────────────────────────────────────────────
 function EmergencyFundCard({ emergencyFund, onUpdate, isPending }) {
+  const { theme } = useTheme()
   const { monthlyExpenses, cashBalance } = useFinance()
   const [editing, setEditing]   = useState(false)
   const [targetMonths, setTM]   = useState(6)
@@ -309,7 +328,7 @@ function EmergencyFundCard({ emergencyFund, onUpdate, isPending }) {
   }
 
   return (
-    <div style={{ ...glass(0.06,24), border:`1px solid ${achieved?`${theme.green}40`:`${theme.yellow}30`}`, borderLeft:`2px solid ${accent}`, borderRadius:18, padding:28, position:'relative', overflow:'hidden', boxShadow:`${gi},0 0 30px ${accent}0a`, animation:'fadeUp 0.4s ease' }}>
+    <div style={{ ...glass(theme, 0.06, 24), border:`1px solid ${achieved?`${theme.green}40`:`${theme.yellow}30`}`, borderLeft:`2px solid ${accent}`, borderRadius:18, padding:28, position:'relative', overflow:'hidden', boxShadow:`${gi(theme)},0 0 30px ${accent}0a`, animation:'fadeUp 0.4s ease' }}>
       <div style={shine}/>
       <div style={{ position:'absolute', top:-60, right:-60, width:220, height:220, background:`radial-gradient(circle,${accent}10 0%,transparent 70%)`, pointerEvents:'none' }}/>
       <div style={{ position:'absolute', top:0, left:0, right:0, height:1, background:`linear-gradient(90deg,${accent}60,transparent)` }}/>
@@ -317,7 +336,7 @@ function EmergencyFundCard({ emergencyFund, onUpdate, isPending }) {
       {/* Header row */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:22, flexWrap:'wrap', gap:12 }}>
         <div style={{ display:'flex', alignItems:'center', gap:14 }}>
-          <div style={{ width:46, height:46, ...glass(0.1,14), border:`1px solid ${accent}40`, borderRadius:14, display:'flex', alignItems:'center', justifyContent:'center', color:accent, boxShadow:`0 0 20px ${accent}30`, flexShrink:0 }}>
+          <div style={{ width:46, height:46, ...glass(theme, 0.1, 14), border:`1px solid ${accent}40`, borderRadius:14, display:'flex', alignItems:'center', justifyContent:'center', color:accent, boxShadow:`0 0 20px ${accent}30`, flexShrink:0 }}>
             <Shield size={20} strokeWidth={1.8}/>
           </div>
           <div>
@@ -332,7 +351,7 @@ function EmergencyFundCard({ emergencyFund, onUpdate, isPending }) {
         </div>
         {!editing && (
           <button onClick={() => setEditing(true)}
-            style={{ display:'inline-flex', alignItems:'center', gap:7, ...glass(0.05,10), border:`1px solid ${theme.border}`, borderRadius:9, color:theme.muted, padding:'8px 16px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.6rem', letterSpacing:'0.14em', textTransform:'uppercase', transition:'all 0.2s', flexShrink:0 }}
+            style={{ display:'inline-flex', alignItems:'center', gap:7, ...glass(theme, 0.05, 10), border:`1px solid ${theme.border}`, borderRadius:9, color:theme.muted, padding:'8px 16px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.6rem', letterSpacing:'0.14em', textTransform:'uppercase', transition:'all 0.2s', flexShrink:0 }}
             onMouseEnter={e=>{ e.currentTarget.style.borderColor=`${accent}60`; e.currentTarget.style.color=accent }}
             onMouseLeave={e=>{ e.currentTarget.style.borderColor=theme.border; e.currentTarget.style.color=theme.muted }}
           >
@@ -348,7 +367,7 @@ function EmergencyFundCard({ emergencyFund, onUpdate, isPending }) {
             <MonthsDropdown value={targetMonths} onChange={setTM}/>
           </div>
           {monthlyExpenses > 0 && (
-            <div style={{ padding:'10px 14px', ...glass(0.06,12), border:`1px solid ${accent}30`, borderLeft:`2px solid ${accent}`, borderRadius:10, marginBottom:14, fontFamily:theme.mono, fontSize:'0.61rem', color:theme.muted, display:'flex', alignItems:'center', gap:10 }}>
+            <div style={{ padding:'10px 14px', ...glass(theme, 0.06, 12), border:`1px solid ${accent}30`, borderLeft:`2px solid ${accent}`, borderRadius:10, marginBottom:14, fontFamily:theme.mono, fontSize:'0.61rem', color:theme.muted, display:'flex', alignItems:'center', gap:10 }}>
               <span>Target amount:</span>
               <span style={{ color:accent, fontFamily:theme.display, fontSize:'1.1rem' }}>{inr(target)}</span>
               <span>· Currently:</span>
@@ -357,11 +376,11 @@ function EmergencyFundCard({ emergencyFund, onUpdate, isPending }) {
           )}
           <div style={{ display:'flex', gap:10 }}>
             <button onClick={handleSave} disabled={isPending}
-              style={{ display:'inline-flex', alignItems:'center', gap:8, ...glass(0.08,12), border:`1px solid ${accent}50`, borderRadius:10, color:accent, padding:'10px 22px', cursor:isPending?'not-allowed':'pointer', fontFamily:theme.mono, fontSize:'0.65rem', letterSpacing:'0.16em', textTransform:'uppercase', opacity:isPending?0.6:1, transition:'all 0.2s', boxShadow:`0 0 14px ${accent}18` }}>
+              style={{ display:'inline-flex', alignItems:'center', gap:8, ...glass(theme, 0.08, 12), border:`1px solid ${accent}50`, borderRadius:10, color:accent, padding:'10px 22px', cursor:isPending?'not-allowed':'pointer', fontFamily:theme.mono, fontSize:'0.65rem', letterSpacing:'0.16em', textTransform:'uppercase', opacity:isPending?0.6:1, transition:'all 0.2s', boxShadow:`0 0 14px ${accent}18` }}>
               {isPending ? <Spinner size={13}/> : <><Check size={13}/> Save</>}
             </button>
             <button onClick={() => setEditing(false)}
-              style={{ display:'inline-flex', alignItems:'center', gap:7, ...glass(0.04,10), border:`1px solid ${theme.border}`, borderRadius:10, color:theme.muted, padding:'10px 18px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.63rem', letterSpacing:'0.13em', textTransform:'uppercase', transition:'all 0.2s' }}>
+              style={{ display:'inline-flex', alignItems:'center', gap:7, ...glass(theme, 0.04, 10), border:`1px solid ${theme.border}`, borderRadius:10, color:theme.muted, padding:'10px 18px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.63rem', letterSpacing:'0.13em', textTransform:'uppercase', transition:'all 0.2s' }}>
               <X size={13}/> Cancel
             </button>
           </div>
@@ -388,7 +407,7 @@ function EmergencyFundCard({ emergencyFund, onUpdate, isPending }) {
               { label:'Monthly Need',  value:inr(monthlyExpenses),                           color:theme.text },
               { label:'Coverage',      value:`${coverage} months`,                           color:theme.text },
             ].map(({ label, value, color }) => (
-              <div key={label} style={{ ...glass(0.06,12), border:`1px solid ${theme.border}`, borderRadius:12, padding:'12px 14px' }}>
+              <div key={label} style={{ ...glass(theme, 0.06, 12), border:`1px solid ${theme.border}`, borderRadius:12, padding:'12px 14px' }}>
                 <FL>{label}</FL>
                 <div style={{ fontFamily:theme.display, fontSize:'1.1rem', color, fontWeight:700 }}>{value}</div>
               </div>
@@ -399,7 +418,7 @@ function EmergencyFundCard({ emergencyFund, onUpdate, isPending }) {
             <div style={{ display:'flex', gap:8, marginTop:16, flexWrap:'wrap' }}>
               {[['Add from Cash','/cash'],['Trim Budget','/budget']].map(([label,href]) => (
                 <button key={label} onClick={() => window.location.href=href}
-                  style={{ display:'inline-flex', alignItems:'center', gap:6, ...glass(0.05,10), border:`1px solid ${theme.border}`, borderRadius:9, color:theme.muted, padding:'7px 14px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.59rem', letterSpacing:'0.12em', textTransform:'uppercase', transition:'all 0.2s' }}
+                  style={{ display:'inline-flex', alignItems:'center', gap:6, ...glass(theme, 0.05, 10), border:`1px solid ${theme.border}`, borderRadius:9, color:theme.muted, padding:'7px 14px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.59rem', letterSpacing:'0.12em', textTransform:'uppercase', transition:'all 0.2s' }}
                   onMouseEnter={e=>{ e.currentTarget.style.borderColor=`${accent}60`; e.currentTarget.style.color=accent }}
                   onMouseLeave={e=>{ e.currentTarget.style.borderColor=theme.border; e.currentTarget.style.color=theme.muted }}
                 >
@@ -418,6 +437,7 @@ function EmergencyFundCard({ emergencyFund, onUpdate, isPending }) {
 // ADD GOAL FORM
 // ─────────────────────────────────────────────────────────────────────────────
 function AddGoalForm({ onDone, userId }) {
+  const { theme } = useTheme()
   const addGoal = useAddGoal(userId)
   const [form, setForm] = useState({ name:'', iconName:'Target', target:'', saved:'', deadline:'' })
   const [err, setErr]   = useState('')
@@ -439,7 +459,7 @@ function AddGoalForm({ onDone, userId }) {
   }
 
   return (
-    <div style={{ ...glass(0.06,22), border:`1px solid ${selIcon.color}30`, borderLeft:`2px solid ${selIcon.color}`, borderRadius:18, padding:26, position:'relative', overflow:'hidden', boxShadow:`${gi},0 0 30px ${selIcon.color}0a`, animation:'fadeUp 0.3s ease', marginBottom:4 }}>
+    <div style={{ ...glass(theme, 0.06, 22), border:`1px solid ${selIcon.color}30`, borderLeft:`2px solid ${selIcon.color}`, borderRadius:18, padding:26, position:'relative', overflow:'hidden', boxShadow:`${gi(theme)},0 0 30px ${selIcon.color}0a`, animation:'fadeUp 0.3s ease', marginBottom:4 }}>
       <div style={shine}/>
       <div style={{ position:'absolute', top:-50, right:-50, width:180, height:180, background:`radial-gradient(circle,${selIcon.color}0c 0%,transparent 70%)`, pointerEvents:'none' }}/>
 
@@ -472,7 +492,7 @@ function AddGoalForm({ onDone, userId }) {
 
       {/* Smart preview */}
       {form.target && (
-        <div style={{ padding:'10px 16px', ...glass(0.06,12), border:`1px solid ${selIcon.color}30`, borderLeft:`2px solid ${selIcon.color}`, borderRadius:10, marginBottom:14, display:'flex', alignItems:'center', gap:14, flexWrap:'wrap', animation:'fadeUp 0.2s ease' }}>
+        <div style={{ padding:'10px 16px', ...glass(theme, 0.06, 12), border:`1px solid ${selIcon.color}30`, borderLeft:`2px solid ${selIcon.color}`, borderRadius:10, marginBottom:14, display:'flex', alignItems:'center', gap:14, flexWrap:'wrap', animation:'fadeUp 0.2s ease' }}>
           <Sparkles size={13} style={{color:selIcon.color, flexShrink:0}}/>
           <span style={{ fontFamily:theme.mono, fontSize:'0.61rem', color:theme.muted }}>Target:</span>
           <span style={{ fontFamily:theme.display, fontSize:'1.1rem', color:selIcon.color }}>{inr(+form.target)}</span>
@@ -488,21 +508,21 @@ function AddGoalForm({ onDone, userId }) {
       )}
 
       {err && (
-        <div style={{ fontFamily:theme.mono, fontSize:'0.61rem', color:theme.red, padding:'9px 13px', ...glass(0.04,10), border:`1px solid ${theme.red}28`, borderRadius:9, marginBottom:14, display:'flex', alignItems:'center', gap:7 }}>
+        <div style={{ fontFamily:theme.mono, fontSize:'0.61rem', color:theme.red, padding:'9px 13px', ...glass(theme, 0.04, 10), border:`1px solid ${theme.red}28`, borderRadius:9, marginBottom:14, display:'flex', alignItems:'center', gap:7 }}>
           <AlertTriangle size={12} strokeWidth={2}/>{err}
         </div>
       )}
 
       <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
         <button onClick={submit} disabled={addGoal.isPending}
-          style={{ display:'inline-flex', alignItems:'center', gap:8, ...glass(0.08,12), border:`1px solid ${selIcon.color}50`, borderRadius:10, color:selIcon.color, padding:'10px 24px', cursor:addGoal.isPending?'not-allowed':'pointer', fontFamily:theme.mono, fontSize:'0.65rem', letterSpacing:'0.16em', textTransform:'uppercase', opacity:addGoal.isPending?0.6:1, transition:'all 0.2s', boxShadow:`0 0 16px ${selIcon.color}18` }}
+          style={{ display:'inline-flex', alignItems:'center', gap:8, ...glass(theme, 0.08, 12), border:`1px solid ${selIcon.color}50`, borderRadius:10, color:selIcon.color, padding:'10px 24px', cursor:addGoal.isPending?'not-allowed':'pointer', fontFamily:theme.mono, fontSize:'0.65rem', letterSpacing:'0.16em', textTransform:'uppercase', opacity:addGoal.isPending?0.6:1, transition:'all 0.2s', boxShadow:`0 0 16px ${selIcon.color}18` }}
           onMouseEnter={e=>{ if(!addGoal.isPending) e.currentTarget.style.boxShadow=`0 0 28px ${selIcon.color}35` }}
           onMouseLeave={e=>e.currentTarget.style.boxShadow=`0 0 16px ${selIcon.color}18`}
         >
           {addGoal.isPending ? <Spinner size={13}/> : <><Plus size={14}/> Create Goal</>}
         </button>
         <button onClick={onDone}
-          style={{ display:'inline-flex', alignItems:'center', gap:7, ...glass(0.04,12), border:`1px solid ${theme.border}`, borderRadius:10, color:theme.muted, padding:'10px 18px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.63rem', letterSpacing:'0.14em', textTransform:'uppercase', transition:'all 0.2s' }}>
+          style={{ display:'inline-flex', alignItems:'center', gap:7, ...glass(theme, 0.04, 12), border:`1px solid ${theme.border}`, borderRadius:10, color:theme.muted, padding:'10px 18px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.63rem', letterSpacing:'0.14em', textTransform:'uppercase', transition:'all 0.2s' }}>
           <X size={13}/> Cancel
         </button>
       </div>
@@ -514,6 +534,7 @@ function AddGoalForm({ onDone, userId }) {
 // GOAL CARD
 // ─────────────────────────────────────────────────────────────────────────────
 function GoalCard({ goal, index=0 }) {
+  const { theme } = useTheme()
   const { userId }  = useFinance()
   const updateGoal  = useUpdateGoal(userId)
   const deleteGoal  = useDeleteGoal(userId)
@@ -551,12 +572,12 @@ function GoalCard({ goal, index=0 }) {
   return (
     <div onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
       style={{
-        ...glass(hov?0.07:0.04,22),
+        ...glass(theme, hov?0.07:0.04, 22),
         border:`1px solid ${done?`${theme.green}45`:urgent?`${theme.red}35`:hov?theme.borderHi:theme.border}`,
         borderLeft:`2px solid ${accent}`,
         borderRadius:18, padding:24, position:'relative', overflow:'hidden',
         transition:'all 0.3s ease',
-        boxShadow: hov ? `${gi},0 0 28px ${accent}12` : gi,
+        boxShadow: hov ? `${gi(theme)},0 0 28px ${accent}12` : gi(theme),
         animation:`fadeUp 0.4s ${index*0.09}s both`,
       }}
     >
@@ -566,12 +587,12 @@ function GoalCard({ goal, index=0 }) {
 
       {/* Completed ribbon */}
       {done && (
-        <div style={{ position:'absolute', top:12, right:44, display:'flex', alignItems:'center', gap:5, ...glass(0.1,12), border:`1px solid ${theme.green}35`, borderRadius:7, padding:'3px 9px', color:theme.green, fontFamily:theme.mono, fontSize:'0.49rem', letterSpacing:'0.16em', textTransform:'uppercase', animation:'celebrate 0.6s ease' }}>
+        <div style={{ position:'absolute', top:12, right:44, display:'flex', alignItems:'center', gap:5, ...glass(theme, 0.1, 12), border:`1px solid ${theme.green}35`, borderRadius:7, padding:'3px 9px', color:theme.green, fontFamily:theme.mono, fontSize:'0.49rem', letterSpacing:'0.16em', textTransform:'uppercase', animation:'celebrate 0.6s ease' }}>
           <CheckCircle size={10} strokeWidth={2.5}/> Achieved!
         </div>
       )}
       {urgent && !done && (
-        <div style={{ position:'absolute', top:12, right:44, display:'flex', alignItems:'center', gap:5, ...glass(0.1,12), border:`1px solid ${theme.red}35`, borderRadius:7, padding:'3px 9px', color:theme.red, fontFamily:theme.mono, fontSize:'0.49rem', letterSpacing:'0.16em', textTransform:'uppercase' }}>
+        <div style={{ position:'absolute', top:12, right:44, display:'flex', alignItems:'center', gap:5, ...glass(theme, 0.1, 12), border:`1px solid ${theme.red}35`, borderRadius:7, padding:'3px 9px', color:theme.red, fontFamily:theme.mono, fontSize:'0.49rem', letterSpacing:'0.16em', textTransform:'uppercase' }}>
           <Clock size={10} strokeWidth={2.5}/> Urgent
         </div>
       )}
@@ -579,7 +600,7 @@ function GoalCard({ goal, index=0 }) {
       {/* Card header */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:18 }}>
         <div style={{ display:'flex', alignItems:'center', gap:12, minWidth:0, flex:1 }}>
-          <div style={{ width:42, height:42, flexShrink:0, ...glass(0.1,12), border:`1px solid ${accent}35`, borderRadius:13, display:'flex', alignItems:'center', justifyContent:'center', color:accent, boxShadow:hov?`0 0 18px ${accent}40`:'none', transition:'box-shadow 0.3s' }}>
+          <div style={{ width:42, height:42, flexShrink:0, ...glass(theme, 0.1, 12), border:`1px solid ${accent}35`, borderRadius:13, display:'flex', alignItems:'center', justifyContent:'center', color:accent, boxShadow:hov?`0 0 18px ${accent}40`:'none', transition:'box-shadow 0.3s' }}>
             <meta.icon size={18} strokeWidth={1.8}/>
           </div>
           <div style={{ minWidth:0 }}>
@@ -598,7 +619,7 @@ function GoalCard({ goal, index=0 }) {
           </div>
         </div>
         <button onClick={handleDelete} disabled={deleteGoal.isPending}
-          style={{ ...glass(0.04,8), border:`1px solid transparent`, borderRadius:8, color:theme.muted, padding:'6px', cursor:'pointer', transition:'all 0.2s', display:'flex', alignItems:'center', flexShrink:0 }}
+          style={{ ...glass(theme, 0.04, 8), border:`1px solid transparent`, borderRadius:8, color:theme.muted, padding:'6px', cursor:'pointer', transition:'all 0.2s', display:'flex', alignItems:'center', flexShrink:0 }}
           onMouseEnter={e=>{ e.currentTarget.style.color=theme.red; e.currentTarget.style.borderColor=`${theme.red}40`; e.currentTarget.style.background=`${theme.red}10` }}
           onMouseLeave={e=>{ e.currentTarget.style.color=theme.muted; e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.background='rgba(255,255,255,0.04)' }}
         >
@@ -630,7 +651,7 @@ function GoalCard({ goal, index=0 }) {
 
       {/* Monthly pace hint */}
       {monthlyPace && !done && (
-        <div style={{ ...glass(0.05,10), border:`1px solid ${theme.border}`, borderRadius:9, padding:'7px 12px', marginBottom:14, display:'flex', alignItems:'center', gap:8, fontFamily:theme.mono, fontSize:'0.58rem', color:theme.muted }}>
+        <div style={{ ...glass(theme, 0.05, 10), border:`1px solid ${theme.border}`, borderRadius:9, padding:'7px 12px', marginBottom:14, display:'flex', alignItems:'center', gap:8, fontFamily:theme.mono, fontSize:'0.58rem', color:theme.muted }}>
           <TrendingUp size={11} style={{color:accent, flexShrink:0}}/>
           Save <span style={{color:accent, margin:'0 3px'}}>{inrCompact(monthlyPace)}/mo</span> to hit your deadline
         </div>
@@ -644,11 +665,11 @@ function GoalCard({ goal, index=0 }) {
               <GInput value={customAmt} onChange={setAmt} type="number" min="0" placeholder="Enter amount (₹)" disabled={isPending}/>
             </div>
             <button onClick={handleCustom} disabled={isPending||!customAmt||+customAmt<=0}
-              style={{ display:'flex', alignItems:'center', gap:6, ...glass(0.08,12), border:`1px solid ${accent}50`, borderRadius:9, color:accent, padding:'10px 16px', cursor:isPending?'not-allowed':'pointer', fontFamily:theme.mono, fontSize:'0.62rem', letterSpacing:'0.1em', transition:'all 0.2s', opacity:(isPending||!customAmt||+customAmt<=0)?0.5:1, boxShadow:`0 0 12px ${accent}18` }}>
+              style={{ display:'flex', alignItems:'center', gap:6, ...glass(theme, 0.08, 12), border:`1px solid ${accent}50`, borderRadius:9, color:accent, padding:'10px 16px', cursor:isPending?'not-allowed':'pointer', fontFamily:theme.mono, fontSize:'0.62rem', letterSpacing:'0.1em', transition:'all 0.2s', opacity:(isPending||!customAmt||+customAmt<=0)?0.5:1, boxShadow:`0 0 12px ${accent}18` }}>
               {isPending ? <Spinner size={11}/> : <><ArrowRight size={13}/> Add</>}
             </button>
             <button onClick={() => setDepositing(false)}
-              style={{ ...glass(0.04,10), border:`1px solid ${theme.border}`, borderRadius:9, color:theme.muted, padding:'10px 11px', cursor:'pointer', display:'flex', alignItems:'center', transition:'all 0.2s' }}>
+              style={{ ...glass(theme, 0.04, 10), border:`1px solid ${theme.border}`, borderRadius:9, color:theme.muted, padding:'10px 11px', cursor:'pointer', display:'flex', alignItems:'center', transition:'all 0.2s' }}>
               <X size={13}/>
             </button>
           </div>
@@ -656,13 +677,13 @@ function GoalCard({ goal, index=0 }) {
           <div style={{ display:'flex', gap:7, flexWrap:'wrap' }}>
             {[1000,5000,10000].map(a => (
               <button key={a} onClick={() => deposit(a)} disabled={isPending}
-                style={{ ...glass(0.06,10), border:`1px solid ${accent}30`, color:accent, padding:'7px 12px', cursor:isPending?'not-allowed':'pointer', fontFamily:theme.mono, fontSize:'0.59rem', letterSpacing:'0.1em', borderRadius:9, transition:'all 0.2s', opacity:isPending?0.5:1 }}
+                style={{ ...glass(theme, 0.06, 10), border:`1px solid ${accent}30`, color:accent, padding:'7px 12px', cursor:isPending?'not-allowed':'pointer', fontFamily:theme.mono, fontSize:'0.59rem', letterSpacing:'0.1em', borderRadius:9, transition:'all 0.2s', opacity:isPending?0.5:1 }}
                 onMouseEnter={e=>{ if(!isPending) e.currentTarget.style.boxShadow=`0 0 14px ${accent}30` }}
                 onMouseLeave={e=>e.currentTarget.style.boxShadow='none'}
               >+{inrCompact(a)}</button>
             ))}
             <button onClick={() => setDepositing(true)} disabled={isPending}
-              style={{ ...glass(0.04,10), border:`1px solid ${theme.border}`, color:theme.muted, padding:'7px 12px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.59rem', letterSpacing:'0.1em', borderRadius:9, transition:'all 0.2s' }}
+              style={{ ...glass(theme, 0.04, 10), border:`1px solid ${theme.border}`, color:theme.muted, padding:'7px 12px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.59rem', letterSpacing:'0.1em', borderRadius:9, transition:'all 0.2s' }}
               onMouseEnter={e=>{ e.currentTarget.style.borderColor=`${accent}60`; e.currentTarget.style.color=accent }}
               onMouseLeave={e=>{ e.currentTarget.style.borderColor=theme.border; e.currentTarget.style.color=theme.muted }}
             >Custom</button>
@@ -677,6 +698,7 @@ function GoalCard({ goal, index=0 }) {
 // GOALS PAGE
 // ─────────────────────────────────────────────────────────────────────────────
 export default function Goals() {
+  const { theme } = useTheme()
   const { userId, monthlyExpenses, cashBalance } = useFinance()
   const { data:goals=[], isLoading, error, refetch } = useGoals(userId)
   const addGoal    = useAddGoal(userId)
@@ -699,13 +721,25 @@ export default function Goals() {
     else await addGoal.mutateAsync({ name:'Emergency Fund', icon:'Shield', target:updates.target||monthlyExpenses*6, saved:cashBalance||0, deadline:null })
   }
 
-  if (isLoading) return <><style>{CSS}</style><GoalsSkeleton/></>
+  // Update CSS variables when theme changes
+  useEffect(() => {
+    const style = document.createElement('style')
+    style.textContent = CSS(theme)
+    style.id = 'goals-dynamic-styles'
+    const oldStyle = document.getElementById('goals-dynamic-styles')
+    if (oldStyle) oldStyle.remove()
+    document.head.appendChild(style)
+    
+    return () => style.remove()
+  }, [theme])
+
+  if (isLoading) return <><style>{CSS(theme)}</style><GoalsSkeleton /></>
 
   if (error) return (
-    <div style={{ ...glass(0.06,20), border:`1px solid ${theme.red}40`, borderRadius:18, padding:40, textAlign:'center' }}>
+    <div style={{ ...glass(theme, 0.06, 20), border:`1px solid ${theme.red}40`, borderRadius:18, padding:40, textAlign:'center' }}>
       <AlertTriangle size={28} strokeWidth={1.5} style={{ color:theme.red, display:'block', margin:'0 auto 14px', opacity:0.6 }}/>
       <div style={{ fontFamily:theme.mono, fontSize:'0.68rem', color:theme.red, marginBottom:20 }}>Error loading goals: {error.message}</div>
-      <button onClick={()=>refetch()} style={{ display:'inline-flex', alignItems:'center', gap:8, ...glass(0.08,12), border:`1px solid ${theme.accent}50`, borderRadius:10, color:theme.accent, padding:'10px 22px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.63rem', letterSpacing:'0.16em', textTransform:'uppercase' }}>
+      <button onClick={()=>refetch()} style={{ display:'inline-flex', alignItems:'center', gap:8, ...glass(theme, 0.08, 12), border:`1px solid ${theme.accent}50`, borderRadius:10, color:theme.accent, padding:'10px 22px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.63rem', letterSpacing:'0.16em', textTransform:'uppercase' }}>
         <RefreshCw size={13}/> Retry
       </button>
     </div>
@@ -713,7 +747,7 @@ export default function Goals() {
 
   return (
     <div style={{ display:'grid', gap:22, fontFamily:theme.sans }}>
-      <style>{CSS}</style>
+      <style>{CSS(theme)}</style>
 
       {/* Header */}
       <div className="g-header">
@@ -730,7 +764,7 @@ export default function Goals() {
         </div>
         <button className="g-hdr-btn"
           onClick={() => setAdding(v=>!v)}
-          style={{ display:'inline-flex', alignItems:'center', gap:8, ...glass(adding?0.04:0.08,14), border:`1px solid ${adding?theme.border:`${theme.accent}60`}`, borderRadius:10, color:adding?theme.muted:theme.accent, padding:'10px 22px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.63rem', letterSpacing:'0.14em', textTransform:'uppercase', transition:'all 0.25s', boxShadow:adding?'none':`0 0 20px ${theme.accentGlow}` }}
+          style={{ display:'inline-flex', alignItems:'center', gap:8, ...glass(theme, adding?0.04:0.08, 14), border:`1px solid ${adding?theme.border:`${theme.accent}60`}`, borderRadius:10, color:adding?theme.muted:theme.accent, padding:'10px 22px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.63rem', letterSpacing:'0.14em', textTransform:'uppercase', transition:'all 0.25s', boxShadow:adding?'none':`0 0 20px ${theme.accentGlow}` }}
         >
           {adding ? <><X size={13}/>Cancel</> : <><Plus size={13}/>New Goal</>}
         </button>
@@ -755,13 +789,13 @@ export default function Goals() {
 
       {/* Empty */}
       {otherGoals.length === 0 && !adding ? (
-        <div style={{ ...glass(0.04,18), border:`1px dashed ${theme.border}`, borderRadius:18, padding:'60px 0', textAlign:'center' }}>
+        <div style={{ ...glass(theme, 0.04, 18), border:`1px dashed ${theme.border}`, borderRadius:18, padding:'60px 0', textAlign:'center' }}>
           <Target size={36} strokeWidth={1} style={{ color:theme.muted, margin:'0 auto 16px', opacity:0.25, display:'block' }}/>
           <div style={{ fontFamily:theme.mono, fontSize:'0.68rem', color:theme.muted, opacity:0.5, marginBottom:20 }}>
             No goals yet. Create your first savings milestone.
           </div>
           <button onClick={() => setAdding(true)}
-            style={{ display:'inline-flex', alignItems:'center', gap:8, ...glass(0.08,12), border:`1px solid ${theme.accent}50`, borderRadius:10, color:theme.accent, padding:'10px 22px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.63rem', letterSpacing:'0.14em', textTransform:'uppercase', boxShadow:`0 0 16px ${theme.accentGlow}` }}>
+            style={{ display:'inline-flex', alignItems:'center', gap:8, ...glass(theme, 0.08, 12), border:`1px solid ${theme.accent}50`, borderRadius:10, color:theme.accent, padding:'10px 22px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.63rem', letterSpacing:'0.14em', textTransform:'uppercase', boxShadow:`0 0 16px ${theme.accentGlow}` }}>
             <Plus size={13}/> Create First Goal
           </button>
         </div>
