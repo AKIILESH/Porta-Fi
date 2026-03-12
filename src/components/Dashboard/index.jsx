@@ -430,6 +430,9 @@ export default function Dashboard() {
 const {
   portfolioValue = 0, 
   cashBalance = 0, 
+  portfolioCost    = 0,
+  portfolioGain    = 0,
+  portfolioGainPct = 0,
   totalDebt = 0,
   netWorth = 0, 
   byAssetClass = {}, 
@@ -445,7 +448,6 @@ const {
   const savings = monthlyIncome - monthlyExpenses
   const savingsRate = monthlyIncome > 0 ? (savings / monthlyIncome) * 100 : 0
   const emergencyMonths = monthlyExpenses > 0 ? (cashBalance / monthlyExpenses).toFixed(1) : 'N/A'
-  const portfolioGainPct = 0 // Calculate this from your data
 
   // Allocation data with percentages
   const allocationData = useMemo(() => {

@@ -11,7 +11,8 @@ export const queryKeys = {
   dividendEvents: (userId) => ['dividendEvents', userId],
   sipPlans: (userId) => ['sipPlans', userId],
   accounts: (userId) => ['accounts', userId],
-  
+  rebalanceTargets: (userId) => ['rebalanceTargets', userId],
+
   budget: (userId, month) => ['budget', userId, month],
   budgetLimits: (userId, month) => ['budgetLimits', userId, month],
 

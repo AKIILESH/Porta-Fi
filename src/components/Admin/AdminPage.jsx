@@ -18,7 +18,53 @@ import {
   Activity,
   BarChart3,
   Shield,
+  TrendingUp,
 } from "lucide-react";
+
+// Helper to calculate returns from historical data
+function calculateReturns(prices) {
+  if (!prices || prices.length < 2) return null;
+  
+  const dailyReturns = [];
+  for (let i = 1; i < prices.length; i++) {
+    if (prices[i-1] && prices[i]) {
+      dailyReturns.push((prices[i] - prices[i-1]) / prices[i-1]);
+    }
+  }
+  
+  const totalReturn = prices.length > 1 
+    ? (prices[prices.length-1] - prices[0]) / prices[0]
+    : 0;
+  
+  // Calculate annualized return (252 trading days)
+  const annualizedReturn = dailyReturns.length > 0
+    ? (1 + dailyReturns.reduce((a, b) => a * (1 + b), 1)) ** (252 / dailyReturns.length) - 1
+    : 0;
+  
+  return {
+    daily: dailyReturns,
+    total: totalReturn,
+    annualized: annualizedReturn,
+    startPrice: prices[0],
+    endPrice: prices[prices.length-1],
+    dataPoints: prices.length,
+    volatility: calculateVolatility(dailyReturns),
+    sharpeRatio: calculateSharpeRatio(dailyReturns, annualizedReturn)
+  };
+}
+
+function calculateVolatility(returns) {
+  if (!returns || returns.length === 0) return 0;
+  const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
+  const variance = returns.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / returns.length;
+  return Math.sqrt(variance * 252); // Annualized volatility
+}
+
+function calculateSharpeRatio(returns, annualizedReturn, riskFreeRate = 0.06) {
+  if (!returns || returns.length === 0) return 0;
+  const volatility = calculateVolatility(returns);
+  return volatility > 0 ? (annualizedReturn - riskFreeRate) / volatility : 0;
+}
 
 export default function AdminPage() {
   const [loading, setLoading] = useState(true);
@@ -35,6 +81,8 @@ export default function AdminPage() {
     todayUpdates: 0,
     oldestCache: null,
     newestCache: null,
+    avgReturns: 0,
+    bestPerformer: null,
   });
   const [deletingId, setDeletingId] = useState(null);
 
@@ -60,6 +108,16 @@ export default function AdminPage() {
       const timestamps =
         data?.map((d) => new Date(d.fetched_at).getTime()) || [];
 
+      // Calculate average returns
+      const returns = data?.filter(d => d.returns_1y?.annualized).map(d => d.returns_1y.annualized) || [];
+      const avgReturns = returns.length > 0 
+        ? returns.reduce((a, b) => a + b, 0) / returns.length * 100
+        : 0;
+
+      // Find best performer
+      const bestPerformer = data?.filter(d => d.returns_1y?.annualized)
+        .sort((a, b) => (b.returns_1y?.annualized || 0) - (a.returns_1y?.annualized || 0))[0];
+
       setStats({
         totalTickers: data?.length || 0,
         uniqueTickers,
@@ -70,6 +128,8 @@ export default function AdminPage() {
         newestCache: timestamps.length
           ? new Date(Math.max(...timestamps))
           : null,
+        avgReturns: avgReturns.toFixed(2),
+        bestPerformer: bestPerformer ? `${bestPerformer.ticker} (${pct(bestPerformer.returns_1y?.annualized * 100)}%)` : 'N/A',
       });
     } catch (error) {
       console.error("Error loading price cache:", error);
@@ -97,7 +157,7 @@ export default function AdminPage() {
     setFilteredCache(filtered);
   }, [priceCache, searchTerm, filterExchange]);
 
-  // Add this function to fetch USD/INR rate
+  // Fetch USD/INR rate
   const fetchUSDINR = async () => {
     try {
       // Try to get from cache first
@@ -109,16 +169,13 @@ export default function AdminPage() {
         .limit(1)
         .maybeSingle();
 
-      // If cache is less than 1 hour old, use it
       if (cached) {
         const cacheAge = Date.now() - new Date(cached.fetched_at).getTime();
         if (cacheAge < 60 * 60 * 1000) {
-          // 1 hour
           return cached.price;
         }
       }
 
-      // Fetch fresh rate from Yahoo Finance via Edge Function
       const response = await fetch(
         "https://xrrztzqwugpnnahvqpfb.supabase.co/functions/v1/fetch-yahoo",
         {
@@ -127,8 +184,8 @@ export default function AdminPage() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           },
-          body: JSON.stringify({ ticker: "INR=X" }), // Yahoo Finance symbol for USD/INR
-        },
+          body: JSON.stringify({ ticker: "INR=X" }),
+        }
       );
 
       if (!response.ok) {
@@ -142,7 +199,6 @@ export default function AdminPage() {
         throw new Error("Invalid rate data");
       }
 
-      // Cache the rate
       await supabase.from("price_cache").upsert(
         {
           ticker: "USDINR",
@@ -156,16 +212,62 @@ export default function AdminPage() {
         {
           onConflict: "ticker, fetch_date, session",
           ignoreDuplicates: false,
-        },
+        }
       );
 
       return rate;
     } catch (error) {
       console.error("Error fetching USD/INR rate:", error);
-      // Fallback to a default rate if fetch fails
-      return 91.57; // You can adjust this fallback value
+      return 91.57;
     }
   };
+
+  // Fetch 1-year historical data for a ticker
+const fetchHistoricalData = async (ticker) => {
+  try {
+    const response = await fetch(
+      "https://xrrztzqwugpnnahvqpfb.supabase.co/functions/v1/fetch-yahoo",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ ticker, period: "1y" }), // 👈 Add period: "1y"
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch historical data");
+    }
+
+    const data = await response.json();
+    
+    // Extract the closing prices from the response
+    const result = data?.chart?.result?.[0];
+    const timestamps = result?.timestamp;
+    const quotes = result?.indicators?.quote?.[0];
+    
+    if (!timestamps || !quotes?.close) {
+      console.error('Invalid historical data format:', data);
+      return null;
+    }
+    
+    // Filter out null values and map to prices
+    const prices = quotes.close.filter(price => price !== null);
+    
+    if (prices.length < 2) {
+      console.log(`Not enough price data for ${ticker}: ${prices.length} points`);
+      return null;
+    }
+    
+    console.log(`Fetched ${prices.length} price points for ${ticker}`);
+    return calculateReturns(prices);
+  } catch (error) {
+    console.error(`Error fetching historical data for ${ticker}:`, error);
+    return null;
+  }
+};
 
   // Manual refresh for a single ticker
   const refreshTicker = async (ticker, exchange) => {
@@ -173,11 +275,10 @@ export default function AdminPage() {
     setMessage({ type: "", text: "" });
 
     try {
-      // Use the ticker as is - don't modify it
       const yahooTicker = ticker;
       console.log(`Fetching: ${yahooTicker}`);
 
-      // Call your Supabase Edge Function
+      // Fetch current price
       const response = await fetch(
         "https://xrrztzqwugpnnahvqpfb.supabase.co/functions/v1/fetch-yahoo",
         {
@@ -187,7 +288,7 @@ export default function AdminPage() {
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           },
           body: JSON.stringify({ ticker: yahooTicker }),
-        },
+        }
       );
 
       if (!response.ok) {
@@ -197,7 +298,6 @@ export default function AdminPage() {
 
       const data = await response.json();
 
-      // Check if we got valid data
       if (!data?.chart?.result?.[0]?.meta) {
         throw new Error("Invalid data format from Yahoo");
       }
@@ -205,13 +305,14 @@ export default function AdminPage() {
       const meta = data.chart.result[0].meta;
       console.log("Got data:", meta);
 
-      // Get previous close - try multiple possible field names
+      // Fetch historical data for returns
+      const returns = await fetchHistoricalData(yahooTicker);
+
       const prevClose =
         meta.chartPreviousClose ||
         meta.previousClose ||
         meta.regularMarketPrice;
 
-      // Calculate change values
       let currentPrice = meta.regularMarketPrice;
       let displayPrevClose = prevClose;
       let displayChange = currentPrice - prevClose;
@@ -221,8 +322,6 @@ export default function AdminPage() {
       // Convert to INR if it's a US stock
       if (exchange === "NYSE" || exchange === "NASDAQ" || exchange === "PCX") {
         const usdInrRate = await fetchUSDINR();
-
-        // Convert all values to INR
         currentPrice = currentPrice * usdInrRate;
         displayPrevClose = prevClose * usdInrRate;
         displayChange = currentPrice - displayPrevClose;
@@ -230,7 +329,6 @@ export default function AdminPage() {
           displayPrevClose !== 0 ? (displayChange / displayPrevClose) * 100 : 0;
       }
 
-      // Check if a record exists for today
       const today = new Date().toISOString().split("T")[0];
 
       const { data: existing } = await supabase
@@ -244,7 +342,6 @@ export default function AdminPage() {
       let error;
 
       if (existing) {
-        // Update existing record
         const { error: updateError } = await supabase
           .from("price_cache")
           .update({
@@ -253,6 +350,7 @@ export default function AdminPage() {
             change_amt: displayChange,
             change_pct: displayChangePct,
             short_name: meta.shortName || meta.longName || ticker,
+            returns_1y: returns,
             fetched_at: new Date().toISOString(),
             exchange: exchange,
           })
@@ -260,7 +358,6 @@ export default function AdminPage() {
 
         error = updateError;
       } else {
-        // Insert new record
         const { error: insertError } = await supabase
           .from("price_cache")
           .insert({
@@ -271,6 +368,7 @@ export default function AdminPage() {
             change_amt: displayChange,
             change_pct: displayChangePct,
             short_name: meta.shortName || meta.longName || ticker,
+            returns_1y: returns,
             fetched_at: new Date().toISOString(),
             fetch_date: today,
             session: "admin_manual",
@@ -283,10 +381,11 @@ export default function AdminPage() {
 
       setMessage({
         type: "success",
-        text: `✅ ${ticker} updated: ${inr(currentPrice)} (${pct(displayChangePct)})`,
+        text: `✅ ${ticker} updated: ${inr(currentPrice)} (${pct(displayChangePct)})${
+          returns ? ` · 1Y Return: ${pct(returns.annualized * 100)}` : ''
+        }`,
       });
 
-      // Reload cache
       await loadPriceCache();
     } catch (error) {
       console.error(`Error refreshing ${ticker}:`, error);
@@ -316,7 +415,6 @@ export default function AdminPage() {
     setRefreshing(true);
     setMessage({ type: "", text: "" });
 
-    // Fetch USD/INR rate once for all US stocks
     const usdInrRate = await fetchUSDINR();
 
     const tickersToUpdate = filteredCache.map((item) => ({
@@ -333,6 +431,7 @@ export default function AdminPage() {
       try {
         console.log(`Fetching: ${ticker}`);
 
+        // Fetch current price
         const response = await fetch(
           "https://xrrztzqwugpnnahvqpfb.supabase.co/functions/v1/fetch-yahoo",
           {
@@ -342,7 +441,7 @@ export default function AdminPage() {
               Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
             },
             body: JSON.stringify({ ticker }),
-          },
+          }
         );
 
         if (!response.ok) {
@@ -357,6 +456,10 @@ export default function AdminPage() {
         }
 
         const meta = data.chart.result[0].meta;
+        
+        // Fetch historical data
+        const returns = await fetchHistoricalData(ticker);
+
         const prevClose =
           meta.chartPreviousClose ||
           meta.previousClose ||
@@ -364,7 +467,6 @@ export default function AdminPage() {
         let currentPrice = meta.regularMarketPrice;
         let displayPrevClose = prevClose;
 
-        // Convert to INR if US stock
         if (
           exchange === "NYSE" ||
           exchange === "NASDAQ" ||
@@ -378,7 +480,6 @@ export default function AdminPage() {
         const changePct =
           displayPrevClose !== 0 ? (change / displayPrevClose) * 100 : 0;
 
-        // First, check if a record exists for today
         const today = new Date().toISOString().split("T")[0];
 
         const { data: existing } = await supabase
@@ -392,7 +493,6 @@ export default function AdminPage() {
         let error;
 
         if (existing) {
-          // Update existing record
           const { error: updateError } = await supabase
             .from("price_cache")
             .update({
@@ -401,6 +501,7 @@ export default function AdminPage() {
               change_amt: change,
               change_pct: changePct,
               short_name: meta.shortName || meta.longName || ticker,
+              returns_1y: returns,
               fetched_at: new Date().toISOString(),
               exchange: exchange,
             })
@@ -408,7 +509,6 @@ export default function AdminPage() {
 
           error = updateError;
         } else {
-          // Insert new record
           const { error: insertError } = await supabase
             .from("price_cache")
             .insert({
@@ -419,6 +519,7 @@ export default function AdminPage() {
               change_amt: change,
               change_pct: changePct,
               short_name: meta.shortName || meta.longName || ticker,
+              returns_1y: returns,
               fetched_at: new Date().toISOString(),
               fetch_date: today,
               session: "admin_manual",
@@ -430,7 +531,7 @@ export default function AdminPage() {
         if (error) throw error;
 
         successCount++;
-        results.push(`✅ ${ticker}: ${inr(currentPrice)} (${pct(changePct)})`);
+        results.push(`✅ ${ticker}: ${inr(currentPrice)} (${pct(changePct)}) - 1Y: ${returns ? pct(returns.annualized * 100) : 'N/A'}`);
       } catch (error) {
         console.error(`Error refreshing ${ticker}:`, error);
         failCount++;
@@ -439,11 +540,9 @@ export default function AdminPage() {
         setRefreshingTickers((prev) => ({ ...prev, [ticker]: false }));
       }
 
-      // Small delay to avoid rate limiting
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
-    // Reload cache
     await loadPriceCache();
 
     setMessage({
@@ -451,7 +550,6 @@ export default function AdminPage() {
       text: `✅ ${successCount} successful, ❌ ${failCount} failed`,
     });
 
-    // Log detailed results
     console.log("Update results:", results);
     setRefreshing(false);
   };
@@ -476,7 +574,7 @@ export default function AdminPage() {
     }
   };
 
-  // Export cache as CSV
+  // Export cache as CSV with returns data
   const exportCache = () => {
     const csv = [
       [
@@ -485,6 +583,10 @@ export default function AdminPage() {
         "Price",
         "Change %",
         "Short Name",
+        "1Y Return %",
+        "Annualized Return %",
+        "Volatility %",
+        "Sharpe Ratio",
         "Fetched At",
         "Fetch Date",
         "Session",
@@ -496,6 +598,10 @@ export default function AdminPage() {
           d.price,
           d.change_pct?.toFixed(2) || "",
           d.short_name || "",
+          d.returns_1y?.total ? (d.returns_1y.total * 100).toFixed(2) : "",
+          d.returns_1y?.annualized ? (d.returns_1y.annualized * 100).toFixed(2) : "",
+          d.returns_1y?.volatility ? (d.returns_1y.volatility * 100).toFixed(2) : "",
+          d.returns_1y?.sharpeRatio?.toFixed(2) || "",
           d.fetched_at,
           d.fetch_date,
           d.session || "auto",
@@ -515,7 +621,6 @@ export default function AdminPage() {
     loadPriceCache();
   }, []);
 
-  // Add this function with your other functions
   const deleteCacheEntry = async (id) => {
     if (!id) {
       setMessage({ type: "error", text: "❌ Invalid entry ID" });
@@ -524,7 +629,6 @@ export default function AdminPage() {
 
     if (!confirm("Are you sure you want to delete this cache entry?")) return;
 
-    // Set a temporary loading state for this specific deletion
     setDeletingId(id);
 
     try {
@@ -534,7 +638,7 @@ export default function AdminPage() {
         .from("price_cache")
         .delete()
         .eq("id", id)
-        .select(); // Add select to confirm what was deleted
+        .select();
 
       if (error) {
         console.error("Supabase delete error:", error);
@@ -548,11 +652,8 @@ export default function AdminPage() {
         text: "✅ Cache entry deleted successfully",
       });
 
-      // Update local state immediately (optimistic update)
       setPriceCache((prev) => prev.filter((item) => item.id !== id));
       setFilteredCache((prev) => prev.filter((item) => item.id !== id));
-
-      // Also reload from server to ensure consistency
       await loadPriceCache();
     } catch (error) {
       console.error("Error deleting cache entry:", error);
@@ -565,7 +666,6 @@ export default function AdminPage() {
     }
   };
 
-  // Get unique exchanges for filter
   const exchanges = [
     "all",
     ...new Set(priceCache.map((d) => d.exchange).filter(Boolean)),
@@ -734,6 +834,36 @@ export default function AdminPage() {
               marginBottom: 12,
             }}
           >
+            <TrendingUp size={20} color={theme.blue} />
+            <span
+              style={{
+                fontFamily: theme.mono,
+                fontSize: 11,
+                color: theme.muted,
+              }}
+            >
+              AVG 1Y RETURN
+            </span>
+          </div>
+          <div
+            style={{ fontFamily: theme.syne, fontSize: 32, fontWeight: 700 }}
+          >
+            {stats.avgReturns}%
+          </div>
+          <div style={{ fontSize: 11, color: theme.muted, marginTop: 4 }}>
+            Best: {stats.bestPerformer}
+          </div>
+        </Card>
+
+        <Card style={{ padding: 16 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              marginBottom: 12,
+            }}
+          >
             <Clock size={20} color={theme.yellow} />
             <span
               style={{
@@ -752,46 +882,6 @@ export default function AdminPage() {
           </div>
           <div style={{ fontSize: 11, color: theme.muted, marginTop: 4 }}>
             {stats.newestCache?.toLocaleDateString()}
-          </div>
-        </Card>
-
-        <Card style={{ padding: 16 }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              marginBottom: 12,
-            }}
-          >
-            <Users size={20} color={theme.blue} />
-            <span
-              style={{
-                fontFamily: theme.mono,
-                fontSize: 11,
-                color: theme.muted,
-              }}
-            >
-              SYSTEM HEALTH
-            </span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: "50%",
-                background:
-                  stats.newestCache && new Date() - stats.newestCache < 3600000
-                    ? theme.green
-                    : theme.yellow,
-              }}
-            />
-            <span style={{ fontFamily: theme.mono, fontSize: 13 }}>
-              {stats.newestCache && new Date() - stats.newestCache < 3600000
-                ? "Active"
-                : "Stale"}
-            </span>
           </div>
         </Card>
       </div>
@@ -901,12 +991,12 @@ export default function AdminPage() {
 
       {/* Price Cache Table */}
       <Card style={{ overflow: "auto" }}>
-        <div style={{ minWidth: 1000 }}>
+        <div style={{ minWidth: 1200 }}>
           {/* Table Header */}
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 1fr 1.2fr 1.2fr 1.5fr 2fr 1fr 80px",
+              gridTemplateColumns: "1fr 1fr 1.2fr 1.2fr 1.5fr 1.2fr 1.2fr 2fr 1fr 100px",
               gap: 8,
               padding: "12px 0",
               borderBottom: `2px solid ${theme.border}`,
@@ -922,12 +1012,13 @@ export default function AdminPage() {
             <div>Price</div>
             <div>Change %</div>
             <div>Short Name</div>
+            <div>1Y Return %</div>
+            <div>Volatility %</div>
             <div>Fetched At</div>
             <div>Session</div>
             <div>Actions</div>
           </div>
 
-          {/* Table Rows */}
           {/* Table Rows */}
           {loading ? (
             <div style={{ padding: 40, textAlign: "center" }}>
@@ -939,8 +1030,7 @@ export default function AdminPage() {
                 key={i}
                 style={{
                   display: "grid",
-                  gridTemplateColumns:
-                    "1fr 1fr 1.2fr 1.2fr 1.5fr 2fr 1fr 100px", // Increased width for delete button
+                  gridTemplateColumns: "1fr 1fr 1.2fr 1.2fr 1.5fr 1.2fr 1.2fr 2fr 1fr 100px",
                   gap: 8,
                   padding: "10px 0",
                   borderBottom: `1px solid ${theme.border}`,
@@ -963,6 +1053,16 @@ export default function AdminPage() {
                 </div>
                 <div style={{ color: theme.muted }}>
                   {item.short_name || "—"}
+                </div>
+                <div
+                  style={{
+                    color: item.returns_1y?.annualized >= 0 ? theme.green : theme.red,
+                  }}
+                >
+                  {item.returns_1y?.annualized ? pct(item.returns_1y.annualized * 100) : "—"}
+                </div>
+                <div>
+                  {item.returns_1y?.volatility ? (item.returns_1y.volatility * 100).toFixed(1) + '%' : "—"}
                 </div>
                 <div style={{ fontSize: 11 }}>
                   {new Date(item.fetched_at).toLocaleString()}
@@ -989,7 +1089,6 @@ export default function AdminPage() {
                     justifyContent: "flex-end",
                   }}
                 >
-                  {/* Refresh button */}
                   <button
                     onClick={() => refreshTicker(item.ticker, item.exchange)}
                     disabled={refreshingTickers[item.ticker]}
@@ -1014,7 +1113,6 @@ export default function AdminPage() {
                     )}
                   </button>
 
-                  {/* Delete button */}
                   <button
                     onClick={() => deleteCacheEntry(item.id)}
                     disabled={deletingId === item.id}

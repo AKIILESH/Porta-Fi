@@ -278,7 +278,6 @@ function BankSelect({ value, onChange }) {
   )
 }
 
-// ── Skeleton ──────────────────────────────────────────────────────────────────
 function CashSkeleton() {
   const { theme } = useTheme()
   

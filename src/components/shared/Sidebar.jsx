@@ -1,77 +1,118 @@
-import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, PieChart, Wallet, Target,
-  CreditCard, TrendingUp, Bot, Settings,
-  LogOut, Landmark, ChevronLeft, ChevronRight, ChevronUp, Sun, Moon
-} from "lucide-react"
-import { useTheme } from '../../context/ThemeContext.jsx'
+  LayoutDashboard,
+  PieChart,
+  Wallet,
+  Target,
+  CreditCard,
+  TrendingUp,
+  Bot,
+  Settings,
+  LogOut,
+  Landmark,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Sun,
+  Moon,
+} from "lucide-react";
+import { useTheme } from "../../context/ThemeContext.jsx";
 
 const NAV = [
-  { id: "dashboard", icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
-  { id: "portfolio", icon: PieChart,        label: "Portfolio", path: "/portfolio" },
-  { id: "cash",      icon: Landmark,        label: "Cash",      path: "/cash"      },
-  { id: "budget",    icon: Wallet,          label: "Budget",    path: "/budget"    },
-  { id: "goals",     icon: Target,          label: "Goals",     path: "/goals"     },
-  { id: "debt",      icon: CreditCard,      label: "Debt",      path: "/debt"      },
-  { id: "markets",   icon: TrendingUp,      label: "Markets",   path: "/markets"   },
-  { id: "ai",        icon: Bot,             label: "AI Agent",  path: "/ai"        },
-]
+  {
+    id: "dashboard",
+    icon: LayoutDashboard,
+    label: "Dashboard",
+    path: "/dashboard",
+  },
+  { id: "portfolio", icon: PieChart, label: "Portfolio", path: "/portfolio" },
+  { id: "cash", icon: Landmark, label: "Cash", path: "/cash" },
+  { id: "budget", icon: Wallet, label: "Budget", path: "/budget" },
+  { id: "goals", icon: Target, label: "Goals", path: "/goals" },
+  { id: "debt", icon: CreditCard, label: "Debt", path: "/debt" },
+  { id: "markets", icon: TrendingUp, label: "Markets", path: "/markets" },
+  { id: "ai", icon: Bot, label: "AI Agent", path: "/ai" },
+];
 
 // ── Glass helper — reads theme mode ──────────────────────────────────────────
 const makeGlass = (isDark, opacity, blur = 20) => ({
   background: isDark
     ? `rgba(255, 255, 255, ${opacity})`
     : `rgba(0, 0, 0, ${opacity})`,
-  backdropFilter:       `blur(${blur}px) saturate(160%)`,
+  backdropFilter: `blur(${blur}px) saturate(160%)`,
   WebkitBackdropFilter: `blur(${blur}px) saturate(160%)`,
-})
+});
 
 // ── Tooltip ───────────────────────────────────────────────────────────────────
 function Tip({ children, text, theme, isDark }) {
-  const [show, setShow] = useState(false)
+  const [show, setShow] = useState(false);
   return (
-    <div style={{ position: "relative", width: "100%" }}
+    <div
+      style={{ position: "relative", width: "100%" }}
       onMouseEnter={() => setShow(true)}
       onMouseLeave={() => setShow(false)}
     >
       {children}
       {show && (
-        <div style={{
-          position: "absolute", left: "calc(100% + 14px)", top: "50%",
-          transform: "translateY(-50%)",
-          ...makeGlass(isDark, 0.12, 20),
-          border: `1px solid ${theme.borderHi}`,
-          padding: "6px 14px", borderRadius: 8,
-          fontFamily: theme.mono, fontSize: "0.62rem", letterSpacing: "0.12em",
-          color: theme.text, whiteSpace: "nowrap", zIndex: 200,
-          boxShadow: `0 8px 24px rgba(0,0,0,0.3)`,
-          pointerEvents: "none",
-          animation: "tipIn 0.15s ease",
-        }}>
-          <div style={{
-            position: "absolute", right: "100%", top: "50%",
+        <div
+          style={{
+            position: "absolute",
+            left: "calc(100% + 14px)",
+            top: "50%",
             transform: "translateY(-50%)",
-            borderTop: "5px solid transparent", borderBottom: "5px solid transparent",
-            borderRight: `5px solid ${theme.borderHi}`,
-          }} />
+            ...makeGlass(isDark, 0.12, 20),
+            border: `1px solid ${theme.borderHi}`,
+            padding: "6px 14px",
+            borderRadius: 8,
+            fontFamily: theme.mono,
+            fontSize: "0.62rem",
+            letterSpacing: "0.12em",
+            color: theme.text,
+            whiteSpace: "nowrap",
+            zIndex: 200,
+            boxShadow: `0 8px 24px rgba(0,0,0,0.3)`,
+            pointerEvents: "none",
+            animation: "tipIn 0.15s ease",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              right: "100%",
+              top: "50%",
+              transform: "translateY(-50%)",
+              borderTop: "5px solid transparent",
+              borderBottom: "5px solid transparent",
+              borderRight: `5px solid ${theme.borderHi}`,
+            }}
+          />
           {text}
         </div>
       )}
     </div>
-  )
+  );
 }
 
 // ── NavItem ───────────────────────────────────────────────────────────────────
-function NavItem({ n, active, collapsed, onClick, isMobile, onItemClick, theme, isDark }) {
-  const [hov, setHov] = useState(false)
-  const Icon = n.icon
-  const isAI = n.id === "ai"
+function NavItem({
+  n,
+  active,
+  collapsed,
+  onClick,
+  isMobile,
+  onItemClick,
+  theme,
+  isDark,
+}) {
+  const [hov, setHov] = useState(false);
+  const Icon = n.icon;
+  const isAI = n.id === "ai";
 
   const handleClick = () => {
-    onClick(n.id, n.path)
-    if (isMobile && onItemClick) onItemClick()
-  }
+    onClick(n.id, n.path);
+    if (isMobile && onItemClick) onItemClick();
+  };
 
   const btn = (
     <button
@@ -89,8 +130,8 @@ function NavItem({ n, active, collapsed, onClick, isMobile, onItemClick, theme, 
         ...(active
           ? makeGlass(isDark, 0.07, 16)
           : hov
-          ? makeGlass(isDark, 0.04, 12)
-          : { background: "transparent" }),
+            ? makeGlass(isDark, 0.04, 12)
+            : { background: "transparent" }),
         border: "none",
         borderLeft: `2px solid ${active ? theme.accent : "transparent"}`,
         borderRadius: collapsed ? 10 : "0 8px 8px 0",
@@ -105,14 +146,17 @@ function NavItem({ n, active, collapsed, onClick, isMobile, onItemClick, theme, 
       }}
     >
       {active && (
-        <div style={{
-          position: "absolute", inset: 0,
-          background: isDark
-            ? `linear-gradient(90deg, rgba(255,255,255,0.05) 0%, transparent 100%)`
-            : `linear-gradient(90deg, rgba(0,0,0,0.04) 0%, transparent 100%)`,
-          pointerEvents: "none",
-          borderRadius: "inherit",
-        }} />
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: isDark
+              ? `linear-gradient(90deg, rgba(255,255,255,0.05) 0%, transparent 100%)`
+              : `linear-gradient(90deg, rgba(0,0,0,0.04) 0%, transparent 100%)`,
+            pointerEvents: "none",
+            borderRadius: "inherit",
+          }}
+        />
       )}
 
       <Icon
@@ -126,82 +170,112 @@ function NavItem({ n, active, collapsed, onClick, isMobile, onItemClick, theme, 
       )}
 
       {isAI && (
-        <span style={{
-          width: 5, height: 5, borderRadius: "50%",
-          background: theme.green, flexShrink: 0,
-          boxShadow: `0 0 8px ${theme.green}`,
-          animation: "aiPulse 2.2s ease-in-out infinite",
-          ...(collapsed ? { position: "absolute", top: 9, right: 14 } : {}),
-        }} />
+        <span
+          style={{
+            width: 5,
+            height: 5,
+            borderRadius: "50%",
+            background: theme.green,
+            flexShrink: 0,
+            boxShadow: `0 0 8px ${theme.green}`,
+            animation: "aiPulse 2.2s ease-in-out infinite",
+            ...(collapsed ? { position: "absolute", top: 9, right: 14 } : {}),
+          }}
+        />
       )}
     </button>
-  )
+  );
 
-  return collapsed && !isMobile
-    ? <Tip text={n.label} theme={theme} isDark={isDark}>{btn}</Tip>
-    : btn
+  return collapsed && !isMobile ? (
+    <Tip text={n.label} theme={theme} isDark={isDark}>
+      {btn}
+    </Tip>
+  ) : (
+    btn
+  );
 }
 
 // ── Divider ───────────────────────────────────────────────────────────────────
 function Divider({ theme }) {
   return (
-    <div style={{
-      height: 1,
-      background: `linear-gradient(90deg, transparent, ${theme.border}, transparent)`,
-      margin: "8px 0",
-    }} />
-  )
+    <div
+      style={{
+        height: 1,
+        background: `linear-gradient(90deg, transparent, ${theme.border}, transparent)`,
+        margin: "8px 0",
+      }}
+    />
+  );
 }
 
 // ── Avatar ────────────────────────────────────────────────────────────────────
 function Avatar({ initial, size = 36, theme, isDark }) {
   return (
-    <div style={{
-      width: size, height: size, flexShrink: 0,
-      ...makeGlass(isDark, 0.09, 16),
-      border: `1px solid ${theme.borderHi}`,
-      borderRadius: "50%",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      fontFamily: theme.display, fontSize: size * 0.42, fontWeight: 700,
-      color: theme.accent,
-    }}>
+    <div
+      style={{
+        width: size,
+        height: size,
+        flexShrink: 0,
+        ...makeGlass(isDark, 0.09, 16),
+        border: `1px solid ${theme.borderHi}`,
+        borderRadius: "50%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: theme.display,
+        fontSize: size * 0.42,
+        fontWeight: 700,
+        color: theme.accent,
+      }}
+    >
       {initial}
     </div>
-  )
+  );
 }
 
 // ── Main Sidebar ──────────────────────────────────────────────────────────────
-export default function Sidebar({ tab, setTab, user, onSignOut, mobile = false, onItemClick }) {
-  const [collapsed,    setCollapsed]    = useState(false)
-  const [showProfile,  setShowProfile]  = useState(false)
-  const [mounted,      setMounted]      = useState(false)
-  const navigate = useNavigate()
+export default function Sidebar({
+  tab,
+  setTab,
+  user,
+  onSignOut,
+  mobile = false,
+  onItemClick,
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const navigate = useNavigate();
 
   // ✅ Single source of truth — no static import conflict
-  const { theme, isDark, toggle } = useTheme()
+  const { theme, isDark, toggle } = useTheme();
 
   useEffect(() => {
-    const t = setTimeout(() => setMounted(true), 60)
-    return () => clearTimeout(t)
-  }, [])
+    const t = setTimeout(() => setMounted(true), 60);
+    return () => clearTimeout(t);
+  }, []);
 
   const handleNav = (id, path) => {
-    setTab(id)
-    navigate(path)
-    setShowProfile(false)
-  }
+    setTab(id);
+    navigate(path);
+    setShowProfile(false);
+  };
 
-  const initial  = user?.email?.[0]?.toUpperCase() || "U"
-  const username = user?.email?.split("@")[0] || "User"
+  const initial = user?.email?.[0]?.toUpperCase() || "U";
+  const username = user?.email?.split("@")[0] || "User";
 
   // Shine line — adapts to theme
   const shineLine = {
-    position: "absolute", top: 0, left: "10%", right: "10%", height: 1,
+    position: "absolute",
+    top: 0,
+    left: "10%",
+    right: "10%",
+    height: 1,
     background: isDark
       ? "linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent)"
       : "linear-gradient(90deg, transparent, rgba(0,0,0,0.06), transparent)",
     pointerEvents: "none",
-  }
+  };
 
   return (
     <>
@@ -212,57 +286,81 @@ export default function Sidebar({ tab, setTab, user, onSignOut, mobile = false, 
         @keyframes slideIn  { from { opacity:0; transform:translateX(-10px) } to { opacity:1; transform:translateX(0) } }
       `}</style>
 
-      <aside style={{
-        width: mobile ? '100%' : (collapsed ? 72 : 248),
-        height: '100%',
-        ...makeGlass(isDark, 0.04, 28),
-        borderRight: `1px solid ${theme.border}`,
-        display: "flex", flexDirection: "column",
-        flexShrink: 0, position: "relative",
-        opacity: mounted ? 1 : 0,
-        transform: mounted ? "translateX(0)" : "translateX(-8px)",
-        transitionProperty: "width, opacity, transform",
-        transitionDuration: "0.32s, 0.5s, 0.5s",
-        transitionTimingFunction: "cubic-bezier(0.4,0,0.2,1)",
-        overflow: "visible",
-        boxShadow: isDark
-          ? `inset -1px 0 0 ${theme.border}, 4px 0 32px rgba(0,0,0,0.3)`
-          : `inset -1px 0 0 ${theme.border}, 4px 0 20px rgba(0,0,0,0.08)`,
-      }}>
-
+      <aside
+        style={{
+          width: mobile ? "100%" : collapsed ? 72 : 248,
+          position: "fixed",
+          top: 0,
+          left: 0,
+          zIndex: 1000,
+          height: "100vh",
+          height: "100%",
+          ...makeGlass(isDark, 0.04, 28),
+          borderRight: `1px solid ${theme.border}`,
+          display: "flex",
+          flexDirection: "column",
+          flexShrink: 0,
+          position: "relative",
+          opacity: mounted ? 1 : 0,
+          transform: mounted ? "translateX(0)" : "translateX(-8px)",
+          transitionProperty: "width, opacity, transform",
+          transitionDuration: "0.32s, 0.5s, 0.5s",
+          transitionTimingFunction: "cubic-bezier(0.4,0,0.2,1)",
+          overflow: "visible",
+          boxShadow: isDark
+            ? `inset -1px 0 0 ${theme.border}, 4px 0 32px rgba(0,0,0,0.3)`
+            : `inset -1px 0 0 ${theme.border}, 4px 0 20px rgba(0,0,0,0.08)`,
+        }}
+      >
         <div style={shineLine} />
 
         {/* ── Logo ── */}
-        <div style={{
-          padding: collapsed && !mobile ? "28px 0 24px" : "28px 24px 24px",
-          borderBottom: `1px solid ${theme.border}`,
-          textAlign: collapsed && !mobile ? "center" : "left",
-          flexShrink: 0,
-        }}>
+        <div
+          style={{
+            padding: collapsed && !mobile ? "28px 0 24px" : "28px 24px 24px",
+            borderBottom: `1px solid ${theme.border}`,
+            textAlign: collapsed && !mobile ? "center" : "left",
+            flexShrink: 0,
+          }}
+        >
           {collapsed && !mobile ? (
-            <div style={{
-              fontFamily: theme.display, fontSize: "1.1rem", fontWeight: 700,
-              color: theme.accent, letterSpacing: "0.05em",
-            }}>
+            <div
+              style={{
+                fontFamily: theme.display,
+                fontSize: "1.1rem",
+                fontWeight: 700,
+                color: theme.accent,
+                letterSpacing: "0.05em",
+              }}
+            >
               PFi
             </div>
           ) : (
             <>
-              <div style={{
-                fontFamily: theme.display,
-                fontSize: mobile ? "1.4rem" : "1.55rem",
-                fontWeight: 700, letterSpacing: "0.06em",
-                lineHeight: 1, marginBottom: 6,
-                animation: "slideIn 0.4s ease",
-              }}>
+              <div
+                style={{
+                  fontFamily: theme.display,
+                  fontSize: mobile ? "1.4rem" : "1.55rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  lineHeight: 1,
+                  marginBottom: 6,
+                  animation: "slideIn 0.4s ease",
+                }}
+              >
                 <span style={{ color: theme.accent }}>Porta</span>
                 <span style={{ color: theme.text }}>Fi</span>
               </div>
-              <div style={{
-                fontFamily: theme.mono, fontSize: "0.50rem",
-                letterSpacing: "0.22em", textTransform: "uppercase",
-                color: theme.muted, animation: "slideIn 0.45s ease",
-              }}>
+              <div
+                style={{
+                  fontFamily: theme.mono,
+                  fontSize: "0.50rem",
+                  letterSpacing: "0.22em",
+                  textTransform: "uppercase",
+                  color: theme.muted,
+                  animation: "slideIn 0.45s ease",
+                }}
+              >
                 Smart Money · Smart Future
               </div>
             </>
@@ -272,41 +370,62 @@ export default function Sidebar({ tab, setTab, user, onSignOut, mobile = false, 
         {/* ── Collapse toggle ── */}
         {!mobile && (
           <button
-            onClick={() => setCollapsed(c => !c)}
+            onClick={() => setCollapsed((c) => !c)}
             style={{
-              position: "absolute", right: -14, top: 36,
-              width: 28, height: 28, borderRadius: "50%",
+              position: "absolute",
+              right: -14,
+              top: 36,
+              width: 28,
+              height: 28,
+              borderRadius: "50%",
               ...makeGlass(isDark, 0.12, 20),
               border: `1px solid ${theme.borderHi}`,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer", color: theme.accent, zIndex: 50,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              color: theme.accent,
+              zIndex: 50,
               transition: "all 0.2s",
             }}
           >
-            {collapsed
-              ? <ChevronRight size={13} strokeWidth={2} />
-              : <ChevronLeft  size={13} strokeWidth={2} />}
+            {collapsed ? (
+              <ChevronRight size={13} strokeWidth={2} />
+            ) : (
+              <ChevronLeft size={13} strokeWidth={2} />
+            )}
           </button>
         )}
 
         {/* ── Nav ── */}
-        <nav style={{
-          flex: 1,
-          padding: collapsed && !mobile ? "16px 8px" : "16px 10px",
-          overflowY: "auto", overflowX: "visible",
-        }}>
+        <nav
+          style={{
+            flex: 1,
+            padding: collapsed && !mobile ? "16px 8px" : "16px 10px",
+            overflowY: "auto",
+            overflowX: "visible",
+          }}
+        >
           {!collapsed && !mobile && (
-            <div style={{
-              fontFamily: theme.mono, fontSize: "0.48rem", letterSpacing: "0.28em",
-              textTransform: "uppercase", color: theme.muted,
-              padding: "4px 16px 10px",
-            }}>
+            <div
+              style={{
+                fontFamily: theme.mono,
+                fontSize: "0.48rem",
+                letterSpacing: "0.28em",
+                textTransform: "uppercase",
+                color: theme.muted,
+                padding: "4px 16px 10px",
+              }}
+            >
               Navigation
             </div>
           )}
 
           {NAV.map((n, i) => (
-            <div key={n.id} style={{ animation: `slideIn ${0.1 + i * 0.04}s ease` }}>
+            <div
+              key={n.id}
+              style={{ animation: `slideIn ${0.1 + i * 0.04}s ease` }}
+            >
               {n.id === "ai" && <Divider theme={theme} />}
               <NavItem
                 n={n}
@@ -323,48 +442,63 @@ export default function Sidebar({ tab, setTab, user, onSignOut, mobile = false, 
         </nav>
 
         {/* ── Profile ── */}
-        <div style={{
-          borderTop: `1px solid ${theme.border}`,
-          padding: collapsed && !mobile ? "16px 8px" : "16px 12px",
-          position: "relative", flexShrink: 0,
-        }}>
-
+        <div
+          style={{
+            borderTop: `1px solid ${theme.border}`,
+            padding: collapsed && !mobile ? "16px 8px" : "16px 12px",
+            position: "relative",
+            flexShrink: 0,
+          }}
+        >
           {/* Profile dropdown — single instance, no duplicate */}
           {showProfile && !collapsed && (
-            <div style={{
-              position: "absolute",
-              bottom: "calc(100% + 8px)",
-              left: 12, right: 12,
-              ...makeGlass(isDark, 0.14, 24),
-              border: `1px solid ${theme.borderHi}`,
-              borderRadius: 12, padding: "8px",
-              zIndex: 100,
-              animation: "fadeUp 0.2s ease",
-              boxShadow: isDark
-                ? `0 -12px 40px rgba(0,0,0,0.5)`
-                : `0 -12px 40px rgba(0,0,0,0.12)`,
-            }}>
+            <div
+              style={{
+                position: "absolute",
+                bottom: "calc(100% + 8px)",
+                left: 12,
+                right: 12,
+                ...makeGlass(isDark, 0.14, 24),
+                border: `1px solid ${theme.borderHi}`,
+                borderRadius: 12,
+                padding: "8px",
+                zIndex: 100,
+                animation: "fadeUp 0.2s ease",
+                boxShadow: isDark
+                  ? `0 -12px 40px rgba(0,0,0,0.5)`
+                  : `0 -12px 40px rgba(0,0,0,0.12)`,
+              }}
+            >
               <div style={shineLine} />
 
               {/* Settings */}
               <button
                 onClick={() => setShowProfile(false)}
                 style={{
-                  display: "flex", alignItems: "center", gap: 10,
-                  width: "100%", padding: "10px 14px",
-                  border: "none", borderRadius: 8,
-                  background: "transparent", cursor: "pointer",
-                  fontFamily: theme.mono, fontSize: "0.63rem",
-                  letterSpacing: "0.10em", textTransform: "uppercase",
-                  color: theme.muted, transition: "all 0.2s", marginBottom: 4,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  width: "100%",
+                  padding: "10px 14px",
+                  border: "none",
+                  borderRadius: 8,
+                  background: "transparent",
+                  cursor: "pointer",
+                  fontFamily: theme.mono,
+                  fontSize: "0.63rem",
+                  letterSpacing: "0.10em",
+                  textTransform: "uppercase",
+                  color: theme.muted,
+                  transition: "all 0.2s",
+                  marginBottom: 4,
                 }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.color      = theme.text
-                  e.currentTarget.style.background = theme.accentDim
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = theme.text;
+                  e.currentTarget.style.background = theme.accentDim;
                 }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.color      = theme.muted
-                  e.currentTarget.style.background = "transparent"
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = theme.muted;
+                  e.currentTarget.style.background = "transparent";
                 }}
               >
                 <Settings size={13} strokeWidth={1.5} />
@@ -373,28 +507,42 @@ export default function Sidebar({ tab, setTab, user, onSignOut, mobile = false, 
 
               {/* Theme toggle */}
               <button
-                onClick={() => { toggle(); setShowProfile(false) }}
+                onClick={() => {
+                  toggle();
+                  setShowProfile(false);
+                }}
                 style={{
-                  display: "flex", alignItems: "center", gap: 10,
-                  width: "100%", padding: "10px 14px",
-                  border: "none", borderRadius: 8,
-                  background: "transparent", cursor: "pointer",
-                  fontFamily: theme.mono, fontSize: "0.63rem",
-                  letterSpacing: "0.10em", textTransform: "uppercase",
-                  color: theme.muted, transition: "all 0.2s", marginBottom: 4,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  width: "100%",
+                  padding: "10px 14px",
+                  border: "none",
+                  borderRadius: 8,
+                  background: "transparent",
+                  cursor: "pointer",
+                  fontFamily: theme.mono,
+                  fontSize: "0.63rem",
+                  letterSpacing: "0.10em",
+                  textTransform: "uppercase",
+                  color: theme.muted,
+                  transition: "all 0.2s",
+                  marginBottom: 4,
                 }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.color      = theme.text
-                  e.currentTarget.style.background = theme.accentDim
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = theme.text;
+                  e.currentTarget.style.background = theme.accentDim;
                 }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.color      = theme.muted
-                  e.currentTarget.style.background = "transparent"
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = theme.muted;
+                  e.currentTarget.style.background = "transparent";
                 }}
               >
-                {isDark
-                  ? <Sun  size={13} strokeWidth={1.5} />
-                  : <Moon size={13} strokeWidth={1.5} />}
+                {isDark ? (
+                  <Sun size={13} strokeWidth={1.5} />
+                ) : (
+                  <Moon size={13} strokeWidth={1.5} />
+                )}
                 {isDark ? "Light Mode" : "Dark Mode"}
               </button>
 
@@ -402,18 +550,33 @@ export default function Sidebar({ tab, setTab, user, onSignOut, mobile = false, 
 
               {/* Sign out */}
               <button
-                onClick={() => { onSignOut?.(); setShowProfile(false) }}
-                style={{
-                  display: "flex", alignItems: "center", gap: 10,
-                  width: "100%", padding: "10px 14px",
-                  border: "none", borderRadius: 8,
-                  background: "transparent", cursor: "pointer",
-                  fontFamily: theme.mono, fontSize: "0.63rem",
-                  letterSpacing: "0.10em", textTransform: "uppercase",
-                  color: theme.red, transition: "all 0.2s",
+                onClick={() => {
+                  onSignOut?.();
+                  setShowProfile(false);
                 }}
-                onMouseEnter={e => e.currentTarget.style.background = `${theme.red}18`}
-                onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  width: "100%",
+                  padding: "10px 14px",
+                  border: "none",
+                  borderRadius: 8,
+                  background: "transparent",
+                  cursor: "pointer",
+                  fontFamily: theme.mono,
+                  fontSize: "0.63rem",
+                  letterSpacing: "0.10em",
+                  textTransform: "uppercase",
+                  color: theme.red,
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = `${theme.red}18`)
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = "transparent")
+                }
               >
                 <LogOut size={13} strokeWidth={1.5} />
                 Sign Out
@@ -427,55 +590,92 @@ export default function Sidebar({ tab, setTab, user, onSignOut, mobile = false, 
               <button
                 onClick={() => onSignOut?.()}
                 style={{
-                  width: "100%", display: "flex", justifyContent: "center",
-                  padding: "8px 0", background: "transparent", border: "none", cursor: "pointer",
+                  width: "100%",
+                  display: "flex",
+                  justifyContent: "center",
+                  padding: "8px 0",
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
                 }}
               >
-                <Avatar initial={initial} size={36} theme={theme} isDark={isDark} />
+                <Avatar
+                  initial={initial}
+                  size={36}
+                  theme={theme}
+                  isDark={isDark}
+                />
               </button>
             </Tip>
           ) : (
             <button
-              onClick={() => setShowProfile(v => !v)}
+              onClick={() => setShowProfile((v) => !v)}
               style={{
-                display: "flex", alignItems: "center", gap: 12,
-                width: "100%", padding: "10px 12px", borderRadius: 10,
-                ...(showProfile ? makeGlass(isDark, 0.07, 16) : { background: "transparent" }),
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 10,
+                ...(showProfile
+                  ? makeGlass(isDark, 0.07, 16)
+                  : { background: "transparent" }),
                 border: `1px solid ${showProfile ? theme.borderHi : "transparent"}`,
-                cursor: "pointer", transition: "all 0.25s",
+                cursor: "pointer",
+                transition: "all 0.25s",
               }}
-              onMouseEnter={e => {
-                if (showProfile) return
-                e.currentTarget.style.background   = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"
-                e.currentTarget.style.borderColor  = theme.border
+              onMouseEnter={(e) => {
+                if (showProfile) return;
+                e.currentTarget.style.background = isDark
+                  ? "rgba(255,255,255,0.04)"
+                  : "rgba(0,0,0,0.03)";
+                e.currentTarget.style.borderColor = theme.border;
               }}
-              onMouseLeave={e => {
-                if (showProfile) return
-                e.currentTarget.style.background  = "transparent"
-                e.currentTarget.style.borderColor = "transparent"
+              onMouseLeave={(e) => {
+                if (showProfile) return;
+                e.currentTarget.style.background = "transparent";
+                e.currentTarget.style.borderColor = "transparent";
               }}
             >
-              <Avatar initial={initial} size={34} theme={theme} isDark={isDark} />
+              <Avatar
+                initial={initial}
+                size={34}
+                theme={theme}
+                isDark={isDark}
+              />
               <div style={{ flex: 1, textAlign: "left", overflow: "hidden" }}>
-                <div style={{
-                  fontFamily: theme.sans, fontSize: "0.82rem", fontWeight: 500,
-                  color: theme.text, marginBottom: 2,
-                }}>
+                <div
+                  style={{
+                    fontFamily: theme.sans,
+                    fontSize: "0.82rem",
+                    fontWeight: 500,
+                    color: theme.text,
+                    marginBottom: 2,
+                  }}
+                >
                   {username}
                 </div>
-                <div style={{
-                  fontFamily: theme.mono, fontSize: "0.54rem", color: theme.muted,
-                  letterSpacing: "0.06em", overflow: "hidden",
-                  textOverflow: "ellipsis", whiteSpace: "nowrap",
-                  maxWidth: mobile ? 150 : 130,
-                }}>
+                <div
+                  style={{
+                    fontFamily: theme.mono,
+                    fontSize: "0.54rem",
+                    color: theme.muted,
+                    letterSpacing: "0.06em",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    maxWidth: mobile ? 150 : 130,
+                  }}
+                >
                   {user?.email || "signed in"}
                 </div>
               </div>
               <ChevronUp
-                size={12} strokeWidth={2}
+                size={12}
+                strokeWidth={2}
                 style={{
-                  color: theme.accent, flexShrink: 0,
+                  color: theme.accent,
+                  flexShrink: 0,
                   transform: showProfile ? "rotate(180deg)" : "rotate(0deg)",
                   transition: "transform 0.25s",
                 }}
@@ -485,5 +685,5 @@ export default function Sidebar({ tab, setTab, user, onSignOut, mobile = false, 
         </div>
       </aside>
     </>
-  )
+  );
 }
