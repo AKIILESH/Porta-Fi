@@ -8,7 +8,7 @@ import { parseTransaction }  from '../../lib/parseTransaction'
 import { todayISO, inr }     from '../../lib/formatters'
 import {
   Sparkles, Check, X, AlertTriangle, ChevronDown,
-  ArrowUpCircle, ArrowDownCircle, Edit3, Loader,
+  ArrowUpCircle, ArrowDownCircle, Edit3, Loader, ArrowUp,
 } from 'lucide-react'
 
 // ─── Glass helpers (local — same pattern as rest of app) ──────────────────
@@ -402,17 +402,51 @@ export default function SmartInput({ onSuccess }) {
           }}
         />
 
-        {/* Clear button */}
+        {/* Clear + Send buttons */}
         {raw && (
-          <button onClick={dismiss} style={{
-            flexShrink: 0, width: 26, height: 26,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            ...makeGlass(isDark, 0.06, 10),
-            border: `1px solid ${theme.border}`,
-            borderRadius: 7, color: theme.muted, cursor: 'pointer',
-          }}>
-            <X size={12}/>
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            {/* Clear */}
+            <button onClick={dismiss} style={{
+              width: 28, height: 28,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              ...makeGlass(isDark, 0.06, 10),
+              border: `1px solid ${theme.border}`,
+              borderRadius: 8, color: theme.muted, cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = theme.borderHi; e.currentTarget.style.color = theme.text }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = theme.border;   e.currentTarget.style.color = theme.muted }}
+            >
+              <X size={12}/>
+            </button>
+
+            {/* Send */}
+            <button
+              onClick={() => parsed && !missingFields.length && handleConfirm()}
+              disabled={!parsed || missingFields.length > 0 || saving}
+              style={{
+                width: 32, height: 32,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                borderRadius: 9,
+                background: parsed && !missingFields.length
+                  ? accentC
+                  : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                border: `1px solid ${parsed && !missingFields.length ? accentC : theme.border}`,
+                color: parsed && !missingFields.length ? '#fff' : theme.muted,
+                cursor: parsed && !missingFields.length && !saving ? 'pointer' : 'not-allowed',
+                boxShadow: parsed && !missingFields.length ? `0 0 14px ${accentC}50` : 'none',
+                transition: 'all 0.25s cubic-bezier(0.4,0,0.2,1)',
+                flexShrink: 0,
+              }}
+              onMouseEnter={e => { if (parsed && !missingFields.length && !saving) e.currentTarget.style.transform = 'scale(1.08)' }}
+              onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+            >
+              {saving
+                ? <Loader size={13} style={{ animation: 'spin 1s linear infinite', color: '#fff' }}/>
+                : <ArrowUp size={14} strokeWidth={2.5}/>
+              }
+            </button>
+          </div>
         )}
       </div>
 
