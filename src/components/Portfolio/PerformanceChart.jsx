@@ -399,28 +399,31 @@ export default function PerformanceChart() {
               }}
             >
               <div style={{ display: "flex", flexDirection: "column" }}>
-                <span
-                  style={{
-                    fontFamily: theme.display,
-                    fontSize: isMobile ? "1.3rem" : "1.5rem",
-                    fontWeight: 700,
-                    color: theme.text,
-                  }}
-                >
-                  {inrCompact(stats.last.total_value_inr)}
-                </span>
+  <span
+    style={{
+      fontFamily: theme.display,
+      fontSize: isMobile ? "1.3rem" : "1.5rem",
+      fontWeight: 700,
+      color:
+        stats.last.total_value_inr < stats.last.total_cost_inr
+          ? theme.red
+          : theme.green,
+    }}
+  >
+    {inrCompact(stats.last.total_value_inr)}
+  </span>
 
-                <span
-                  style={{
-                    fontFamily: theme.display,
-                    fontSize: isMobile ? "0.75rem" : "0.9rem",
-                    fontWeight: 500,
-                    color: theme.muted,
-                  }}
-                >
-                  {inrCompact(stats.last.total_cost_inr)}
-                </span>
-              </div>
+  <span
+    style={{
+      fontFamily: theme.display,
+      fontSize: isMobile ? "0.75rem" : "0.9rem",
+      fontWeight: 500,
+      color: theme.muted,
+    }}
+  >
+    {inrCompact(stats.last.total_cost_inr)}
+  </span>
+</div>
               <div
                 style={{
                   display: "flex",

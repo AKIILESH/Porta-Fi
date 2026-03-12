@@ -564,102 +564,53 @@ const {
         </div>
       </div>
 
-      {/* ── Net Worth Hero ── */}
-      <div style={{
-        ...glass(0.05, 28),
-        border: `1px solid ${theme.border}`,
-        borderRadius: 20, 
-        padding: isMobile ? '24px' : '32px 36px',
-        position: 'relative', 
-        overflow: 'hidden',
-        boxShadow: `${glassInset}, 0 12px 48px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.03)`,
+
+  {/* ── Charts Row ── */}
+      <div style={{ 
+        
+        gap: 16 
       }}>
-        {/* shine streak */}
-        <div style={{ position: 'absolute', top: 0, left: '5%', right: '5%', height: 1, background: `linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent)` }} />
-        {/* glow blob */}
-        <div style={{ position: 'absolute', top: -80, right: -80, width: 320, height: 320, background: `radial-gradient(circle, ${theme.accent}0a 0%, transparent 65%)`, pointerEvents: 'none' }} />
 
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: isMobile 
-            ? '1fr' 
-            : isTablet 
-              ? '1fr 1px 1fr' 
-              : 'auto 1px 1fr', 
-          alignItems: 'center', 
-          gap: isMobile ? 24 : 48 
+        {/* Net Worth Trend */}
+        <div style={{
+          ...glass(0.04, 20),
+          border: `1px solid ${theme.border}`,
+          borderRadius: 16, 
+          padding: isMobile ? '20px' : '24px 24px 16px',
+          boxShadow: glassInset,
+          position: 'relative', 
+          overflow: 'hidden',
         }}>
-          <div>
-            <div style={{ fontFamily: theme.mono, fontSize: '0.55rem', letterSpacing: '0.22em', textTransform: 'uppercase', color: theme.muted, marginBottom: 10 }}>
-              Total Net Worth
-            </div>
-            <div style={{ 
-              fontFamily: theme.display, 
-              fontSize: isMobile ? '2.5rem' : '3.2rem', 
-              fontWeight: 700, 
-              color: theme.text, 
-              letterSpacing: '-0.02em', 
-              lineHeight: 1, 
-              textShadow: `0 0 40px ${theme.accent + '30'}`,
-              wordBreak: 'break-word',
-            }}>
-              {inrCompact(netWorth)}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10 }}>
-              {netWorth >= 0
-                ? <TrendingUp size={13} style={{ color: theme.green }} strokeWidth={2} />
-                : <TrendingDown size={13} style={{ color: theme.red }} strokeWidth={2} />}
-              <span style={{ fontFamily: theme.mono, fontSize: '0.6rem', color: netWorth >= 0 ? theme.green : theme.red, letterSpacing: '0.06em' }}>
-                Assets minus liabilities
-              </span>
-            </div>
+          <div style={{ position: 'absolute', top: 0, left: '10%', right: '10%', height: 1, background: `linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent)` }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <SectionLabel>Net Worth Trend</SectionLabel>
+            <span style={{ fontFamily: theme.mono, fontSize: '0.54rem', color: theme.muted, letterSpacing: '0.10em' }}>
+              Last {chartData.length} months
+            </span>
           </div>
-
-          {!isMobile && (
-            <div style={{ height: 64, background: `linear-gradient(180deg, transparent, ${theme.border}, transparent)` }} />
-          )}
-
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', 
-            gap: isMobile ? 16 : 32 
-          }}>
-            <div>
-              <div style={{ fontFamily: theme.mono, fontSize: '0.53rem', letterSpacing: '0.16em', textTransform: 'uppercase', color: theme.muted, marginBottom: 7 }}>
-                Portfolio
-              </div>
-              <div style={{ fontFamily: theme.display, fontSize: isMobile ? '1.3rem' : '1.45rem', fontWeight: 700, color: theme.text, lineHeight: 1, marginBottom: 5 }}>
-                {inrCompact(portfolioValue)}
-              </div>
-              <div style={{ fontFamily: theme.mono, fontSize: '0.56rem', color: portfolioGainPct >= 0 ? theme.green : theme.red, letterSpacing: '0.05em' }}>
-                {portfolioGainPct >= 0 ? '+' : ''}{portfolioGainPct.toFixed(1)}% all-time
-              </div>
-            </div>
-            <div>
-              <div style={{ fontFamily: theme.mono, fontSize: '0.53rem', letterSpacing: '0.16em', textTransform: 'uppercase', color: theme.muted, marginBottom: 7 }}>
-                Savings / mo
-              </div>
-              <div style={{ fontFamily: theme.display, fontSize: isMobile ? '1.3rem' : '1.45rem', fontWeight: 700, color: theme.text, lineHeight: 1, marginBottom: 5 }}>
-                {inr(savings)}
-              </div>
-              <div style={{ fontFamily: theme.mono, fontSize: '0.56rem', color: savings >= 0 ? theme.green : theme.red, letterSpacing: '0.05em' }}>
-                {savingsRate.toFixed(1)}% rate
-              </div>
-            </div>
-            <div>
-              <div style={{ fontFamily: theme.mono, fontSize: '0.53rem', letterSpacing: '0.16em', textTransform: 'uppercase', color: theme.muted, marginBottom: 7 }}>
-                Emergency Fund
-              </div>
-              <div style={{ fontFamily: theme.display, fontSize: isMobile ? '1.3rem' : '1.45rem', fontWeight: 700, color: theme.text, lineHeight: 1, marginBottom: 5 }}>
-                {emergencyMonths}m
-              </div>
-              <div style={{ fontFamily: theme.mono, fontSize: '0.56rem', color: parseFloat(emergencyMonths) >= 6 ? theme.green : theme.yellow, letterSpacing: '0.05em' }}>
-                of expenses covered
-              </div>
-            </div>
+          <div style={{ height: isMobile ? 150 : 200, width: '100%' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor={theme.accent} stopOpacity={0.25} />
+                    <stop offset="95%" stopColor={theme.accent} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="month" tick={{ fill: theme.muted, fontSize: 9, fontFamily: theme.mono }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: theme.muted, fontSize: 9, fontFamily: theme.mono }} axisLine={false} tickLine={false} tickFormatter={v => '₹' + (v / 1000).toFixed(0) + 'k'} />
+                <Tooltip content={<NWTooltip />} cursor={{ stroke: theme.borderHi, strokeWidth: 1 }} />
+                <Area type="monotone" dataKey="value" stroke={theme.accent} strokeWidth={1.5} fill="url(#nwGrad)" dot={false} activeDot={{ r: 4, fill: theme.accent, stroke: 'rgba(0,0,0,0.5)', strokeWidth: 2 }} />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
         </div>
+
+       
       </div>
+
+
+
 
       {/* ── KPI Row ── */}
       <div style={{ 
@@ -702,51 +653,7 @@ const {
         <StatPill label="Total Debt"       value={inr(totalDebt)}       color={theme.yellow} icon={DollarSign}     delay={220} />
       </div>
 
-      {/* ── Charts Row ── */}
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: isMobile 
-          ? '1fr' 
-          : '1.55fr 1fr', 
-        gap: 16 
-      }}>
-
-        {/* Net Worth Trend */}
-        <div style={{
-          ...glass(0.04, 20),
-          border: `1px solid ${theme.border}`,
-          borderRadius: 16, 
-          padding: isMobile ? '20px' : '24px 24px 16px',
-          boxShadow: glassInset,
-          position: 'relative', 
-          overflow: 'hidden',
-        }}>
-          <div style={{ position: 'absolute', top: 0, left: '10%', right: '10%', height: 1, background: `linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent)` }} />
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-            <SectionLabel>Net Worth Trend</SectionLabel>
-            <span style={{ fontFamily: theme.mono, fontSize: '0.54rem', color: theme.muted, letterSpacing: '0.10em' }}>
-              Last {chartData.length} months
-            </span>
-          </div>
-          <div style={{ height: isMobile ? 150 : 200, width: '100%' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor={theme.accent} stopOpacity={0.25} />
-                    <stop offset="95%" stopColor={theme.accent} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="month" tick={{ fill: theme.muted, fontSize: 9, fontFamily: theme.mono }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: theme.muted, fontSize: 9, fontFamily: theme.mono }} axisLine={false} tickLine={false} tickFormatter={v => '₹' + (v / 1000).toFixed(0) + 'k'} />
-                <Tooltip content={<NWTooltip />} cursor={{ stroke: theme.borderHi, strokeWidth: 1 }} />
-                <Area type="monotone" dataKey="value" stroke={theme.accent} strokeWidth={1.5} fill="url(#nwGrad)" dot={false} activeDot={{ r: 4, fill: theme.accent, stroke: 'rgba(0,0,0,0.5)', strokeWidth: 2 }} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Allocation */}
+ {/* Allocation */}
         <div style={{
           ...glass(0.04, 20),
           border: `1px solid ${theme.border}`,
@@ -770,46 +677,43 @@ const {
             </div>
           ) : (
             <>
-              <div style={{ height: 140, width: '100%' }}>
+              <div style={{ height: 150, width: '100%' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={allocationData} cx="50%" cy="50%" innerRadius={isMobile ? 35 : 44} outerRadius={isMobile ? 50 : 64} paddingAngle={2} dataKey="value" strokeWidth={0} startAngle={90} endAngle={-270}>
+                    <Pie data={allocationData} cx="50%" cy="50%" innerRadius={isMobile ? 50 : 55} outerRadius={isMobile ? 65 : 75} paddingAngle={2} dataKey="value" strokeWidth={0} startAngle={90} endAngle={-270}>
                       {allocationData.map((d, i) => <Cell key={i} fill={d.color} />)}
                     </Pie>
                     <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle">
                       <tspan x="50%" dy="-0.6em" style={{ fontFamily: theme.mono, fontSize: '0.5rem', fill: theme.muted }}>TOTAL</tspan>
-                      <tspan x="50%" dy="1.4em" style={{ fontFamily: theme.mono, fontSize: isMobile ? '0.65rem' : '0.72rem', fill: theme.text, fontWeight: 600 }}>₹{inrCompact(totalAlloc)}</tspan>
+                      <tspan x="50%" dy="1.4em" style={{ fontFamily: theme.mono, fontSize: isMobile ? '0.65rem' : '0.72rem', fill: theme.text, fontWeight: 600 }}>{inrCompact(totalAlloc)}</tspan>
                     </text>
                     <Tooltip content={<PieTooltip />} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
               <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: isMobile ? 'repeat(1, 1fr)' : 'repeat(2, 1fr)', 
-                gap: '6px 10px', 
-                marginTop: 12,
-                maxHeight: isMobile ? 'none' : 140,
-                overflowY: isMobile ? 'visible' : 'auto',
-              }}>
-                {allocationData.slice(0, isMobile ? 5 : 6).map((d, i) => (
+  display: 'grid', 
+  gridTemplateColumns: 'repeat(2, 1fr)',
+  gap: '6px 10px', 
+  marginTop: 12,
+  maxHeight: isMobile ? 'none' : 140,
+  overflowY: isMobile ? 'visible' : 'auto',
+  alignContent:"center"
+}}>
+                {allocationData.slice(0, isMobile ? 15 : 15).map((d, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                     <div style={{ width: 7, height: 7, borderRadius: '50%', background: d.color, flexShrink: 0, boxShadow: `0 0 5px ${d.color + '80'}` }} />
-                    <span style={{ fontFamily: theme.mono, fontSize: '0.54rem', color: theme.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <span style={{ fontFamily: theme.mono, fontSize: '0.64rem', color: theme.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {d.name} <span style={{ color: theme.text }}>({d.percentage}%)</span>
                     </span>
                   </div>
                 ))}
               </div>
-              {allocationData.length > (isMobile ? 5 : 6) && (
-                <div style={{ fontFamily: theme.mono, fontSize: '0.50rem', color: theme.muted, textAlign: 'center', marginTop: 6 }}>
-                  +{allocationData.length - (isMobile ? 5 : 6)} more
-                </div>
-              )}
+              
             </>
           )}
         </div>
-      </div>
+    
 
       {/* ── Recent Transactions ── */}
       <div style={{

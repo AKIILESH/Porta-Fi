@@ -1,5 +1,12 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { useFinance } from '../../context/FinanceContext.jsx'
+import { useHoldings } from '../../hooks/useHoldings'
+import { usePortfolioData } from '../../hooks/usePortfolioData'
+import { usePortfolioSnapshots } from '../../hooks/usePortfolioSnapshots'
+import { useGoals } from '../../hooks/useGoals'
+import { useFlexBudget } from '../../hooks/useFlexBudget'
+import { useTransactionsRange } from '../../hooks/useTransactions'
+import { useDebts } from '../../hooks/useDebts'
 import { Btn, Spinner } from '../shared/ui.jsx'
 import { inr, inrCompact, pct, currentMonth } from '../../lib/formatters.js'
 import theme from '../../lib/theme.js'
@@ -7,32 +14,45 @@ import {
   Copy, Clock, Check, Sparkles, TrendingUp, 
   TrendingDown, Wallet, Target, PieChart, 
   BarChart3, Shield, Zap, ArrowRight, Send,
-  ChevronLeft, ChevronRight, Bot, User
+  ChevronLeft, ChevronRight, Bot, User, Landmark,
+  CreditCard, LineChart, Calendar, Receipt, Coffee,
+  Home, Car, ShoppingBag, Briefcase, Heart, Smile
 } from 'lucide-react'
+
+// Category icons for better visualization
+const CATEGORY_ICONS = {
+  'Food & Dining': <Coffee size={14} />,
+  'Shopping': <ShoppingBag size={14} />,
+  'Transportation': <Car size={14} />,
+  'Entertainment': <Smile size={14} />,
+  'Healthcare': <Heart size={14} />,
+  'Utilities': <Zap size={14} />,
+  'Rent': <Home size={14} />,
+  'Income': <Briefcase size={14} />,
+  'default': <Receipt size={14} />
+}
 
 // Enhanced quick prompts with categories and colors
 const QUICK_PROMPTS = [
   { text: 'Analyze my portfolio', category: 'portfolio', icon: <PieChart size={14} />, color: '#8B5CF6' },
   { text: 'Market trends', category: 'markets', icon: <TrendingUp size={14} />, color: '#10B981' },
   { text: 'Debt payoff strategy', category: 'debt', icon: <Shield size={14} />, color: '#EF4444' },
-  { text: 'Review my budget', category: 'budget', icon: <Wallet size={14} />, color: '#F59E0B' },
+  { text: 'Budget analysis', category: 'budget', icon: <Wallet size={14} />, color: '#F59E0B' },
+  { text: 'Spending breakdown', category: 'budget', icon: <Receipt size={14} />, color: '#F59E0B' },
   { text: 'Savings goals', category: 'goals', icon: <Target size={14} />, color: '#3B82F6' },
   { text: 'Health report', category: 'health', icon: <BarChart3 size={14} />, color: '#EC4899' },
-  { text: 'Portfolio rebalance', category: 'portfolio', icon: <TrendingDown size={14} />, color: '#8B5CF6' },
-  { text: 'Tax-saving options', category: 'tax', icon: <Shield size={14} />, color: '#14B8A6' },
-  { text: 'SIP calculator', category: 'calculator', icon: <Zap size={14} />, color: '#F97316' },
-  { text: 'FD vs Equity', category: 'compare', icon: <ArrowRight size={14} />, color: '#6B7280' },
+  { text: 'Flex budget rebalance', category: 'budget', icon: <Zap size={14} />, color: '#F59E0B' },
+  { text: 'Tax-saving options', category: 'tax', icon: <Landmark size={14} />, color: '#14B8A6' },
+  { text: 'Overspent categories', category: 'budget', icon: <TrendingDown size={14} />, color: '#EF4444' },
+  { text: 'Monthly summary', category: 'budget', icon: <Calendar size={14} />, color: '#F59E0B' },
+  { text: 'Credit card debt', category: 'debt', icon: <CreditCard size={14} />, color: '#EF4444' },
 ]
 
-// ── Advanced Financial Advisor Engine ───────────────────────────────────────
+// ── Advanced Financial Advisor Engine using hooks data ─────────────────────
 class FinancialAdvisor {
-  constructor(finance) {
-    this.finance = finance || {}
-  }
-
-  // Helper to safely get property with default
-  getProp(prop, defaultValue = null) {
-    return this.finance && this.finance[prop] !== undefined ? this.finance[prop] : defaultValue
+  constructor(data) {
+    this.data = data || {}
+    console.log('Advisor initialized with data:', Object.keys(this.data))
   }
 
   // Helper to format currency
@@ -48,47 +68,507 @@ class FinancialAdvisor {
 
   // Helper to format percentage
   formatPercent(value) {
-    if (value === undefined || value === null || isNaN(value)) return '0%'
+    if (value === undefined || value === null || isNaN(value)) return '0.0%'
     return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`
   }
 
-  // Smart query routing with keyword scoring
-  routeQuery(query) {
-    const lower = query.toLowerCase()
-    
-    const scores = {
-      portfolio: ['portfolio', 'holdings', 'investment', 'stock', 'share', 'return', 'profit', 'loss', 'performance'].reduce((acc, kw) => 
-        acc + (lower.includes(kw) ? 1 : 0), 0),
-      markets: ['market', 'sensex', 'nifty', 'trend', 'index', 'global', 'us market', 'indian market'].reduce((acc, kw) => 
-        acc + (lower.includes(kw) ? 1 : 0), 0),
-      debt: ['debt', 'loan', 'emi', 'credit card', 'interest', 'liability', 'borrow', 'mortgage'].reduce((acc, kw) => 
-        acc + (lower.includes(kw) ? 1 : 0), 0),
-      budget: ['budget', 'spend', 'expense', 'saving', 'income', 'cost', 'monthly', 'category'].reduce((acc, kw) => 
-        acc + (lower.includes(kw) ? 1 : 0), 0),
-      goals: ['goal', 'target', 'aim', 'objective', 'plan', 'future', 'retirement', 'emergency'].reduce((acc, kw) => 
-        acc + (lower.includes(kw) ? 1 : 0), 0),
-      tax: ['tax', 'it return', 'capital gain', 'ltcg', 'stcg', '80c', 'elss', 'ppf', 'nps'].reduce((acc, kw) => 
-        acc + (lower.includes(kw) ? 2 : 0), 0),
-      calculator: ['calculate', 'calculator', 'how much', 'sip', 'fd', 'rd', 'return', 'projection'].reduce((acc, kw) => 
-        acc + (lower.includes(kw) ? 1 : 0), 0),
-      compare: ['compare', 'vs', 'versus', 'difference', 'better', 'which one'].reduce((acc, kw) => 
-        acc + (lower.includes(kw) ? 1 : 0), 0),
-    }
+  // Analyze portfolio using holdings and quotes data
+  analyzePortfolio() {
+    try {
+      const { holdings = [], quotesMap = {}, usdInrRate = 86.5 } = this.data
+      
+      // Calculate portfolio metrics
+      let portfolioValue = 0
+      let portfolioCost = 0
+      
+      const holdingsWithValues = holdings
+        .filter(h => h.quantity > 0)
+        .map(h => {
+          const isUS = ["NYSE","NASDAQ","PCX"].includes(h.exchange)
+          const currentPrice = quotesMap[h.ticker]?.price ?? h.avg_cost ?? 0
+          const value = currentPrice * (h.quantity || 0)
+          const cost = isUS 
+            ? (h.avg_cost || 0) * (h.quantity || 0) * usdInrRate 
+            : (h.avg_cost || 0) * (h.quantity || 0)
+          
+          portfolioValue += value
+          portfolioCost += cost
+          
+          const gain = value - cost
+          const gainPct = cost > 0 ? (gain / cost) * 100 : 0
+          
+          return {
+            ...h,
+            value,
+            cost,
+            gain,
+            gainPct,
+            currentPrice,
+            isUS
+          }
+        })
 
-    let maxScore = 0
-    let bestCategory = 'general'
-    
-    for (const [category, score] of Object.entries(scores)) {
-      if (score > maxScore) {
-        maxScore = score
-        bestCategory = category
+      const portfolioGain = portfolioValue - portfolioCost
+      const portfolioGainPct = portfolioCost > 0 ? (portfolioGain / portfolioCost) * 100 : 0
+
+      let analysis = `📊 **Portfolio Analysis**\n\n`
+      analysis += `┌─────────────────────────────┐\n`
+      analysis += `│ Total Value: ${this.formatMoney(portfolioValue).padStart(15)}\n`
+      analysis += `│ Total Cost: ${this.formatMoney(portfolioCost).padStart(15)}\n`
+      analysis += `│ Unrealized P&L: ${this.formatMoney(portfolioGain).padStart(13)}\n`
+      analysis += `│ Return: ${this.formatPercent(portfolioGainPct).padStart(18)}\n`
+      analysis += `└─────────────────────────────┘\n`
+
+      if (holdingsWithValues.length === 0) {
+        analysis += `\n✨ No active holdings found. Start your investment journey today!\n`
+        return analysis
       }
-    }
 
-    return bestCategory
+      // Sort by value for top holdings
+      const topHoldings = [...holdingsWithValues].sort((a, b) => b.value - a.value).slice(0, 5)
+      
+      analysis += `\n🌟 **Top Holdings:**\n`
+      topHoldings.forEach(h => {
+        const pctOfPortfolio = portfolioValue > 0 ? (h.value / portfolioValue) * 100 : 0
+        analysis += `  • ${h.name || h.ticker}: ${this.formatMoney(h.value)} (${pctOfPortfolio.toFixed(1)}%)\n`
+      })
+
+      // Best and worst performers
+      const performers = [...holdingsWithValues].sort((a, b) => b.gainPct - a.gainPct)
+      const winners = performers.filter(p => p.gainPct > 0).slice(0, 3)
+      const losers = performers.filter(p => p.gainPct < 0).slice(0, 3)
+
+      if (winners.length > 0) {
+        analysis += `\n🚀 **Top Gainers:**\n`
+        winners.forEach(w => {
+          analysis += `  • ${w.ticker}: ${this.formatMoney(w.gain)} (${this.formatPercent(w.gainPct)})\n`
+        })
+      }
+
+      if (losers.length > 0) {
+        analysis += `\n📉 **Top Losers:**\n`
+        losers.forEach(l => {
+          analysis += `  • ${l.ticker}: ${this.formatMoney(l.gain)} (${this.formatPercent(l.gainPct)})\n`
+        })
+      }
+
+      return analysis
+    } catch (error) {
+      console.error('Error in analyzePortfolio:', error)
+      return "I encountered an error analyzing your portfolio. Please try again."
+    }
   }
 
-  // SIP Calculator
+  // Analyze flex budget
+  analyzeBudget() {
+    try {
+      const { flexFund = {}, transactions = [], month = currentMonth() } = this.data
+      const { categories = {}, totalAllocated = 0, totalSpent = 0, flexReserve = 0 } = flexFund
+
+      if (Object.keys(categories).length === 0) {
+        return "💰 **No budget set for this month.**\n\n" +
+          "Set up your flex budget to track spending:\n" +
+          "• Add budget limits for different categories\n" +
+          "• Track transactions against your budget\n" +
+          "• Get rebalancing suggestions automatically"
+      }
+
+      const totalRemaining = totalAllocated - totalSpent
+      const percentUsed = totalAllocated > 0 ? (totalSpent / totalAllocated) * 100 : 0
+
+      let analysis = `💰 **Flex Budget - ${month}**\n\n`
+      analysis += `┌─────────────────────────────┐\n`
+      analysis += `│ Allocated: ${this.formatMoney(totalAllocated).padStart(16)}\n`
+      analysis += `│ Spent: ${this.formatMoney(totalSpent).padStart(21)}\n`
+      analysis += `│ Remaining: ${this.formatMoney(totalRemaining).padStart(17)}\n`
+      analysis += `│ Used: ${this.formatPercent(percentUsed).padStart(22)}\n`
+      analysis += `└─────────────────────────────┘\n\n`
+
+      // Spending by category
+      analysis += `📋 **Category Breakdown:**\n`
+      
+      // Sort categories by spending (highest first)
+      const sortedCategories = Object.entries(categories)
+        .filter(([name]) => name !== 'Flex Reserve')
+        .sort((a, b) => b[1].spent - a[1].spent)
+
+      sortedCategories.forEach(([name, data]) => {
+        const percentOfTotal = totalAllocated > 0 ? (data.limit / totalAllocated) * 100 : 0
+        const status = data.isOver ? '🔴' : data.percentUsed > 80 ? '🟡' : '🟢'
+        
+        analysis += `  ${status} **${name}**\n`
+        analysis += `    • Limit: ${this.formatMoney(data.limit)} (${percentOfTotal.toFixed(1)}%)\n`
+        analysis += `    • Spent: ${this.formatMoney(data.spent)}\n`
+        analysis += `    • Left: ${this.formatMoney(data.remaining)}\n`
+        
+        // Progress bar
+        const barLength = 15
+        const filledBars = Math.floor((data.percentUsed / 100) * barLength)
+        analysis += `    • [${'█'.repeat(filledBars)}${'░'.repeat(barLength - filledBars)}] ${data.percentUsed.toFixed(0)}%\n`
+      })
+
+      // Flex Reserve
+      if (flexReserve > 0) {
+        analysis += `\n✨ **Flex Reserve:** ${this.formatMoney(flexReserve)} (rollover available)\n`
+      }
+
+      // Overspent categories alert
+      const overspent = Object.entries(categories)
+        .filter(([_, data]) => data.isOver)
+      
+      if (overspent.length > 0) {
+        analysis += `\n⚠️ **Overspent Categories:**\n`
+        overspent.forEach(([name, data]) => {
+          analysis += `  • ${name}: Over by ${this.formatMoney(data.overAmount)}\n`
+        })
+        
+        // Show rebalancing suggestion if available
+        const { showSuggestion } = this.data
+        if (showSuggestion) {
+          analysis += `\n💡 **Suggestion:** Move funds from available categories to cover overspend\n`
+        }
+      }
+
+      // Recent transactions
+      if (transactions.length > 0) {
+        analysis += `\n📝 **Recent Transactions:**\n`
+        transactions.slice(0, 5).forEach(t => {
+          const icon = CATEGORY_ICONS[t.category] || CATEGORY_ICONS.default
+          analysis += `  • ${t.description || 'Transaction'}: ${t.amount > 0 ? '+' : ''}${this.formatMoney(t.amount)}\n`
+        })
+      }
+
+      return analysis
+    } catch (error) {
+      console.error('Error in analyzeBudget:', error)
+      return "I encountered an error analyzing your budget."
+    }
+  }
+
+  // Get overspending alerts
+  analyzeOverspent() {
+    try {
+      const { flexFund = {} } = this.data
+      const { categories = {} } = flexFund
+
+      const overspent = Object.entries(categories)
+        .filter(([_, data]) => data.isOver)
+
+      if (overspent.length === 0) {
+        return "✅ **Great job!** No overspent categories this month."
+      }
+
+      let analysis = `⚠️ **Overspending Alert**\n\n`
+      
+      overspent.forEach(([name, data]) => {
+        analysis += `**${name}**\n`
+        analysis += `  • Budget: ${this.formatMoney(data.limit)}\n`
+        analysis += `  • Spent: ${this.formatMoney(data.spent)}\n`
+        analysis += `  • Over by: ${this.formatMoney(data.overAmount)}\n`
+        analysis += `  • Used: ${data.percentUsed.toFixed(0)}%\n\n`
+      })
+
+      // Check for available surplus to rebalance
+      const availableSurplus = Object.entries(categories)
+        .filter(([_, data]) => !data.isOver && data.remaining > 0 && data.remaining > 0)
+
+      if (availableSurplus.length > 0) {
+        analysis += `💡 **You can rebalance from:**\n`
+        availableSurplus.slice(0, 3).forEach(([name, data]) => {
+          analysis += `  • ${name}: ${this.formatMoney(data.remaining)} available\n`
+        })
+        analysis += `\nUse drag & drop in the flex budget view to rebalance.`
+      }
+
+      return analysis
+    } catch (error) {
+      console.error('Error in analyzeOverspent:', error)
+      return "I encountered an error analyzing overspending."
+    }
+  }
+
+  // Analyze debts
+  analyzeDebt() {
+    try {
+      const { debts = [] } = this.data
+      
+      if (debts.length === 0) {
+        return "✅ **Great news!** You have no active debts. Focus on investing and building wealth."
+      }
+
+      const totalDebt = debts.reduce((sum, d) => sum + (d.balance || 0), 0)
+      const sortedDebts = [...debts].sort((a, b) => (b.rate || 0) - (a.rate || 0))
+
+      let analysis = `💰 **Debt Analysis**\n\n`
+      analysis += `┌─────────────────────────────┐\n`
+      analysis += `│ Total Debt: ${this.formatMoney(totalDebt).padStart(15)}\n`
+      analysis += `│ Number of Loans: ${debts.length.toString().padStart(11)}\n`
+      analysis += `└─────────────────────────────┘\n\n`
+
+      analysis += `**Your Debts (Highest Interest First):**\n`
+      sortedDebts.forEach((d, i) => {
+        analysis += `  ${i+1}. ${d.name}: ${this.formatMoney(d.balance)} @ ${d.rate}% p.a.\n`
+        if (d.min_payment) {
+          analysis += `     Min Payment: ${this.formatMoney(d.min_payment)}/mo\n`
+        }
+      })
+
+      // Strategy recommendation
+      if (sortedDebts.length > 0) {
+        const highest = sortedDebts[0]
+        analysis += `\n💡 **Recommended Strategy:**\n`
+        analysis += `  • Pay off ${highest.name} first (${highest.rate}% interest) - Avalanche Method\n`
+        
+        if (highest.rate > 15) {
+          analysis += `  • ⚠️ This is high interest debt - prioritize paying it down\n`
+        }
+      }
+
+      return analysis
+    } catch (error) {
+      console.error('Error in analyzeDebt:', error)
+      return "I encountered an error analyzing your debts."
+    }
+  }
+
+  // Analyze goals
+  analyzeGoals() {
+    try {
+      const { goals = [] } = this.data
+      
+      if (goals.length === 0) {
+        return "🎯 **No goals set yet.** Set financial goals to track your progress!\n\n" +
+          "Common goals:\n" +
+          "  • Emergency fund (3-6 months expenses)\n" +
+          "  • Retirement corpus\n" +
+          "  • Home down payment\n" +
+          "  • Vacation fund"
+      }
+
+      let analysis = `🎯 **Goal Progress**\n\n`
+      
+      goals.forEach(g => {
+        const progress = g.target > 0 ? ((g.saved || 0) / g.target) * 100 : 0
+        const remaining = (g.target || 0) - (g.saved || 0)
+        
+        analysis += `**${g.name}**\n`
+        analysis += `  • Target: ${this.formatMoney(g.target)}\n`
+        analysis += `  • Saved: ${this.formatMoney(g.saved)} (${progress.toFixed(1)}%)\n`
+        
+        // Progress bar
+        const barLength = 20
+        const filledBars = Math.floor((progress / 100) * barLength)
+        analysis += `  • [${'█'.repeat(filledBars)}${'░'.repeat(barLength - filledBars)}]\n`
+        
+        if (g.target_date) {
+          const targetDate = new Date(g.target_date)
+          const today = new Date()
+          const monthsLeft = (targetDate.getFullYear() - today.getFullYear()) * 12 + 
+                            (targetDate.getMonth() - today.getMonth())
+          
+          if (monthsLeft > 0 && remaining > 0) {
+            const monthlyNeeded = remaining / monthsLeft
+            analysis += `  • Need to save ${this.formatMoney(monthlyNeeded)}/month to reach goal by ${g.target_date}\n`
+          }
+        }
+        analysis += `\n`
+      })
+
+      return analysis
+    } catch (error) {
+      console.error('Error in analyzeGoals:', error)
+      return "I encountered an error analyzing your goals."
+    }
+  }
+
+  // Generate complete financial health report
+  generateHealthReport() {
+    try {
+      const { 
+        holdings = [], 
+        debts = [], 
+        goals = [],
+        flexFund = {},
+        transactions = [],
+        quotesMap = {},
+        usdInrRate = 86.5,
+      } = this.data
+
+      // Calculate portfolio value
+      let portfolioValue = 0
+      holdings
+        .filter(h => h.quantity > 0)
+        .forEach(h => {
+          const isUS = ["NYSE","NASDAQ","PCX"].includes(h.exchange)
+          const currentPrice = quotesMap[h.ticker]?.price ?? h.avg_cost ?? 0
+          const value = currentPrice * (h.quantity || 0)
+          portfolioValue += value
+        })
+
+      const totalDebt = debts.reduce((sum, d) => sum + (d.balance || 0), 0)
+      const cashBalance = 0 // This would come from cash accounts
+      const netWorth = cashBalance + portfolioValue - totalDebt
+      
+      // Budget metrics
+      const { totalSpent = 0, totalAllocated = 0 } = flexFund
+      const savings = totalAllocated - totalSpent
+      const savingsRate = totalAllocated > 0 ? (savings / totalAllocated) * 100 : 0
+
+      let report = `🏥 **FINANCIAL HEALTH REPORT**\n\n`
+      report += `┌─────────────────────────────┐\n`
+      report += `│ Net Worth: ${this.formatMoney(netWorth).padStart(16)}\n`
+      report += `│ Investments: ${this.formatMoney(portfolioValue).padStart(14)}\n`
+      report += `│ Debt: -${this.formatMoney(totalDebt).padStart(20)}\n`
+      report += `└─────────────────────────────┘\n\n`
+
+      report += `📊 **Key Metrics:**\n`
+      report += `  • Monthly Budget: ${this.formatMoney(totalAllocated)}\n`
+      report += `  • Monthly Spent: ${this.formatMoney(totalSpent)}\n`
+      report += `  • Monthly Savings: ${this.formatMoney(savings)}\n`
+      report += `  • Savings Rate: ${this.formatPercent(savingsRate)}\n\n`
+
+      // Health score
+      let score = 0
+      let maxScore = 5
+      let recommendations = []
+
+      if (savingsRate >= 20) {
+        score++
+        report += `✅ Excellent savings rate (20%+)\n`
+      } else if (savingsRate >= 10) {
+        report += `👍 Good savings rate (10-20%)\n`
+      } else {
+        recommendations.push(`Increase savings rate to at least 10-20% of budget`)
+      }
+
+      if (totalDebt === 0) {
+        score++
+        report += `✅ Debt-free! 🎉\n`
+      } else if (totalDebt < portfolioValue) {
+        score++
+        report += `✅ Manageable debt level\n`
+      } else {
+        recommendations.push(`Consider debt reduction strategy`)
+      }
+
+      if (portfolioValue > 0) {
+        score++
+        report += `✅ Investing for the future\n`
+      } else {
+        recommendations.push(`Start investing to build long-term wealth`)
+      }
+
+      if (goals.length > 0) {
+        score++
+        report += `✅ Tracking financial goals\n`
+      } else {
+        recommendations.push(`Set specific financial goals to track progress`)
+      }
+
+      if (Object.keys(flexFund?.categories || {}).length > 0) {
+        score++
+        report += `✅ Using budget tracking\n`
+      } else {
+        recommendations.push(`Set up a flex budget to track spending`)
+      }
+
+      report += `\n📈 **Health Score: ${score}/${maxScore}**\n`
+
+      if (recommendations.length > 0) {
+        report += `\n💡 **Recommendations:**\n`
+        recommendations.forEach(r => {
+          report += `  • ${r}\n`
+        })
+      }
+
+      return report
+    } catch (error) {
+      console.error('Error in generateHealthReport:', error)
+      return "I encountered an error generating your health report."
+    }
+  }
+
+  // Main method to route queries
+  answer(query) {
+    try {
+      const lower = query.toLowerCase()
+      
+      // Route to appropriate analysis
+      if (lower.includes('portfolio') || lower.includes('holding') || lower.includes('investment')) {
+        return this.analyzePortfolio()
+      }
+      
+      if (lower.includes('budget') || lower.includes('spend') || lower.includes('expense') || 
+          lower.includes('category') || lower.includes('overspent')) {
+        if (lower.includes('overspent')) {
+          return this.analyzeOverspent()
+        }
+        return this.analyzeBudget()
+      }
+      
+      if (lower.includes('debt') || lower.includes('loan') || lower.includes('credit card')) {
+        return this.analyzeDebt()
+      }
+      
+      if (lower.includes('goal') || lower.includes('target') || lower.includes('save')) {
+        return this.analyzeGoals()
+      }
+      
+      if (lower.includes('health') || lower.includes('report') || lower.includes('overview')) {
+        return this.generateHealthReport()
+      }
+      
+      if (lower.includes('tax')) {
+        return this.generateTaxAdvice()
+      }
+      
+      if (lower.includes('sip') || lower.includes('calculator')) {
+        return this.handleCalculatorQuery(query)
+      }
+      
+      // Default to health report
+      return this.generateHealthReport()
+      
+    } catch (error) {
+      console.error('Error in advisor answer:', error)
+      return "I encountered an error. Please try rephrasing your question."
+    }
+  }
+
+  handleCalculatorQuery(query) {
+    const matches = query.match(/\d+/g)
+    if (matches && matches.length >= 2) {
+      const amount = parseInt(matches[0])
+      const years = parseInt(matches[1])
+      
+      if (query.includes('sip')) {
+        const result = this.calculateSIP(amount, years)
+        return `🧮 **SIP Calculator**\n\n` +
+          `Monthly SIP: ${this.formatMoney(result.monthlyInvestment)}\n` +
+          `Duration: ${result.years} years\n` +
+          `Expected Return: ${result.expectedReturn}%\n\n` +
+          `┌─────────────────────────────┐\n` +
+          `│ Invested: ${this.formatMoney(result.investedAmount).padStart(17)}\n` +
+          `│ Returns: ${this.formatMoney(result.estimatedReturns).padStart(18)}\n` +
+          `│ Total: ${this.formatMoney(result.totalValue).padStart(20)}\n` +
+          `└─────────────────────────────┘`
+      }
+      
+      if (query.includes('fd')) {
+        const result = this.calculateFD(amount, years)
+        return `🧮 **FD Calculator**\n\n` +
+          `Principal: ${this.formatMoney(result.principal)}\n` +
+          `Duration: ${result.years} years\n` +
+          `Interest Rate: ${result.rate}%\n\n` +
+          `┌─────────────────────────────┐\n` +
+          `│ Maturity: ${this.formatMoney(result.amount).padStart(17)}\n` +
+          `│ Interest: ${this.formatMoney(result.interest).padStart(17)}\n` +
+          `└─────────────────────────────┘`
+      }
+    }
+    return null
+  }
+
   calculateSIP(monthlyInvestment, years, expectedReturn = 12) {
     const months = years * 12
     const monthlyRate = expectedReturn / 12 / 100
@@ -111,18 +591,8 @@ class FinancialAdvisor {
     }
   }
 
-  // FD Calculator
-  calculateFD(principal, years, rate = 7.5, compounding = 'yearly') {
-    const compoundingsPerYear = {
-      yearly: 1,
-      half_yearly: 2,
-      quarterly: 4,
-      monthly: 12
-    }
-    
-    const n = compoundingsPerYear[compounding] || 1
-    const r = rate / 100
-    const amount = principal * Math.pow(1 + r/n, n * years)
+  calculateFD(principal, years, rate = 7.5) {
+    const amount = principal * Math.pow(1 + rate/100, years)
     const interest = amount - principal
     
     return {
@@ -130,277 +600,25 @@ class FinancialAdvisor {
       amount,
       interest,
       years,
-      rate,
-      compounding
+      rate
     }
   }
 
-  // Inflation-adjusted projections
-  calculateInflationAdjusted(amount, years, inflationRate = 6) {
-    const futureValue = amount * Math.pow(1 + inflationRate / 100, years)
-    const presentValue = amount / Math.pow(1 + inflationRate / 100, years)
-    
-    return {
-      futureValue,
-      presentValue,
-      inflationRate,
-      years
-    }
-  }
-
-  // Analyze portfolio
-  analyzePortfolio() {
-    try {
-      const holdings = this.getProp('holdings', [])
-      const quotesMap = this.getProp('quotesMap', {})
-      const portfolioValue = this.getProp('portfolioValue', 0)
-      const portfolioCost = this.getProp('portfolioCost', 0)
-      
-      const portfolioGain = portfolioValue - portfolioCost
-      const portfolioGainPct = portfolioCost > 0 ? (portfolioGain / portfolioCost) * 100 : 0
-
-      let analysis = `📊 **Portfolio Analysis**\n\n`
-      analysis += `┌─────────────────────────────┐\n`
-      analysis += `│ Total Value: ${this.formatMoney(portfolioValue).padStart(15)}\n`
-      analysis += `│ Total Cost: ${this.formatMoney(portfolioCost).padStart(15)}\n`
-      analysis += `│ Unrealized P&L: ${this.formatMoney(portfolioGain).padStart(13)}\n`
-      analysis += `│ Return: ${this.formatPercent(portfolioGainPct).padStart(18)}\n`
-      analysis += `└─────────────────────────────┘\n`
-
-      if (holdings.length === 0) {
-        analysis += `\n✨ No holdings found. Start your investment journey today!`
-        return analysis
-      }
-
-      // Calculate performers with safe access
-      const performers = holdings.map(h => {
-        const price = quotesMap[h.ticker]?.price ?? h.avg_cost ?? 0
-        const avgCost = h.avg_cost || 0
-        const gainPct = avgCost > 0 ? ((price - avgCost) / avgCost) * 100 : 0
-        const value = price * (h.quantity || 0)
-        return { 
-          ...h, 
-          gainPct, 
-          currentPrice: price,
-          value 
-        }
-      })
-
-      // Sort by value for top holdings
-      const topHoldings = [...performers].sort((a, b) => b.value - a.value).slice(0, 5)
-      
-      if (topHoldings.length > 0) {
-        analysis += `\n🌟 **Top Holdings:**\n`
-        topHoldings.forEach(h => {
-          const pctOfPortfolio = portfolioValue > 0 ? (h.value / portfolioValue) * 100 : 0
-          analysis += `  • ${h.name || h.ticker || 'Unknown'}: ${this.formatMoney(h.value)} (${pctOfPortfolio.toFixed(1)}%)\n`
-        })
-      }
-
-      const winners = performers.filter(p => p.gainPct > 10).sort((a, b) => b.gainPct - a.gainPct)
-      const losers = performers.filter(p => p.gainPct < -5).sort((a, b) => a.gainPct - b.gainPct)
-
-      if (winners.length > 0) {
-        analysis += `\n🚀 **Top Performers (>10%):**\n`
-        winners.slice(0, 3).forEach(w => {
-          analysis += `  • ${w.ticker || 'Unknown'}: ${this.formatPercent(w.gainPct)}\n`
-        })
-      }
-
-      if (losers.length > 0) {
-        analysis += `\n📉 **Underperformers (<-5%):**\n`
-        losers.slice(0, 3).forEach(l => {
-          analysis += `  • ${l.ticker || 'Unknown'}: ${this.formatPercent(l.gainPct)}\n`
-        })
-      }
-
-      // Check concentration
-      if (topHoldings[0]) {
-        const topPct = portfolioValue > 0 ? (topHoldings[0].value / portfolioValue) * 100 : 0
-        if (topPct > 25) {
-          analysis += `\n⚠️ **Risk Alert:** ${topHoldings[0].ticker} is ${topPct.toFixed(1)}% of portfolio. Consider diversification.\n`
-        }
-      }
-
-      return analysis
-    } catch (error) {
-      console.error('Error in analyzePortfolio:', error)
-      return "I encountered an error analyzing your portfolio. Please try again."
-    }
-  }
-
-  // Generate health report
-  generateHealthReport() {
-    try {
-      const netWorth = this.getProp('netWorth', 0)
-      const portfolioValue = this.getProp('portfolioValue', 0)
-      const cashBalance = this.getProp('cashBalance', 0)
-      const totalDebt = this.getProp('totalDebt', 0)
-      const monthlyIncome = this.getProp('monthlyIncome', 0)
-      const monthlyExpenses = this.getProp('monthlyExpenses', 0)
-      
-      const savings = monthlyIncome - monthlyExpenses
-      const savingsRate = monthlyIncome > 0 ? (savings / monthlyIncome) * 100 : 0
-      const debtToIncome = monthlyIncome > 0 ? (totalDebt / (monthlyIncome * 12)) * 100 : 0
-      const emergencyFundMonths = monthlyExpenses > 0 ? cashBalance / monthlyExpenses : 0
-
-      let report = `🏥 **FINANCIAL HEALTH REPORT**\n\n`
-      report += `┌─────────────────────────────┐\n`
-      report += `│ Net Worth: ${this.formatMoney(netWorth).padStart(15)}\n`
-      report += `│ Investments: ${this.formatMoney(portfolioValue).padStart(14)}\n`
-      report += `│ Cash: ${this.formatMoney(cashBalance).padStart(21)}\n`
-      report += `│ Debt: -${this.formatMoney(totalDebt).padStart(20)}\n`
-      report += `└─────────────────────────────┘\n\n`
-
-      report += `📊 **Key Metrics:**\n`
-      report += `  • Monthly Income: ${this.formatMoney(monthlyIncome)}\n`
-      report += `  • Monthly Expenses: ${this.formatMoney(monthlyExpenses)}\n`
-      report += `  • Monthly Savings: ${this.formatMoney(savings)}\n`
-      report += `  • Savings Rate: ${this.formatPercent(savingsRate)}\n`
-      report += `  • Debt-to-Income: ${this.formatPercent(debtToIncome)}\n`
-      report += `  • Emergency Fund: ${emergencyFundMonths.toFixed(1)} months\n\n`
-
-      // Health score
-      let score = 0
-      let maxScore = 5
-      let recommendations = []
-
-      if (emergencyFundMonths >= 6) {
-        score++
-        report += `✅ Excellent: 6+ months emergency fund\n`
-      } else if (emergencyFundMonths >= 3) {
-        score++
-        report += `👍 Good: 3-6 months emergency fund\n`
-      } else {
-        recommendations.push(`Build emergency fund to 3-6 months of expenses`)
-      }
-
-      if (debtToIncome < 20) {
-        score++
-        report += `✅ Great: Low debt burden\n`
-      } else if (debtToIncome < 36) {
-        report += `⚠️ Manageable debt\n`
-      } else {
-        recommendations.push(`Consider debt reduction strategy`)
-      }
-
-      if (savingsRate >= 20) {
-        score++
-        report += `✅ Excellent savings rate\n`
-      } else if (savingsRate >= 10) {
-        score++
-        report += `👍 Good savings rate\n`
-      } else {
-        recommendations.push(`Increase savings rate to at least 10-20%`)
-      }
-
-      if (portfolioValue > cashBalance) {
-        score++
-        report += `✅ Good: More invested than cash\n`
-      } else {
-        recommendations.push(`Consider investing excess cash for better returns`)
-      }
-
-      if (totalDebt === 0) {
-        score++
-        report += `✅ Debt-free! 🎉\n`
-      }
-
-      report += `\n📈 **Health Score: ${score}/${maxScore}**\n`
-
-      if (recommendations.length > 0) {
-        report += `\n💡 **Recommendations:**\n`
-        recommendations.forEach(r => {
-          report += `  • ${r}\n`
-        })
-      }
-
-      return report
-    } catch (error) {
-      console.error('Error in generateHealthReport:', error)
-      return "I encountered an error generating your health report."
-    }
-  }
-
-  // Main method
-  answer(query) {
-    try {
-      const lower = query.toLowerCase()
-      const category = this.routeQuery(query)
-      
-      // Check for specific calculator queries
-      if (lower.includes('sip') && (lower.includes('calculator') || lower.includes('calculate'))) {
-        const matches = query.match(/\d+/g)
-        if (matches && matches.length >= 1) {
-          const amount = parseInt(matches[0])
-          const years = matches.length >= 2 ? parseInt(matches[1]) : 10
-          const result = this.calculateSIP(amount, years)
-          return `🧮 **SIP Calculator**\n\n` +
-            `Monthly SIP: ${this.formatMoney(result.monthlyInvestment)}\n` +
-            `Duration: ${result.years} years\n` +
-            `Expected Return: ${result.expectedReturn}%\n\n` +
-            `┌─────────────────────────────┐\n` +
-            `│ Invested: ${this.formatMoney(result.investedAmount).padStart(16)}\n` +
-            `│ Returns: ${this.formatMoney(result.estimatedReturns).padStart(17)}\n` +
-            `│ Total: ${this.formatMoney(result.totalValue).padStart(19)}\n` +
-            `└─────────────────────────────┘`
-        }
-      }
-      
-      if (lower.includes('fd') && (lower.includes('calculator') || lower.includes('calculate'))) {
-        const matches = query.match(/\d+/g)
-        if (matches && matches.length >= 2) {
-          const amount = parseInt(matches[0])
-          const years = parseInt(matches[1])
-          const result = this.calculateFD(amount, years)
-          return `🧮 **FD Calculator**\n\n` +
-            `Principal: ${this.formatMoney(result.principal)}\n` +
-            `Duration: ${result.years} years\n` +
-            `Interest Rate: ${result.rate}%\n\n` +
-            `┌─────────────────────────────┐\n` +
-            `│ Maturity: ${this.formatMoney(result.amount).padStart(16)}\n` +
-            `│ Interest: ${this.formatMoney(result.interest).padStart(16)}\n` +
-            `└─────────────────────────────┘`
-        }
-      }
-      
-      // Route based on category
-      switch(category) {
-        case 'portfolio':
-          return this.analyzePortfolio()
-        case 'health':
-          return this.generateHealthReport()
-        case 'budget':
-          return this.analyzeBudget() || this.generateHealthReport()
-        case 'debt':
-          return this.analyzeDebt() || "I can help with debt analysis once you add your loans."
-        case 'goals':
-          return this.analyzeGoals() || "Set some financial goals to track your progress!"
-        case 'tax':
-          return this.generateTaxAdvice()
-        default:
-          return this.generateHealthReport()
-      }
-    } catch (error) {
-      console.error('Error in advisor answer:', error)
-      return "I encountered an error. Please try rephrasing your question."
-    }
-  }
-
-  // Placeholder methods (implement these as needed)
-  analyzeBudget() { return null }
-  analyzeDebt() { return null }
-  analyzeGoals() { return null }
-  analyzeMarketTrends() { return null }
-  generateTaxAdvice() { 
-    return "🇮🇳 **Tax-Saving Options for India:**\n\n" +
-      "• **ELSS**: Lock-in 3 years, tax benefit u/s 80C\n" +
-      "• **PPF**: 15-year lock-in, tax-free returns\n" +
-      "• **NPS**: Additional ₹50,000 deduction u/s 80CCD(1B)\n" +
-      "• **Tax-saving FDs**: 5-year lock-in\n\n" +
+  generateTaxAdvice() {
+    return "🇮🇳 **Tax-Saving Options for India (FY 2023-24)**\n\n" +
+      "**Under Section 80C (up to ₹1.5 lakh):**\n" +
+      "  • ELSS: Lock-in 3 years, market-linked returns\n" +
+      "  • PPF: 15-year lock-in, tax-free returns\n" +
+      "  • Tax-saving FD: 5-year lock-in\n" +
+      "  • NSC, ULIP, Life Insurance Premium\n\n" +
+      "**Additional Deductions:**\n" +
+      "  • NPS: Extra ₹50,000 under 80CCD(1B)\n" +
+      "  • Health Insurance: Up to ₹25,000 under 80D\n" +
+      "  • Education Loan: Interest under 80E\n\n" +
       "**Capital Gains Tax:**\n" +
-      "• **LTCG** (>1 year): 10% over ₹1 lakh\n" +
-      "• **STCG** (<1 year): 15%"
+      "  • LTCG (Equity >1yr): 10% over ₹1 lakh\n" +
+      "  • STCG (Equity <1yr): 15%\n" +
+      "  • LTCG (Debt): Indexed as per slab"
   }
 }
 
@@ -454,7 +672,22 @@ function Message({ msg, index, isMobile }) {
         <span>{line.substring(3)}</span>
       </div>
     }
-    if (line.startsWith('✅') || line.startsWith('👍') || line.startsWith('⚠️') || line.startsWith('🚀') || line.startsWith('📉')) {
+    if (line.startsWith('  •    •')) {
+      return <div key={i} style={{ 
+        display: 'flex', 
+        gap: 8, 
+        marginLeft: isMobile ? 24 : 32, 
+        marginBottom: 2,
+        fontSize: isMobile ? 11 : 12,
+        color: theme.muted
+      }}>
+        <span style={{ color: theme.accent }}>•</span>
+        <span>{line.substring(7)}</span>
+      </div>
+    }
+    if (line.startsWith('✅') || line.startsWith('👍') || line.startsWith('⚠️') || 
+        line.startsWith('🚀') || line.startsWith('📉') || line.startsWith('💰') ||
+        line.startsWith('🟢') || line.startsWith('🟡') || line.startsWith('🔴')) {
       return <div key={i} style={{ 
         display: 'flex',
         alignItems: 'center',
@@ -766,12 +999,39 @@ function TypingIndicator({ isMobile }) {
 
 // ─── Main AI Agent Component ───────────────────────────────────────────────
 export default function AIAgent() {
-  const finance = useFinance()
+  const { userId } = useFinance()
+  const currentMonthStr = currentMonth()
+  
+  // Use the same hooks as your other components
+  const { data: holdings = [], isLoading: holdingsLoading } = useHoldings(userId)
+  const { data: portfolioData, isLoading: portfolioLoading } = usePortfolioData(userId)
+  const { data: goals = [], isLoading: goalsLoading } = useGoals(userId)
+  const { data: debts = [], isLoading: debtsLoading } = useDebts(userId)
+  const { data: snapshots = [] } = usePortfolioSnapshots(userId, '1M')
+  
+  // Flex budget hook
+  const { 
+    flexFund, 
+    overspentCategories, 
+    availableSurplus,
+    showSuggestion,
+    isLoading: budgetLoading 
+  } = useFlexBudget(userId, currentMonthStr)
+  
+  // Transactions for the current month
+  const { data: transactionsData } = useTransactionsRange(
+    userId, 
+    `${currentMonthStr}-01`, 
+    `${currentMonthStr}-31`
+  )
+  const transactions = transactionsData || []
+
   const [messages, setMessages] = useState([{
     role: 'assistant',
-    content: '✨ **Welcome to your AI Financial Advisor**\n\nI have access to your live portfolio, budgets, and goals. Ask me anything about your finances!\n\nTry: "Analyze my portfolio" or "Financial health report"',
+    content: '✨ **Welcome to your AI Financial Advisor**\n\nI can see your portfolio, flex budget, debts, and goals. Ask me anything!\n\nTry:\n• "Analyze my portfolio"\n• "Budget analysis"\n• "Overspent categories"\n• "Financial health report"',
     timestamp: Date.now()
   }])
+  
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [typingIndicator, setTypingIndicator] = useState(false)
@@ -787,8 +1047,42 @@ export default function AIAgent() {
 
   const isMobile = windowWidth <= 768
 
-  // Memoized advisor
-  const advisor = useMemo(() => new FinancialAdvisor(finance), [finance])
+  // Combine all data for the advisor
+  const advisorData = useMemo(() => ({
+    holdings,
+    quotesMap: portfolioData?.quotesMap || {},
+    usdInrRate: portfolioData?.usdInrRate || 86.5,
+    indices: portfolioData?.indices || {},
+    goals,
+    debts,
+    snapshots,
+    transactions,
+    flexFund,
+    overspentCategories,
+    availableSurplus,
+    showSuggestion,
+    month: currentMonthStr,
+    // Calculate derived metrics
+    portfolioValue: holdings.reduce((sum, h) => {
+      const price = portfolioData?.quotesMap?.[h.ticker]?.price ?? h.avg_cost ?? 0
+      return sum + (price * (h.quantity || 0))
+    }, 0),
+  }), [holdings, portfolioData, goals, debts, snapshots, transactions, flexFund, 
+      overspentCategories, availableSurplus, showSuggestion, currentMonthStr])
+
+  // Log data for debugging
+  useEffect(() => {
+    console.log('Advisor Data:', {
+      holdingsCount: holdings.length,
+      debtsCount: debts.length,
+      goalsCount: goals.length,
+      transactionsCount: transactions.length,
+      budgetCategories: Object.keys(flexFund?.categories || {}).length,
+      hasQuotes: !!portfolioData?.quotesMap,
+    })
+  }, [holdings, debts, goals, transactions, flexFund, portfolioData])
+
+  const advisor = useMemo(() => new FinancialAdvisor(advisorData), [advisorData])
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -809,6 +1103,7 @@ export default function AIAgent() {
     setLoading(true)
     setTypingIndicator(true)
 
+    // Simulate processing time
     setTimeout(() => {
       try {
         const response = advisor.answer(query)
@@ -830,6 +1125,31 @@ export default function AIAgent() {
       }
     }, 800)
   }, [advisor, loading])
+
+  const isLoading = holdingsLoading || portfolioLoading || goalsLoading || 
+                    debtsLoading || budgetLoading
+
+  if (isLoading) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '400px',
+        background: theme.card + 'CC',
+        backdropFilter: 'blur(12px)',
+        border: `1px solid ${theme.border}`,
+        borderRadius: 24,
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <Spinner size={32} />
+          <div style={{ marginTop: 16, fontFamily: theme.mono, color: theme.muted }}>
+            Loading your financial data...
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={{ 
@@ -905,9 +1225,6 @@ export default function AIAgent() {
               fontSize: isMobile ? 13 : 14,
               padding: isMobile ? '12px 16px' : '14px 20px',
               outline: 'none',
-              '::placeholder': {
-                color: theme.muted + '80',
-              }
             }}
           />
           <button

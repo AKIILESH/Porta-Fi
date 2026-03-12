@@ -36,13 +36,21 @@ const NAV = [
 ];
 
 // ── Glass helper — reads theme mode ──────────────────────────────────────────
-const makeGlass = (isDark, opacity, blur = 20) => ({
-  background: isDark
-    ? `rgba(255, 255, 255, ${opacity})`
-    : `rgba(0, 0, 0, ${opacity})`,
-  backdropFilter: `blur(${blur}px) saturate(160%)`,
-  WebkitBackdropFilter: `blur(${blur}px) saturate(160%)`,
-});
+const makeGlass = (isDark, opacity, blur = 20) => {
+  // Different base colors for dark/light mode
+  const baseColor = isDark 
+    ? '15, 20, 25'  // Dark blue-gray for dark mode
+    : '250, 250, 255'; // Off-white for light mode
+  
+  return {
+    background: `rgba(${baseColor}, ${opacity})`,
+    backdropFilter: `blur(${blur}px) saturate(160%)`,
+    WebkitBackdropFilter: `blur(${blur}px) saturate(160%)`,
+    border: isDark 
+      ? '1px solid rgba(255, 255, 255, 0.06)' 
+      : '1px solid rgba(0, 0, 0, 0.04)',
+  };
+};
 
 // ── Tooltip ───────────────────────────────────────────────────────────────────
 function Tip({ children, text, theme, isDark }) {
@@ -61,8 +69,8 @@ function Tip({ children, text, theme, isDark }) {
             left: "calc(100% + 14px)",
             top: "50%",
             transform: "translateY(-50%)",
-            ...makeGlass(isDark, 0.12, 20),
-            border: `1px solid ${theme.borderHi}`,
+            ...makeGlass(isDark, 0.95, 20),
+            border: `1px solid ${theme.border}`,
             padding: "6px 14px",
             borderRadius: 8,
             fontFamily: theme.mono,
@@ -71,7 +79,7 @@ function Tip({ children, text, theme, isDark }) {
             color: theme.text,
             whiteSpace: "nowrap",
             zIndex: 200,
-            boxShadow: `0 8px 24px rgba(0,0,0,0.3)`,
+            boxShadow: `0 8px 24px rgba(0,0,0,${isDark ? 0.5 : 0.15})`,
             pointerEvents: "none",
             animation: "tipIn 0.15s ease",
           }}
@@ -84,7 +92,7 @@ function Tip({ children, text, theme, isDark }) {
               transform: "translateY(-50%)",
               borderTop: "5px solid transparent",
               borderBottom: "5px solid transparent",
-              borderRight: `5px solid ${theme.borderHi}`,
+              borderRight: `5px solid ${theme.border}`,
             }}
           />
           {text}
@@ -128,11 +136,10 @@ function NavItem({
         padding: collapsed ? "13px 0" : "11px 16px",
         marginBottom: 2,
         ...(active
-          ? makeGlass(isDark, 0.07, 16)
+          ? makeGlass(isDark, 0.15, 16)
           : hov
-            ? makeGlass(isDark, 0.04, 12)
-            : { background: "transparent" }),
-        border: "none",
+            ? makeGlass(isDark, 0.08, 12)
+            : { background: "transparent", border: "none" }),
         borderLeft: `2px solid ${active ? theme.accent : "transparent"}`,
         borderRadius: collapsed ? 10 : "0 8px 8px 0",
         color: active ? theme.accent : hov ? theme.text : theme.muted,
@@ -152,7 +159,7 @@ function NavItem({
             inset: 0,
             background: isDark
               ? `linear-gradient(90deg, rgba(255,255,255,0.05) 0%, transparent 100%)`
-              : `linear-gradient(90deg, rgba(0,0,0,0.04) 0%, transparent 100%)`,
+              : `linear-gradient(90deg, rgba(0,0,0,0.02) 0%, transparent 100%)`,
             pointerEvents: "none",
             borderRadius: "inherit",
           }}
@@ -196,7 +203,7 @@ function NavItem({
 }
 
 // ── Divider ───────────────────────────────────────────────────────────────────
-function Divider({ theme }) {
+function Divider({ theme, isDark }) {
   return (
     <div
       style={{
@@ -216,8 +223,8 @@ function Avatar({ initial, size = 36, theme, isDark }) {
         width: size,
         height: size,
         flexShrink: 0,
-        ...makeGlass(isDark, 0.09, 16),
-        border: `1px solid ${theme.borderHi}`,
+        ...makeGlass(isDark, 0.2, 16),
+        border: `1px solid ${theme.border}`,
         borderRadius: "50%",
         display: "flex",
         alignItems: "center",
@@ -247,8 +254,12 @@ export default function Sidebar({
   const [mounted, setMounted] = useState(false);
   const navigate = useNavigate();
 
-  // ✅ Single source of truth — no static import conflict
   const { theme, isDark, toggle } = useTheme();
+
+  // Force a re-render when theme changes
+  useEffect(() => {
+    // This empty effect with theme dependency ensures re-render on theme change
+  }, [isDark, theme]);
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 60);
@@ -272,10 +283,28 @@ export default function Sidebar({
     right: "10%",
     height: 1,
     background: isDark
-      ? "linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent)"
-      : "linear-gradient(90deg, transparent, rgba(0,0,0,0.06), transparent)",
+      ? "linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent)"
+      : "linear-gradient(90deg, transparent, rgba(0,0,0,0.04), transparent)",
     pointerEvents: "none",
   };
+
+  // Don't render until mounted to avoid hydration mismatch
+  if (!mounted) {
+    return (
+      <aside
+        style={{
+          width: collapsed ? 72 : 248,
+          position: "fixed",
+          top: 0,
+          left: 0,
+          zIndex: 1000,
+          height: "100vh",
+          background: isDark ? '#0f1217' : '#f8fafc',
+          borderRight: `1px solid ${theme?.border || '#e2e8f0'}`,
+        }}
+      />
+    );
+  }
 
   return (
     <>
@@ -294,21 +323,20 @@ export default function Sidebar({
           left: 0,
           zIndex: 1000,
           height: "100vh",
-          height: "100%",
-          ...makeGlass(isDark, 0.04, 28),
+          ...makeGlass(isDark, 0.85, 28),
           borderRight: `1px solid ${theme.border}`,
           display: "flex",
           flexDirection: "column",
           flexShrink: 0,
           position: "relative",
-          opacity: mounted ? 1 : 0,
-          transform: mounted ? "translateX(0)" : "translateX(-8px)",
+          opacity: 1,
+          transform: "translateX(0)",
           transitionProperty: "width, opacity, transform",
           transitionDuration: "0.32s, 0.5s, 0.5s",
           transitionTimingFunction: "cubic-bezier(0.4,0,0.2,1)",
           overflow: "visible",
           boxShadow: isDark
-            ? `inset -1px 0 0 ${theme.border}, 4px 0 32px rgba(0,0,0,0.3)`
+            ? `inset -1px 0 0 ${theme.border}, 4px 0 32px rgba(0,0,0,0.5)`
             : `inset -1px 0 0 ${theme.border}, 4px 0 20px rgba(0,0,0,0.08)`,
         }}
       >
@@ -345,7 +373,6 @@ export default function Sidebar({
                   letterSpacing: "0.06em",
                   lineHeight: 1,
                   marginBottom: 6,
-                  animation: "slideIn 0.4s ease",
                 }}
               >
                 <span style={{ color: theme.accent }}>Porta</span>
@@ -358,7 +385,6 @@ export default function Sidebar({
                   letterSpacing: "0.22em",
                   textTransform: "uppercase",
                   color: theme.muted,
-                  animation: "slideIn 0.45s ease",
                 }}
               >
                 Smart Money · Smart Future
@@ -378,8 +404,8 @@ export default function Sidebar({
               width: 28,
               height: 28,
               borderRadius: "50%",
-              ...makeGlass(isDark, 0.12, 20),
-              border: `1px solid ${theme.borderHi}`,
+              ...makeGlass(isDark, 0.2, 20),
+              border: `1px solid ${theme.border}`,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -422,11 +448,8 @@ export default function Sidebar({
           )}
 
           {NAV.map((n, i) => (
-            <div
-              key={n.id}
-              style={{ animation: `slideIn ${0.1 + i * 0.04}s ease` }}
-            >
-              {n.id === "ai" && <Divider theme={theme} />}
+            <div key={n.id}>
+              {n.id === "ai" && <Divider theme={theme} isDark={isDark} />}
               <NavItem
                 n={n}
                 active={tab === n.id}
@@ -450,7 +473,7 @@ export default function Sidebar({
             flexShrink: 0,
           }}
         >
-          {/* Profile dropdown — single instance, no duplicate */}
+          {/* Profile dropdown */}
           {showProfile && !collapsed && (
             <div
               style={{
@@ -458,8 +481,8 @@ export default function Sidebar({
                 bottom: "calc(100% + 8px)",
                 left: 12,
                 right: 12,
-                ...makeGlass(isDark, 0.14, 24),
-                border: `1px solid ${theme.borderHi}`,
+                ...makeGlass(isDark, 0.95, 24),
+                border: `1px solid ${theme.border}`,
                 borderRadius: 12,
                 padding: "8px",
                 zIndex: 100,
@@ -494,7 +517,7 @@ export default function Sidebar({
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.color = theme.text;
-                  e.currentTarget.style.background = theme.accentDim;
+                  e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.color = theme.muted;
@@ -531,7 +554,7 @@ export default function Sidebar({
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.color = theme.text;
-                  e.currentTarget.style.background = theme.accentDim;
+                  e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.color = theme.muted;
@@ -546,7 +569,7 @@ export default function Sidebar({
                 {isDark ? "Light Mode" : "Dark Mode"}
               </button>
 
-              <Divider theme={theme} />
+              <Divider theme={theme} isDark={isDark} />
 
               {/* Sign out */}
               <button
@@ -618,9 +641,9 @@ export default function Sidebar({
                 padding: "10px 12px",
                 borderRadius: 10,
                 ...(showProfile
-                  ? makeGlass(isDark, 0.07, 16)
+                  ? makeGlass(isDark, 0.15, 16)
                   : { background: "transparent" }),
-                border: `1px solid ${showProfile ? theme.borderHi : "transparent"}`,
+                border: `1px solid ${showProfile ? theme.border : "transparent"}`,
                 cursor: "pointer",
                 transition: "all 0.25s",
               }}
@@ -628,7 +651,7 @@ export default function Sidebar({
                 if (showProfile) return;
                 e.currentTarget.style.background = isDark
                   ? "rgba(255,255,255,0.04)"
-                  : "rgba(0,0,0,0.03)";
+                  : "rgba(0,0,0,0.02)";
                 e.currentTarget.style.borderColor = theme.border;
               }}
               onMouseLeave={(e) => {

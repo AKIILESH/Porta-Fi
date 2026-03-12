@@ -1446,7 +1446,7 @@ function HoldingsTable({ onSell, selectedAsset }) {
           main: `₹${value ? value.toFixed(2) : '0.00'}`,
           sub: `${totalFiltered > 0 ? ((value / totalFiltered) * 100).toFixed(1) : 0}%`,
           label: 'Current Value',
-          color: theme.text,
+          color: gain >= 0 ? theme.green : theme.red,
         }
       case 'change':
         return {
@@ -1558,14 +1558,6 @@ function HoldingsTable({ onSell, selectedAsset }) {
                     </div>
                   </div>
                   <div style={{ display:"flex", gap:6 }}>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onSell(h) }}
-                      style={{
-                        padding:"6px 12px", ...glass(theme, 0.06, 8),
-                        border:`1px solid ${theme.red}35`, borderRadius:6,
-                        color:theme.red, fontSize:"0.55rem", fontFamily:theme.mono, cursor:"pointer",
-                      }}
-                    >Sell</button>
                     <button
                       onClick={(e) => { e.stopPropagation(); window.confirm("Delete this holding?") && deleteHolding.mutateAsync(h.id) }}
                       style={{
@@ -1692,8 +1684,15 @@ function HoldingsTable({ onSell, selectedAsset }) {
             <div style={{ fontFamily:theme.mono, fontSize:"0.73rem", color:q?theme.text:theme.muted }}>
               {q ? `₹${q.price?.toFixed(2) || '0.00'}` : <span style={{ fontSize:"0.58rem" }}>Cached</span>}
             </div>
-            <div style={{ fontFamily:theme.display, fontSize:"0.98rem", color:theme.text }}>₹{value ? value.toFixed(2) : '0.00'}</div>
-            <div>
+<div
+  style={{
+    fontFamily: theme.display,
+    fontSize: "0.98rem",
+    color: gain >= 0 ? theme.green : theme.red,
+  }}
+>
+  ₹{value ? value.toFixed(2) : "0.00"}
+</div>            <div>
               <div style={{ fontFamily:theme.display, fontSize:"0.98rem", color:gain>=0?theme.green:theme.red, textShadow:`0 0 10px ${(gain>=0?theme.green:theme.red)+"40"}` }}>
                 {gain ? `₹${gain.toFixed(2)}` : '₹0.00'}
               </div>
