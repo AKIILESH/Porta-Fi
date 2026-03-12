@@ -96,7 +96,7 @@ export function Btn({ children, onClick, color, ghost = false, style = {}, disab
         borderRadius: 10,
         padding:      sm ? '5px 13px' : '9px 20px',
         fontFamily:   theme.mono,
-        fontSize:     sm ? 11 : 13,
+        fontSize:     sm ? 10 : 13,
         fontWeight:   500,
         cursor:       disabled ? 'not-allowed' : 'pointer',
         opacity:      disabled ? 0.4 : 1,

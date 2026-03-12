@@ -10,6 +10,8 @@ import { useTheme } from "../../context/ThemeContext.jsx" // 👈 Add this
 import { Spinner } from "../shared/ui.jsx"
 import { inr, inrCompact, pct, todayISO } from "../../lib/formatters.js"
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts"
+import PerformanceChart from './PerformanceChart'
+
 import {
   Search, TrendingUp, TrendingDown, BarChart2,
   Repeat2, ChevronDown, Check, X, ShoppingCart,
@@ -1395,7 +1397,7 @@ function HoldingsTable({ onSell, selectedAsset }) {
   const usdInrRate = portfolioData?.usdInrRate || 86.5
 
   const [hovered, setHovered] = useState(null)
-  const [cardView, setCardView] = useState({})
+  const [globalViewMode, setGlobalViewMode] = useState('value') // Single global state
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200)
 
   useEffect(() => {
@@ -1415,11 +1417,11 @@ function HoldingsTable({ onSell, selectedAsset }) {
     )
   }, [holdings, selectedAsset])
 
-  const cycleCardView = (holdingId) => {
-    setCardView(prev => {
-      const current = prev[holdingId] || 'value'
-      const next = current === 'value' ? 'change' : current === 'change' ? 'returns' : 'value'
-      return { ...prev, [holdingId]: next }
+  // Cycle through view modes globally
+  const cycleGlobalView = () => {
+    setGlobalViewMode(prev => {
+      const next = prev === 'value' ? 'change' : prev === 'change' ? 'returns' : 'value'
+      return next
     })
   }
 
@@ -1489,18 +1491,35 @@ function HoldingsTable({ onSell, selectedAsset }) {
 
     return (
       <div>
+        {/* Global view mode indicator */}
+        <div style={{
+          display: "flex",
+          justifyContent: "center",
+          marginBottom: 16,
+          fontFamily: theme.mono,
+          fontSize: "0.6rem",
+          color: theme.muted,
+        }}>
+          <span style={{
+            padding: "4px 12px",
+            background: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+            borderRadius: 20,
+            border: `1px solid ${theme.border}`,
+          }}>
+            Showing: {globalViewMode === 'value' ? 'Value' : globalViewMode === 'change' ? "Today's Change" : 'Total Returns'}
+          </span>
+        </div>
+
         {/* Mobile Cards */}
-        <div style={{ display:"grid", gap:12 }}>
+        <div style={{ display:"grid", gap:12 }} onClick={cycleGlobalView}>
           {filtered.map(h => {
             const q = quotesMap[h.ticker]
             const ac = ASSET_CLASSES.find(a => a.value === h.asset_class)
-            const viewMode = cardView[h.id] || 'value'
-            const content = getCardContent(h, viewMode)
+            const content = getCardContent(h, globalViewMode)
 
             return (
               <div
                 key={h.id}
-                onClick={() => cycleCardView(h.id)}
                 style={{
                   ...glass(theme, 0.05, 14),
                   border:`1px solid ${theme.border}`,
@@ -1584,7 +1603,6 @@ function HoldingsTable({ onSell, selectedAsset }) {
       </div>
     )
   }
-
   // ── Desktop / Tablet table view ───────────────────────────────────────────
   if (isLoading) return <div style={{ padding:"40px", textAlign:"center" }}><Spinner/></div>
   if (!filtered.length) {
@@ -1758,20 +1776,6 @@ export default function Portfolio() {
 
   const kpis = [
     {
-        label: "Invested",
-        value: inrCompact(portfolioCost),
-        color: theme.accent,
-        sub:   "Total cost basis",
-        icon:  Wallet,
-      },
-    {
-      label: "Portfolio Value",
-      value: inrCompact(portfolioValue),
-      color: portfolioValue >= portfolioCost ? theme.green : theme.red,
-      sub:   "Current market value",
-      icon:  BarChart2,
-    },
-    {
       label: "Unrealised P&L",
       value: inr(portfolioGain),
       color: portfolioGain >= 0 ? theme.green : theme.red,
@@ -1785,18 +1789,19 @@ export default function Portfolio() {
       sub:   "Annualized return",
       icon:  Activity,
     },
-    {
+    
+  ]
+
+  // Extra KPIs for desktop
+  if (!isMobile && !isTablet) {
+    kpis.push(
+      {
       label: "Total Trades",
       value: trades.length,
       color: theme.blue,
       sub:   `${trades.filter(t => ["sell", "switch_out"].includes(t.trade_type)).length} exits`,
       icon:  Repeat2,
     },
-  ]
-
-  // Extra KPIs for desktop
-  if (!isMobile && !isTablet) {
-    kpis.push(
       {
         label: "Realised P&L",
         value: inr(realisedPnl),
@@ -1813,6 +1818,9 @@ export default function Portfolio() {
         @keyframes fadeUp    { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }
         @keyframes slideInPill { from { opacity:0; transform:translateY(5px) } to { opacity:1; transform:translateY(0) } }
       `}</style>
+
+<PerformanceChart />
+
 
       {/* ── KPI row ── */}
       <div style={{
