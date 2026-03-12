@@ -34,6 +34,8 @@ export const lightTheme = {
 
   text:   'rgba(0, 0, 0, 0.88)',
   muted:  'rgba(0, 0, 0, 0.35)',
+  white:'rgba(255, 255, 255, 0.90)',
+
 
   display: "-apple-system, 'SF Pro Display', 'Inter', system-ui, sans-serif",
   sans:    "-apple-system, 'SF Pro Text',    'Inter', system-ui, sans-serif",

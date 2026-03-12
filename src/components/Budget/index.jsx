@@ -6,6 +6,7 @@ import { useCashAccounts } from '../../hooks/useCashAccounts.js'
 import { useFlexBudget } from '../../hooks/useFlexBudget.js'
 import { useTheme } from '../../context/ThemeContext.jsx' // 👈 Add this
 import { Spinner } from '../shared/ui.jsx'
+import SmartInput from './SmartInput'
 import { inr, fmtDate, todayISO, currentMonth } from '../../lib/formatters.js'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import {
@@ -1140,12 +1141,6 @@ export default function Budget() {
             <Move size={13} />
             {showFlexFund ? 'Hide Flex Fund' : 'Flex Fund'}
           </button>
-          <button className="bg-header-btn"
-            onClick={()=>setShowForm(v=>!v)}
-            style={{ display:'inline-flex', alignItems:'center', gap:8, ...glass(theme, showForm?0.04:0.08, 14), border:`1px solid ${showForm?theme.border:theme.accent+'60'}`, borderRadius:10, color:showForm?theme.muted:theme.accent, padding:'10px 22px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.63rem', letterSpacing:'0.14em', textTransform:'uppercase', transition:'all 0.25s', boxShadow:showForm?'none':`0 0 20px ${theme.accentGlow}` }}
-          >
-            {showForm ? <><X size={13}/> Cancel</> : <><Plus size={13}/> Add Transaction</>}
-          </button>
         </div>
       </div>
 
@@ -1170,8 +1165,10 @@ export default function Budget() {
         <SummaryCard label="Savings"  value={inr(balance)}  accent={balance>=0?theme.blue:theme.red} icon={PiggyBank} sub={`${savingsRate}% savings rate`} index={2}/>
       </div>
 
+      {/* NLP SMART INPUT */}
+      <SmartInput onSuccess={() => setShowForm(false)} />
+
       {/* Form */}
-      {showForm && <AddTransactionForm onSuccess={()=>setShowForm(false)}/>}
 
       {/* Smart Suggestions (from Flex Fund) */}
       {showFlexFund && (
@@ -1311,3 +1308,11 @@ export default function Budget() {
     </div>
   )
 }
+
+//<button className="bg-header-btn"
+//            onClick={()=>setShowForm(v=>!v)}
+//           style={{ display:'inline-flex', alignItems:'center', gap:8, ...glass(theme, showForm?0.04:0.08, 14), border:`1px solid ${showForm?theme.border:theme.accent+'60'}`, borderRadius:10, color:showForm?theme.muted:theme.accent, padding:'10px 22px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.63rem', letterSpacing:'0.14em', textTransform:'uppercase', transition:'all 0.25s', boxShadow:showForm?'none':`0 0 20px ${theme.accentGlow}` }}
+//          >
+//            {showForm ? <><X size={13}/> Cancel</> : <><Plus size={13}/> Add Transaction</>}
+//          </button>
+// {showForm && <AddTransactionForm onSuccess={()=>setShowForm(false)}/>}
