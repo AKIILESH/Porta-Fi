@@ -16,6 +16,7 @@ import {
   ChevronUp,
   Sun,
   Moon,
+  Scale
 } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext.jsx";
 
@@ -27,6 +28,7 @@ const NAV = [
     path: "/dashboard",
   },
   { id: "portfolio", icon: PieChart, label: "Portfolio", path: "/portfolio" },
+  { id: "taxcost", icon: Scale, label: 'Tax & Costs', path: '/taxcost' },
   { id: "cash", icon: Landmark, label: "Cash", path: "/cash" },
   { id: "budget", icon: Wallet, label: "Budget", path: "/budget" },
   { id: "goals", icon: Target, label: "Goals", path: "/goals" },
@@ -37,7 +39,6 @@ const NAV = [
 
 // ── Glass helper — reads theme mode ──────────────────────────────────────────
 const makeGlass = (isDark, opacity, blur = 20) => {
-  // Different base colors for dark/light mode
   const baseColor = isDark 
     ? '15, 20, 25'  // Dark blue-gray for dark mode
     : '250, 250, 255'; // Off-white for light mode
@@ -46,9 +47,7 @@ const makeGlass = (isDark, opacity, blur = 20) => {
     background: `rgba(${baseColor}, ${opacity})`,
     backdropFilter: `blur(${blur}px) saturate(160%)`,
     WebkitBackdropFilter: `blur(${blur}px) saturate(160%)`,
-    border: isDark 
-      ? '1px solid rgba(255, 255, 255, 0.06)' 
-      : '1px solid rgba(0, 0, 0, 0.04)',
+    // REMOVED: border shorthand property to avoid conflict
   };
 };
 
@@ -70,7 +69,7 @@ function Tip({ children, text, theme, isDark }) {
             top: "50%",
             transform: "translateY(-50%)",
             ...makeGlass(isDark, 0.95, 20),
-            border: `1px solid ${theme.border}`,
+            border: `1px solid ${theme.border}`, // Keeping border here is fine (no borderLeft conflict)
             padding: "6px 14px",
             borderRadius: 8,
             fontFamily: theme.mono,
@@ -122,34 +121,46 @@ function NavItem({
     if (isMobile && onItemClick) onItemClick();
   };
 
+  // Base styles without border
+  const baseStyles = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: collapsed ? "center" : "flex-start",
+    gap: collapsed ? 0 : 12,
+    width: "100%",
+    padding: collapsed ? "13px 0" : "11px 16px",
+    marginBottom: 2,
+    borderRadius: collapsed ? 10 : "0 8px 8px 0",
+    color: active ? theme.accent : hov ? theme.text : theme.muted,
+    fontFamily: theme.mono,
+    fontSize: isMobile ? "0.8rem" : "0.68rem",
+    letterSpacing: "0.10em",
+    textTransform: "uppercase",
+    cursor: "pointer",
+    transition: "all 0.22s ease",
+    position: "relative",
+    // Individual border properties instead of shorthand
+    borderTop: "none",
+    borderRight: "none",
+    borderBottom: "none",
+    borderLeft: `2px solid ${active ? theme.accent : "transparent"}`,
+  };
+
+  // Background styles based on state
+  const bgStyle = active
+    ? makeGlass(isDark, 0.15, 16)
+    : hov
+      ? makeGlass(isDark, 0.08, 12)
+      : { background: "transparent" };
+
   const btn = (
     <button
       onClick={handleClick}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: collapsed ? "center" : "flex-start",
-        gap: collapsed ? 0 : 12,
-        width: "100%",
-        padding: collapsed ? "13px 0" : "11px 16px",
-        marginBottom: 2,
-        ...(active
-          ? makeGlass(isDark, 0.15, 16)
-          : hov
-            ? makeGlass(isDark, 0.08, 12)
-            : { background: "transparent", border: "none" }),
-        borderLeft: `2px solid ${active ? theme.accent : "transparent"}`,
-        borderRadius: collapsed ? 10 : "0 8px 8px 0",
-        color: active ? theme.accent : hov ? theme.text : theme.muted,
-        fontFamily: theme.mono,
-        fontSize: isMobile ? "0.8rem" : "0.68rem",
-        letterSpacing: "0.10em",
-        textTransform: "uppercase",
-        cursor: "pointer",
-        transition: "all 0.22s ease",
-        position: "relative",
+        ...baseStyles,
+        ...bgStyle,
       }}
     >
       {active && (
@@ -203,7 +214,7 @@ function NavItem({
 }
 
 // ── Divider ───────────────────────────────────────────────────────────────────
-function Divider({ theme, isDark }) {
+function Divider({ theme }) {
   return (
     <div
       style={{
@@ -224,7 +235,7 @@ function Avatar({ initial, size = 36, theme, isDark }) {
         height: size,
         flexShrink: 0,
         ...makeGlass(isDark, 0.2, 16),
-        border: `1px solid ${theme.border}`,
+        border: `1px solid ${theme.border}`, // Single border property - no conflict
         borderRadius: "50%",
         display: "flex",
         alignItems: "center",
@@ -324,7 +335,7 @@ export default function Sidebar({
           zIndex: 1000,
           height: "100vh",
           ...makeGlass(isDark, 0.85, 28),
-          borderRight: `1px solid ${theme.border}`,
+          borderRight: `1px solid ${theme.border}`, // Individual border property
           display: "flex",
           flexDirection: "column",
           flexShrink: 0,
@@ -346,7 +357,7 @@ export default function Sidebar({
         <div
           style={{
             padding: collapsed && !mobile ? "28px 0 24px" : "28px 24px 24px",
-            borderBottom: `1px solid ${theme.border}`,
+            borderBottom: `1px solid ${theme.border}`, // Individual border property
             textAlign: collapsed && !mobile ? "center" : "left",
             flexShrink: 0,
           }}
@@ -405,7 +416,7 @@ export default function Sidebar({
               height: 28,
               borderRadius: "50%",
               ...makeGlass(isDark, 0.2, 20),
-              border: `1px solid ${theme.border}`,
+              border: `1px solid ${theme.border}`, // Single border - no conflict
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -449,7 +460,7 @@ export default function Sidebar({
 
           {NAV.map((n, i) => (
             <div key={n.id}>
-              {n.id === "ai" && <Divider theme={theme} isDark={isDark} />}
+              {n.id === "ai" && <Divider theme={theme} />}
               <NavItem
                 n={n}
                 active={tab === n.id}
@@ -467,7 +478,7 @@ export default function Sidebar({
         {/* ── Profile ── */}
         <div
           style={{
-            borderTop: `1px solid ${theme.border}`,
+            borderTop: `1px solid ${theme.border}`, // Individual border property
             padding: collapsed && !mobile ? "16px 8px" : "16px 12px",
             position: "relative",
             flexShrink: 0,
@@ -482,7 +493,7 @@ export default function Sidebar({
                 left: 12,
                 right: 12,
                 ...makeGlass(isDark, 0.95, 24),
-                border: `1px solid ${theme.border}`,
+                border: `1px solid ${theme.border}`, // Single border - no conflict
                 borderRadius: 12,
                 padding: "8px",
                 zIndex: 100,
@@ -569,7 +580,7 @@ export default function Sidebar({
                 {isDark ? "Light Mode" : "Dark Mode"}
               </button>
 
-              <Divider theme={theme} isDark={isDark} />
+              <Divider theme={theme} />
 
               {/* Sign out */}
               <button
@@ -643,7 +654,7 @@ export default function Sidebar({
                 ...(showProfile
                   ? makeGlass(isDark, 0.15, 16)
                   : { background: "transparent" }),
-                border: `1px solid ${showProfile ? theme.border : "transparent"}`,
+                border: `1px solid ${showProfile ? theme.border : "transparent"}`, // Single border
                 cursor: "pointer",
                 transition: "all 0.25s",
               }}

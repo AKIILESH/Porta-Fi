@@ -17,6 +17,7 @@ import Cash from "./components/Cash/Cash.jsx";
 import Debt from "./components/Debt/index.jsx";
 import Markets from "./components/Markets/index.jsx";
 import AIAgent from "./components/AIAgent/index.jsx";
+import TaxCost from "./components/TaxCost/TaxCost.jsx";
 import Login from "./components/Auth/Login.jsx";
 import ProtectedRoute from "./components/Auth/ProtectedRoute.jsx";
 import AdminRoute from "./components/Admin/AdminRoute.jsx";
@@ -159,6 +160,8 @@ function Page({ tab }) {
       return <Dashboard />;
     case "portfolio":
       return <Portfolio />;
+      case "taxcost":
+      return <TaxCost />;
     case "budget":
       return <Budget />;
     case "goals":
@@ -387,6 +390,14 @@ export default function App() {
           />
           <Route
             path="/portfolio"
+            element={
+              <ProtectedRoute>
+                <DashboardApp userId={userId} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/taxcost"
             element={
               <ProtectedRoute>
                 <DashboardApp userId={userId} />

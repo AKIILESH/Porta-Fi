@@ -1,157 +1,129 @@
-// src/pages/Markets.jsx
+// src/components/Markets/index.jsx
 import { useState } from 'react'
-import { useFinance } from '../../context/FinanceContext.jsx'
-import { useIndices } from '../../hooks/useIndices.js'
-import { useTheme } from '../../context/ThemeContext.jsx' // 👈 Add this
-import { Spinner } from '../shared/ui.jsx'
-import { pct } from '../../lib/formatters.js'
+import { useIndices }     from '../../hooks/useIndices.js'
+import { useMarketNews }  from '../../hooks/useMarketNews.js'
+import { useTheme }       from '../../context/ThemeContext.jsx'
+import { pct }            from '../../lib/formatters.js'
 import {
   TrendingUp, TrendingDown, RefreshCw, Activity,
-  AlertTriangle, Clock, Info, ArrowUpRight, ArrowDownRight,
-  BarChart2, Globe, Zap, Shield, DollarSign, Landmark,
+  AlertTriangle, Clock, ArrowUpRight, ArrowDownRight,
+  Zap, BarChart2, Globe, DollarSign,
+  Landmark, Newspaper,
 } from 'lucide-react'
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CSS
-// ─────────────────────────────────────────────────────────────────────────────
-const CSS = (theme) => `
-  *, *::before, *::after { box-sizing: border-box; }
-
-  @keyframes fadeUp   { from { opacity:0; transform:translateY(14px) } to { opacity:1; transform:translateY(0) } }
-  @keyframes fadeIn   { from { opacity:0 } to { opacity:1 } }
-  @keyframes shimmer  { 0%   { transform:translateX(-100%) }            100% { transform:translateX(220%) }     }
-  @keyframes gpulse   { 0%,100% { opacity:.2 } 50% { opacity:.5 }                                              }
-  @keyframes ticker   { 0%   { transform:translateX(0) }                100% { transform:translateX(-50%) }    }
-  @keyframes blink    { 0%,100% { opacity:1 } 50% { opacity:0.3 }                                              }
-
-  .m-index-grid   { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
-  .m-watch-grid   { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
-  .m-signals-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
-  .m-header       { display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:14px;
-                    margin-bottom:26px; padding-bottom:22px; border-bottom:1px solid ${theme.border}; }
-
-  .m-card:hover .m-card-glow { opacity: 1 !important; }
-
-  @media (max-width:1024px) {
-    .m-index-grid   { grid-template-columns:repeat(2,1fr); }
-    .m-signals-grid { grid-template-columns:repeat(2,1fr); }
-  }
-  @media (max-width:767px) {
-    .m-header       { flex-direction:column; align-items:flex-start; }
-    .m-index-grid   { grid-template-columns:repeat(2,1fr); gap:10px; }
-    .m-watch-grid   { grid-template-columns:1fr; }
-    .m-signals-grid { grid-template-columns:1fr; }
-  }
-  @media (max-width:420px) {
-    .m-index-grid   { grid-template-columns:1fr; }
-  }
-`
-
-// ─────────────────────────────────────────────────────────────────────────────
-// GLASS HELPERS
-// ─────────────────────────────────────────────────────────────────────────────
-const glass = (theme, o=0.04, b=20) => ({
-  background:           `rgba(255,255,255,${o})`,
-  backdropFilter:       `blur(${b}px) saturate(180%)`,
-  WebkitBackdropFilter: `blur(${b}px) saturate(180%)`,
+// ─── Glass helpers ─────────────────────────────────────────────────────────
+const makeGlass = (isDark, o = 0.04, b = 20) => ({
+  background:           isDark ? `rgba(255,255,255,${o})` : `rgba(0,0,0,${o * 0.6})`,
+  backdropFilter:       `blur(${b}px) saturate(160%)`,
+  WebkitBackdropFilter: `blur(${b}px) saturate(160%)`,
 })
-const gi    = (theme) => `inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -1px 0 rgba(0,0,0,0.12)`
-const shine = { position:'absolute', top:0, left:'8%', right:'8%', height:1, background:'linear-gradient(90deg,transparent,rgba(255,255,255,0.10),transparent)', pointerEvents:'none' }
-
-const SL = ({ children, icon:Icon, color }) => {
-  const { theme } = useTheme()
-  const c = color || theme.accent
-  
-  return (
-    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:20 }}>
-      <div style={{ width:3, height:15, background:c, borderRadius:2, boxShadow:`0 0 10px ${c}80` }}/>
-      {Icon && <Icon size={13} style={{color:c}} strokeWidth={2}/>}
-      <span style={{ fontFamily:theme.mono, fontSize:'0.57rem', letterSpacing:'0.22em', textTransform:'uppercase', color:c }}>{children}</span>
-    </div>
-  )
+const makeInset = (isDark) => isDark
+  ? `inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -1px 0 rgba(0,0,0,0.10)`
+  : `inset 0 1px 0 rgba(255,255,255,0.90), inset 0 -1px 0 rgba(0,0,0,0.04)`
+const shine = {
+  position:'absolute', top:0, left:'8%', right:'8%', height:1,
+  background:'linear-gradient(90deg,transparent,rgba(255,255,255,0.08),transparent)',
+  pointerEvents:'none',
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// INDEX CONFIG
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Index config ──────────────────────────────────────────────────────────
 const INDEX_CONFIG = {
-  '^NSEI':  { label:'NIFTY 50',  flag:'🇮🇳', region:'India',  desc:'Top 50 Indian large-caps' },
-  '^BSESN': { label:'SENSEX',    flag:'🇮🇳', region:'India',  desc:'BSE 30 bellwether index'  },
-  '^GSPC':  { label:'S&P 500',   flag:'🇺🇸', region:'USA',    desc:'500 largest US companies' },
-  '^IXIC':  { label:'NASDAQ',    flag:'🇺🇸', region:'USA',    desc:'Tech-heavy US benchmark'  },
+  '^NSEI':  { label:'NIFTY 50', flag:'🇮🇳', desc:'Top 50 Indian large-caps' },
+  '^BSESN': { label:'SENSEX',   flag:'🇮🇳', desc:'BSE 30 bellwether index'  },
+  '^GSPC':  { label:'S&P 500',  flag:'🇺🇸', desc:'500 largest US companies' },
+  '^IXIC':  { label:'NASDAQ',   flag:'🇺🇸', desc:'Tech-heavy US benchmark'  },
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MINI SPARKLINE (last 5 pts implied from price + change — decorative)
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Category config ───────────────────────────────────────────────────────
+const CAT_CONFIG = {
+  indices:     { label:'Indices',    color:'#3b82f6', icon: BarChart2   },
+  macro:       { label:'Macro',      color:'#a78bfa', icon: Landmark    },
+  flows:       { label:'FII/DII',    color:'#22c55e', icon: TrendingUp  },
+  currency:    { label:'Currency',   color:'#f59e0b', icon: DollarSign  },
+  commodities: { label:'Commodities',color:'#f97316', icon: Globe       },
+  earnings:    { label:'Earnings',   color:'#06b6d4', icon: Activity    },
+  ipo:         { label:'IPO',        color:'#ec4899', icon: Zap         },
+  mf:          { label:'Mutual Fund',color:'#8b5cf6', icon: BarChart2   },
+  general:     { label:'Markets',    color:'#6b7280', icon: Newspaper   },
+}
+
+const ALL_CATS = ['all', 'indices', 'macro', 'flows', 'currency', 'commodities', 'earnings', 'mf', 'ipo']
+
+// ─── Sparkline ─────────────────────────────────────────────────────────────
 function MiniSparkline({ up, color }) {
-  // Decorative SVG path representing momentum
   const pts = up
     ? '0,18 10,15 20,16 30,10 40,12 50,7 60,5 70,8 80,4 90,2'
     : '0,2  10,5  20,4  30,8  40,6  50,11 60,9 70,13 80,15 90,18'
   return (
-    <svg width={90} height={22} style={{ display:'block', opacity:0.6 }}>
-      <defs>
-        <linearGradient id={`sg-${up?'u':'d'}`} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity={0.4}/>
-          <stop offset="100%" stopColor={color} stopOpacity={0}/>
-        </linearGradient>
-      </defs>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth={1.8} strokeLinejoin="round" strokeLinecap="round"/>
+    <svg width={90} height={22} style={{ display:'block', opacity:0.5 }}>
+      <polyline points={pts} fill="none" stroke={color} strokeWidth={1.8}
+        strokeLinejoin="round" strokeLinecap="round"/>
     </svg>
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// INDEX CARD
-// ─────────────────────────────────────────────────────────────────────────────
-function IndexCard({ symbol, data, isLoading, index=0 }) {
-  const { theme } = useTheme()
+// ─── Index card ────────────────────────────────────────────────────────────
+function IndexCard({ symbol, data, index = 0, theme, isDark }) {
   const cfg = INDEX_CONFIG[symbol]
   const up  = data ? data.changePct >= 0 : null
   const c   = up === null ? theme.muted : up ? theme.green : theme.red
+  const gi  = makeInset(isDark)
 
-  if (isLoading || !data) {
+  if (!data) {
     return (
-      <div style={{ ...glass(theme, 0.04, 20), border:`1px solid ${theme.border}`, borderRadius:18, padding:22, position:'relative', overflow:'hidden', boxShadow:gi(theme), animation:`gpulse 1.8s ${index*0.15}s ease-in-out infinite` }}>
-        <div style={shine}/>
-        <div style={{ fontFamily:theme.mono, fontSize:'0.55rem', color:theme.muted, marginBottom:8, letterSpacing:'0.1em' }}>{cfg?.label}</div>
-        <div style={{ height:32, ...glass(theme, 0.04, 8), borderRadius:8, marginBottom:8, animation:'gpulse 1.8s ease-in-out infinite' }}/>
-        <div style={{ height:14, width:'60%', ...glass(theme, 0.04, 8), borderRadius:6, animation:'gpulse 1.8s 0.3s ease-in-out infinite' }}/>
+      <div style={{
+        ...makeGlass(isDark, 0.04, 20),
+        border:`1px solid ${theme.border}`,
+        borderRadius:18, padding:22,
+        position:'relative', overflow:'hidden',
+        boxShadow: gi,
+        animation:`gpulse 1.8s ${index*0.15}s ease-in-out infinite`,
+      }}>
+        <div style={{ fontFamily:theme.mono, fontSize:'0.55rem', color:theme.muted, marginBottom:8 }}>{cfg?.label}</div>
+        <div style={{ height:32, ...makeGlass(isDark,0.04,8), borderRadius:8, marginBottom:8 }}/>
+        <div style={{ height:14, width:'60%', ...makeGlass(isDark,0.04,8), borderRadius:6 }}/>
       </div>
     )
   }
 
   return (
-    <div className="m-card"
-      style={{ ...glass(theme, 0.05, 22), border:`1px solid ${c}28`, borderRadius:18, padding:22, position:'relative', overflow:'hidden', boxShadow:`${gi(theme)},0 0 0 0 ${c}`, transition:'all 0.3s', animation:`fadeUp 0.4s ${index*0.08}s both`, cursor:'default' }}
-    >
+    <div style={{
+      ...makeGlass(isDark, 0.05, 22),
+      border:`1px solid ${c}28`,
+      borderRadius:18, padding:22,
+      position:'relative', overflow:'hidden',
+      boxShadow:`${gi},0 4px 24px ${c}08`,
+      animation:`fadeUp 0.4s ${index*0.08}s both`,
+      transition:'all 0.3s',
+    }}>
       <div style={shine}/>
-      {/* Ambient glow */}
-      <div className="m-card-glow" style={{ position:'absolute', top:-40, right:-40, width:140, height:140, background:`radial-gradient(circle,${c}18 0%,transparent 70%)`, pointerEvents:'none', opacity:0.5, transition:'opacity 0.3s' }}/>
-      {/* Top accent */}
       <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background:`linear-gradient(90deg,${c}80,transparent)` }}/>
+      <div style={{ position:'absolute', top:-40, right:-40, width:140, height:140, background:`radial-gradient(circle,${c}12 0%,transparent 70%)`, pointerEvents:'none' }}/>
 
-      {/* Header */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14 }}>
         <div>
           <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:4 }}>
             <span style={{ fontSize:'0.85rem' }}>{cfg.flag}</span>
-            <span style={{ fontFamily:theme.mono, fontSize:'0.55rem', color:theme.muted, letterSpacing:'0.1em', textTransform:'uppercase' }}>{cfg.region}</span>
+            <span style={{ fontFamily:theme.mono, fontSize:'0.55rem', color:theme.muted, letterSpacing:'0.1em', textTransform:'uppercase' }}>{cfg.label}</span>
           </div>
-          <div style={{ fontFamily:theme.mono, fontSize:'0.62rem', color:theme.text, letterSpacing:'0.08em' }}>{cfg.label}</div>
         </div>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', width:30, height:30, ...glass(theme, 0.08, 10), border:`1px solid ${c}35`, borderRadius:9, color:c, flexShrink:0 }}>
-          {up ? <TrendingUp size={14} strokeWidth={2}/> : <TrendingDown size={14} strokeWidth={2}/>}
+        <div style={{
+          display:'flex', alignItems:'center', justifyContent:'center',
+          width:30, height:30,
+          ...makeGlass(isDark,0.08,10),
+          border:`1px solid ${c}35`, borderRadius:9,
+          color:c, flexShrink:0,
+        }}>
+          {up ? <ArrowUpRight size={14} strokeWidth={2}/> : <ArrowDownRight size={14} strokeWidth={2}/>}
         </div>
       </div>
 
-      {/* Price */}
-      <div style={{ fontFamily:theme.display, fontSize:'1.7rem', fontWeight:700, color:theme.text, lineHeight:1, marginBottom:4, textShadow:`0 0 20px ${c}25` }}>
-        {data.price != null ? data.price.toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 }) : '—'}
+      <div style={{ fontFamily:theme.display||theme.sans, fontSize:'1.7rem', fontWeight:700, color:theme.text, lineHeight:1, marginBottom:4 }}>
+        {data.price != null
+          ? data.price.toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 })
+          : '—'}
       </div>
 
-      {/* Change row */}
       <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
         <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontFamily:theme.mono, fontSize:'0.7rem', color:c, fontWeight:600 }}>
           {up ? <ArrowUpRight size={13} strokeWidth={2.5}/> : <ArrowDownRight size={13} strokeWidth={2.5}/>}
@@ -162,257 +134,322 @@ function IndexCard({ symbol, data, isLoading, index=0 }) {
         </span>
       </div>
 
-      {/* Sparkline */}
       <MiniSparkline up={up} color={c}/>
+      <div style={{ fontFamily:theme.mono, fontSize:'0.52rem', color:theme.muted, marginTop:8 }}>{cfg.desc}</div>
 
-      {/* Desc + cache */}
-      <div style={{ fontFamily:theme.mono, fontSize:'0.52rem', color:theme.muted, marginTop:8, letterSpacing:'0.05em' }}>{cfg.desc}</div>
       {data.fromCache && (
         <div style={{ display:'flex', alignItems:'center', gap:4, fontFamily:theme.mono, fontSize:'0.48rem', color:theme.muted, marginTop:6, paddingTop:6, borderTop:`1px solid ${theme.border}` }}>
-          <Clock size={9} strokeWidth={2}/> {new Date(data.fetched_at).toLocaleTimeString()}
+          <Clock size={9} strokeWidth={2}/>
+          {new Date(data.fetched_at).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' })}
         </div>
       )}
     </div>
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MARKET SIGNAL CARD  (actionable insight)
-// ─────────────────────────────────────────────────────────────────────────────
-function SignalCard({ icon:Icon, color, title, value, note, action, index=0 }) {
-  const { theme } = useTheme()
-  
-  return (
-    <div style={{ ...glass(theme, 0.04, 20), border:`1px solid ${color}28`, borderRadius:16, padding:'18px 20px', position:'relative', overflow:'hidden', boxShadow:gi(theme), animation:`fadeUp 0.4s ${0.3+index*0.06}s both` }}>
-      <div style={shine}/>
-      <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background:color, opacity:0.5 }}/>
-      <div style={{ position:'absolute', top:-30, right:-30, width:90, height:90, background:`radial-gradient(circle,${color}18 0%,transparent 70%)`, pointerEvents:'none' }}/>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10 }}>
-        <div style={{ width:32, height:32, ...glass(theme, 0.08, 10), border:`1px solid ${color}30`, borderRadius:9, display:'flex', alignItems:'center', justifyContent:'center', color, flexShrink:0 }}>
-          <Icon size={15} strokeWidth={1.8}/>
-        </div>
-        {value && (
-          <span style={{ fontFamily:theme.mono, fontSize:'0.62rem', color, ...glass(theme, 0.08, 8), padding:'3px 9px', border:`1px solid ${color}30`, borderRadius:7 }}>{value}</span>
-        )}
-      </div>
-      <div style={{ fontFamily:theme.sans, fontSize:'0.84rem', color:theme.text, fontWeight:600, marginBottom:5 }}>{title}</div>
-      <div style={{ fontFamily:theme.mono, fontSize:'0.6rem', color:theme.muted, lineHeight:1.7, marginBottom:action?12:0 }}>{note}</div>
-      {action && (
-        <div style={{ fontFamily:theme.mono, fontSize:'0.57rem', color, display:'flex', alignItems:'center', gap:5, ...glass(theme, 0.06, 8), padding:'5px 10px', borderRadius:7, border:`1px solid ${color}25`, width:'fit-content' }}>
-          <Zap size={9} strokeWidth={2.5}/>{action}
-        </div>
-      )}
-    </div>
-  )
-}
+// ─── News card ─────────────────────────────────────────────────────────────
+function NewsCard({ item, index = 0, theme, isDark }) {
+  const cat     = CAT_CONFIG[item.category] || CAT_CONFIG.general
+  const CatIcon = cat.icon
 
-// ─────────────────────────────────────────────────────────────────────────────
-// WATCH ITEM  (key indicator row)
-// ─────────────────────────────────────────────────────────────────────────────
-function WatchItem({ icon:Icon, color, label, note, tip }) {
-  const { theme } = useTheme()
-  const [showTip, setShowTip] = useState(false)
-  
   return (
-    <div
-      style={{ display:'flex', alignItems:'flex-start', gap:12, padding:'12px 14px', ...glass(theme, showTip?0.06:0.03, 12), border:`1px solid ${showTip?color+'35':theme.border}`, borderRadius:12, transition:'all 0.2s', cursor:'default', marginBottom:8 }}
-      onMouseEnter={() => setShowTip(true)}
-      onMouseLeave={() => setShowTip(false)}
+    <div style={{
+      ...makeGlass(isDark, 0.03, 16),
+      border:`1px solid ${theme.border}`,
+      borderLeft:`2px solid ${cat.color}`,
+      borderRadius:12,
+      padding:'16px 18px',
+      animation:`fadeUp 0.35s ${index * 0.04}s both`,
+      transition:'border-color 0.2s',
+    }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = `${cat.color}35` }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = theme.border }}
     >
-      <div style={{ width:30, height:30, flexShrink:0, ...glass(theme, 0.08, 8), border:`1px solid ${color}30`, borderRadius:9, display:'flex', alignItems:'center', justifyContent:'center', color }}>
-        <Icon size={14} strokeWidth={1.8}/>
+      {/* Category pill + time */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+        <div style={{
+          display:'inline-flex', alignItems:'center', gap:4,
+          padding:'2px 7px', borderRadius:999,
+          background:`${cat.color}14`, border:`1px solid ${cat.color}28`,
+          color:cat.color,
+          fontFamily:theme.mono, fontSize:'0.46rem',
+          letterSpacing:'0.08em', textTransform:'uppercase',
+        }}>
+          <CatIcon size={8} strokeWidth={2}/>
+          {cat.label}
+        </div>
+        <span style={{ fontFamily:theme.mono, fontSize:'0.48rem', color:theme.muted }}>
+          {item.timeAgo}
+        </span>
       </div>
-      <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:theme.sans, fontSize:'0.83rem', color:theme.text, marginBottom:3 }}>{label}</div>
-        <div style={{ fontFamily:theme.mono, fontSize:'0.59rem', color:theme.muted, lineHeight:1.6 }}>{note}</div>
-        {showTip && tip && (
-          <div style={{ fontFamily:theme.mono, fontSize:'0.57rem', color, marginTop:6, display:'flex', alignItems:'center', gap:5, animation:'fadeIn 0.2s ease' }}>
-            <Zap size={9} strokeWidth={2.5}/>{tip}
-          </div>
-        )}
+
+      {/* Headline */}
+      <div style={{
+        fontFamily:theme.sans, fontSize:'0.85rem',
+        color:theme.text, lineHeight:1.5,
+        fontWeight:500, marginBottom: item.desc ? 10 : 0,
+      }}>
+        {item.title}
       </div>
+
+      {/* Full description — always visible */}
+      {item.desc && (
+        <div style={{
+          fontFamily:theme.sans, fontSize:'0.78rem',
+          color:theme.muted, lineHeight:1.75,
+          paddingTop:8, borderTop:`1px solid ${theme.border}`,
+        }}>
+          {item.desc}
+        </div>
+      )}
     </div>
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SKELETON
-// ─────────────────────────────────────────────────────────────────────────────
-function MarketsSkeleton() {
-  const { theme } = useTheme()
-  
+// ─── News skeleton ─────────────────────────────────────────────────────────
+function NewsSkeleton({ theme, isDark }) {
   return (
-    <div style={{ display:'grid', gap:18 }}>
-      <div style={{ ...glass(theme, 0.04, 16), borderRadius:12, height:42, animation:'gpulse 1.8s ease-in-out infinite' }}/>
-      <div className="m-index-grid">
-        {[0,1,2,3].map(i => (
-          <div key={i} style={{ ...glass(theme, 0.04, 16), border:`1px solid ${theme.border}`, borderRadius:18, height:180, animation:`gpulse 1.8s ${i*0.12}s ease-in-out infinite` }}/>
-        ))}
-      </div>
+    <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+      {[...Array(6)].map((_, i) => (
+        <div key={i} style={{
+          ...makeGlass(isDark, 0.03, 12),
+          border:`1px solid ${theme.border}`,
+          borderLeft:`2px solid ${theme.border}`,
+          borderRadius:12, padding:'14px 16px',
+          animation:`gpulse 1.8s ${i*0.1}s ease-in-out infinite`,
+        }}>
+          <div style={{ height:10, width:'30%', background:theme.border, borderRadius:4, marginBottom:10 }}/>
+          <div style={{ height:14, width:'90%', background:theme.border, borderRadius:4, marginBottom:6 }}/>
+          <div style={{ height:14, width:'60%', background:theme.border, borderRadius:4 }}/>
+        </div>
+      ))}
     </div>
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MARKETS PAGE
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Category filter pills ─────────────────────────────────────────────────
+function FilterPills({ active, onChange, counts, theme, isDark }) {
+  return (
+    <div style={{
+      display:'flex', gap:6, flexWrap:'wrap',
+      marginBottom:16,
+    }}>
+      {ALL_CATS.map(cat => {
+        const cfg   = cat === 'all' ? { label:'All', color:theme.accent } : CAT_CONFIG[cat]
+        const count = cat === 'all'
+          ? Object.values(counts).reduce((a,b) => a+b, 0)
+          : (counts[cat] || 0)
+        const isActive = active === cat
+
+        return (
+          <button key={cat} onClick={() => onChange(cat)}
+            style={{
+              display:'inline-flex', alignItems:'center', gap:5,
+              padding:'5px 12px',
+              ...makeGlass(isDark, isActive ? 0.10 : 0.03, 10),
+              border:`1px solid ${isActive ? cfg.color+'60' : theme.border}`,
+              borderRadius:999,
+              color: isActive ? cfg.color : theme.muted,
+              fontFamily:theme.mono, fontSize:'0.52rem',
+              letterSpacing:'0.06em',
+              cursor:'pointer', transition:'all 0.15s',
+              boxShadow: isActive ? `0 0 12px ${cfg.color}20` : 'none',
+            }}
+            onMouseEnter={e => { if (!isActive) { e.currentTarget.style.borderColor = `${cfg.color}40`; e.currentTarget.style.color = cfg.color } }}
+            onMouseLeave={e => { if (!isActive) { e.currentTarget.style.borderColor = theme.border; e.currentTarget.style.color = theme.muted } }}
+          >
+            {cfg.label}
+            {count > 0 && (
+              <span style={{
+                fontFamily:theme.mono, fontSize:'0.46rem',
+                padding:'1px 5px', borderRadius:999,
+                background: isActive ? `${cfg.color}20` : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'),
+                color: isActive ? cfg.color : theme.muted,
+              }}>{count}</span>
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Main page ─────────────────────────────────────────────────────────────
 export default function Markets() {
-  const { theme } = useTheme()
-  const { data:indices={}, isLoading, error, refetch } = useIndices()
+  const { theme, isDark }                     = useTheme()
+  const { data:indices={}, isLoading:l1, refetch:refetchIndices } = useIndices()
+  const { data:news=[],    isLoading:l2, error:newsError, refetch:refetchNews } = useMarketNews()
+  const [activeFilter, setActiveFilter]       = useState('all')
+  const gi = makeInset(isDark)
 
-  // Update CSS variables when theme changes
-  useState(() => {
-    const style = document.createElement('style')
-    style.textContent = CSS(theme)
-    style.id = 'markets-dynamic-styles'
-    const oldStyle = document.getElementById('markets-dynamic-styles')
-    if (oldStyle) oldStyle.remove()
-    document.head.appendChild(style)
-    
-    return () => style.remove()
-  }, [theme])
+  const handleRefresh = () => { refetchIndices(); refetchNews() }
 
-  if (isLoading) return <><style>{CSS(theme)}</style><MarketsSkeleton /></>
+  // Filter news
+  const filteredNews = activeFilter === 'all'
+    ? news
+    : news.filter(n => n.category === activeFilter)
 
-  if (error) return (
-    <div style={{ ...glass(theme, 0.06, 20), border:`1px solid ${theme.red}40`, borderRadius:18, padding:40, textAlign:'center' }}>
-      <AlertTriangle size={28} strokeWidth={1.5} style={{ color:theme.red, display:'block', margin:'0 auto 14px', opacity:0.6 }}/>
-      <div style={{ fontFamily:theme.mono, fontSize:'0.68rem', color:theme.red, marginBottom:20 }}>
-        Error loading market data: {error.message}
-      </div>
-      <button onClick={()=>refetch()} style={{ display:'inline-flex', alignItems:'center', gap:8, ...glass(theme, 0.08, 12), border:`1px solid ${theme.accent}50`, borderRadius:10, color:theme.accent, padding:'10px 22px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.63rem', letterSpacing:'0.16em', textTransform:'uppercase' }}>
-        <RefreshCw size={13}/> Retry
-      </button>
-    </div>
-  )
+  // Count per category
+  const counts = news.reduce((acc, n) => {
+    acc[n.category] = (acc[n.category] || 0) + 1
+    return acc
+  }, {})
 
-  // Derive market mood from NIFTY
-  const nifty = indices['^NSEI']
-  const moodUp = nifty ? nifty.changePct >= 0 : null
-  const moodStrong = nifty ? Math.abs(nifty.changePct) > 1 : false
+  // Derive mood from Nifty
+  const nifty     = indices['^NSEI']
+  const moodUp    = nifty ? nifty.changePct >= 0 : null
+  const moodStrong= nifty ? Math.abs(nifty.changePct) > 1 : false
 
   return (
-    <div style={{ display:'grid', gap:22, fontFamily:theme.sans }}>
-      <style>{CSS(theme)}</style>
+    <div style={{ display:'grid', gap:24, fontFamily:theme.sans }}>
+      <style>{`
+        @keyframes fadeUp  { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes fadeIn  { from{opacity:0} to{opacity:1} }
+        @keyframes gpulse  { 0%,100%{opacity:0.4} 50%{opacity:0.8} }
+      `}</style>
 
-      {/* Header */}
-      <div className="m-header">
+      {/* ── Header ── */}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', flexWrap:'wrap', gap:14, paddingBottom:22, borderBottom:`1px solid ${theme.border}` }}>
         <div>
           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
-            <Activity size={12} style={{color:theme.accent}} strokeWidth={2}/>
-            <span style={{ fontFamily:theme.mono, fontSize:'0.57rem', letterSpacing:'0.22em', textTransform:'uppercase', color:theme.accent }}>PortaFi</span>
+            <div style={{ width:3, height:14, background:theme.accent, borderRadius:2 }}/>
+            <span style={{ fontFamily:theme.mono, fontSize:'0.54rem', letterSpacing:'0.22em', textTransform:'uppercase', color:theme.accent }}>
+              PortaFi
+            </span>
           </div>
-          <h1 style={{ fontFamily:theme.display, fontSize:'2rem', fontWeight:700, color:theme.text, margin:0, lineHeight:1 }}>Markets</h1>
-          <p style={{ fontFamily:theme.mono, fontSize:'0.57rem', color:theme.muted, marginTop:6, letterSpacing:'0.10em' }}>
-            Live indices · Signals · What to watch
+          <h1 style={{ fontFamily:theme.display||theme.sans, fontSize:'clamp(1.5rem,3vw,2rem)', fontWeight:400, color:theme.text, margin:0, lineHeight:1.1 }}>
+            Markets
+          </h1>
+          <p style={{ fontFamily:theme.mono, fontSize:'0.57rem', color:theme.muted, marginTop:6, letterSpacing:'0.08em' }}>
+            Live indices · ET Markets news feed
             {moodUp !== null && (
-              <span style={{ marginLeft:10, color:moodUp?theme.green:theme.red }}>
-                · Market is {moodStrong?(moodUp?'strongly up':'sharply down'):(moodUp?'up':'down')} today
+              <span style={{ marginLeft:10, color: moodUp ? theme.green : theme.red }}>
+                · Market {moodStrong ? (moodUp ? 'strongly up' : 'sharply down') : (moodUp ? 'up' : 'down')} today
               </span>
             )}
           </p>
         </div>
-        <button onClick={()=>refetch()}
-          style={{ display:'inline-flex', alignItems:'center', gap:7, ...glass(theme, 0.06, 12), border:`1px solid ${theme.border}`, borderRadius:9, color:theme.muted, padding:'8px 16px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.6rem', letterSpacing:'0.12em', textTransform:'uppercase', transition:'all 0.2s' }}
-          onMouseEnter={e=>{ e.currentTarget.style.borderColor=`${theme.accent}60`; e.currentTarget.style.color=theme.accent }}
-          onMouseLeave={e=>{ e.currentTarget.style.borderColor=theme.border; e.currentTarget.style.color=theme.muted }}
+        <button onClick={handleRefresh}
+          style={{
+            display:'inline-flex', alignItems:'center', gap:7,
+            ...makeGlass(isDark, 0.06, 12),
+            border:`1px solid ${theme.border}`,
+            borderRadius:9, color:theme.muted,
+            padding:'8px 16px', cursor:'pointer',
+            fontFamily:theme.mono, fontSize:'0.60rem',
+            letterSpacing:'0.12em', textTransform:'uppercase',
+            transition:'all 0.2s', boxShadow:gi,
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor=`${theme.accent}60`; e.currentTarget.style.color=theme.accent }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor=theme.border; e.currentTarget.style.color=theme.muted }}
         >
           <RefreshCw size={11} strokeWidth={2}/> Refresh
         </button>
       </div>
 
-      {/* Index cards */}
-      <div className="m-index-grid">
-        {['^NSEI','^BSESN','^GSPC','^IXIC'].map((sym,i) => (
-          <IndexCard key={sym} symbol={sym} data={indices[sym]} isLoading={false} index={i}/>
+      {/* ── Index cards ── */}
+      <div style={{
+        display:'grid',
+        gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))',
+        gap:14,
+      }}>
+        {['^NSEI','^BSESN','^GSPC','^IXIC'].map((sym, i) => (
+          <IndexCard key={sym} symbol={sym} data={indices[sym]}
+            index={i} theme={theme} isDark={isDark}/>
         ))}
       </div>
 
-      {/* Actionable signals */}
-      <div>
-        <SL icon={Zap}>Actionable Signals</SL>
-        <div className="m-signals-grid">
-          <SignalCard
-            icon={BarChart2} color={theme.accent}
-            title="Nifty P/E Valuation"
-            value="Check Live"
-            note="P/E above 25 means the market is expensive — reduce lump-sum buys. Below 18 is a historically strong entry zone for long-term SIPs."
-            action="Good time to increase SIP if P/E < 20"
-            index={0}
-          />
-          <SignalCard
-            icon={TrendingDown} color={theme.yellow}
-            title="FII vs DII Flows"
-            note="When FIIs sell heavily, prices drop short-term but DIIs absorb. Don't panic-sell. Watch net flows for 5+ consecutive days before reacting."
-            action="FII outflow ≠ crash — stay the course"
-            index={1}
-          />
-          <SignalCard
-            icon={DollarSign} color={theme.green}
-            title="INR / USD Rate"
-            note="Weak rupee boosts IT & pharma exporters. Strong rupee benefits oil importers and aviation. Your US holdings (VOO) gain value in INR when USD rises."
-            action="USD > ₹86 → your US stocks worth more in INR"
-            index={2}
-          />
-          <SignalCard
-            icon={Landmark} color={theme.purple}
-            title="RBI Repo Rate"
-            value="6.5%"
-            note="Higher repo = costlier loans, lower bond prices. When RBI cuts rates, bond funds and rate-sensitive sectors (banking, real estate) typically rally."
-            action="Rate cut cycle → consider debt mutual funds"
-            index={3}
-          />
-          <SignalCard
-            icon={Shield} color={theme.red}
-            title="Inflation (CPI)"
-            note="CPI above 6% constrains RBI from cutting rates. High inflation erodes real returns — your FD at 7% is breakeven if CPI is 7%. Factor this into debt planning."
-            action="Real return = Nominal rate − Inflation"
-            index={4}
-          />
-          <SignalCard
-            icon={Globe} color='#f59e0b'
-            title="Global Risk Signals"
-            note="US Fed rate decisions ripple into Indian markets within 24 hours. Oil price spikes hurt India (we import 80%). Keep an eye on Brent crude and Fed meeting dates."
-            action="Fed hike → expect short-term FII outflows"
-            index={5}
-          />
-        </div>
-      </div>
-
-      {/* What to watch — actionable hover tips */}
-      <div style={{ ...glass(theme, 0.04, 20), border:`1px solid ${theme.border}`, borderRadius:18, padding:26, position:'relative', overflow:'hidden', boxShadow:gi(theme), animation:'fadeUp 0.5s 0.5s both' }}>
+      {/* ── News feed ── */}
+      <div style={{
+        ...makeGlass(isDark, 0.04, 20),
+        border:`1px solid ${theme.border}`,
+        borderRadius:18, padding:24,
+        position:'relative', overflow:'hidden',
+        boxShadow:gi,
+        animation:'fadeUp 0.4s 0.2s both',
+      }}>
         <div style={shine}/>
-        <div className="m-watch-grid">
-          <div>
-            <SL icon={Activity} color={theme.accent}>Indian Market Indicators</SL>
-            <WatchItem icon={BarChart2}  color={theme.accent} label="Nifty P/E Ratio"     note="Valuations guide when to invest lump-sum vs SIP."    tip="P/E < 18 → great lump-sum opportunity"/>
-            <WatchItem icon={TrendingUp} color={theme.blue}   label="FII / DII Activity"  note="Institutional flows predict near-term direction."      tip="5-day DII net buy streak → bullish signal"/>
-            <WatchItem icon={Landmark}   color={theme.purple} label="RBI Monetary Policy"  note="Repo rate changes affect your loans and debt funds."   tip="Rate cut → refinance or lock in long-term FDs now"/>
-            <WatchItem icon={Activity}   color={theme.yellow} label="Inflation (CPI/WPI)"  note="High inflation erodes fixed-income real returns."      tip="CPI > 6% → RBI unlikely to cut — avoid long bonds"/>
-          </div>
-          <div>
-            <SL icon={Globe} color='#f59e0b'>Global Factors Affecting You</SL>
-            <WatchItem icon={DollarSign} color={theme.green}  label="INR / USD Exchange"   note="Directly affects your US equity holdings in INR terms." tip="Every ₹1 weaker rupee = ~1% more value for VOO"/>
-            <WatchItem icon={Shield}     color='#f59e0b'      label="Brent Crude Oil"       note="India imports 80% of oil — prices impact inflation."   tip="Crude > $95 → watch for market correction"/>
-            <WatchItem icon={Globe}      color={theme.red}    label="US Fed Rate Decisions" note="Fed hikes drain emerging market capital including India." tip="Fed pause/cut → FII inflows likely, markets up"/>
-            <WatchItem icon={TrendingUp} color='#a78bfa'      label="Gold (MCX / LBMA)"     note="Hedge against rupee depreciation and uncertainty."     tip="Gold up = risk-off mood globally — hold allocation"/>
-          </div>
-        </div>
-      </div>
 
-      {/* SIP reminder */}
-      <div style={{ ...glass(theme, 0.05, 20), border:`1px solid ${theme.green}30`, borderLeft:`2px solid ${theme.green}`, borderRadius:16, padding:'16px 20px', display:'flex', alignItems:'flex-start', gap:14, animation:'fadeUp 0.5s 0.6s both' }}>
-        <div style={{ width:36, height:36, flexShrink:0, ...glass(theme, 0.1, 12), border:`1px solid ${theme.green}35`, borderRadius:11, display:'flex', alignItems:'center', justifyContent:'center', color:theme.green }}>
-          <Zap size={16} strokeWidth={2}/>
-        </div>
-        <div>
-          <div style={{ fontFamily:theme.sans, fontSize:'0.88rem', color:theme.text, fontWeight:600, marginBottom:5 }}>SIP beats timing every time</div>
-          <div style={{ fontFamily:theme.mono, fontSize:'0.61rem', color:theme.muted, lineHeight:1.8 }}>
-            A ₹10,000/month SIP in NIFTY 50 index over 10 years has outperformed most attempts to time the market.
-            Red days are discounts — <span style={{ color:theme.green }}>your SIP buys more units when markets fall</span>.
-            Volatility is the price of long-term wealth creation.
+        {/* Section header */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <div style={{ width:3, height:14, background:theme.accent, borderRadius:2 }}/>
+            <Newspaper size={13} style={{ color:theme.accent }} strokeWidth={2}/>
+            <span style={{ fontFamily:theme.mono, fontSize:'0.57rem', letterSpacing:'0.22em', textTransform:'uppercase', color:theme.accent }}>
+              ET Markets · Live Feed
+            </span>
+            {!l2 && news.length > 0 && (
+              <span style={{
+                fontFamily:theme.mono, fontSize:'0.48rem',
+                padding:'2px 7px', borderRadius:999,
+                background:`${theme.green}14`, border:`1px solid ${theme.green}28`,
+                color:theme.green,
+              }}>
+                {news.length} stories
+              </span>
+            )}
           </div>
+
         </div>
+
+        {/* Category filters */}
+        {!l2 && news.length > 0 && (
+          <FilterPills
+            active={activeFilter}
+            onChange={setActiveFilter}
+            counts={counts}
+            theme={theme}
+            isDark={isDark}
+          />
+        )}
+
+        {/* News list */}
+        {l2 ? (
+          <NewsSkeleton theme={theme} isDark={isDark}/>
+        ) : newsError ? (
+          <div style={{
+            padding:'32px 16px', textAlign:'center',
+            display:'flex', flexDirection:'column', alignItems:'center', gap:12,
+          }}>
+            <AlertTriangle size={22} style={{ color:theme.red, opacity:0.6 }}/>
+            <div style={{ fontFamily:theme.mono, fontSize:'0.62rem', color:theme.muted }}>
+              Could not load news feed. Check your connection.
+            </div>
+            <button onClick={refetchNews} style={{
+              display:'inline-flex', alignItems:'center', gap:6,
+              ...makeGlass(isDark, 0.06, 10),
+              border:`1px solid ${theme.accent}40`,
+              borderRadius:8, color:theme.accent,
+              padding:'7px 14px', cursor:'pointer',
+              fontFamily:theme.mono, fontSize:'0.58rem',
+            }}>
+              <RefreshCw size={11} strokeWidth={2}/> Retry
+            </button>
+          </div>
+        ) : filteredNews.length === 0 ? (
+          <div style={{ padding:'32px 16px', textAlign:'center', fontFamily:theme.mono, fontSize:'0.62rem', color:theme.muted }}>
+            No {activeFilter === 'all' ? '' : activeFilter} news at the moment
+          </div>
+        ) : (
+          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+            {filteredNews.map((item, i) => (
+              <NewsCard key={item.id} item={item} index={i} theme={theme} isDark={isDark}/>
+            ))}
+          </div>
+        )}
+
+        {/* Footer */}
+        {!l2 && news.length > 0 && (
+          <div style={{
+            display:'flex', alignItems:'center', justifyContent:'center', gap:6,
+            marginTop:20, paddingTop:16,
+            borderTop:`1px solid ${theme.border}`,
+            fontFamily:theme.mono, fontSize:'0.50rem', color:theme.muted,
+          }}>
+            <Clock size={9} strokeWidth={2}/>
+            Source: Economic Times Markets · Updates every 10 minutes
+          </div>
+        )}
       </div>
     </div>
   )

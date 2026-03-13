@@ -1,1311 +1,1047 @@
+// src/components/dashboard/AIAgent.jsx
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
-import { useFinance } from '../../context/FinanceContext.jsx'
-import { useHoldings } from '../../hooks/useHoldings'
-import { usePortfolioData } from '../../hooks/usePortfolioData'
+import { useTheme }              from '../../context/ThemeContext.jsx'
+import { useFinance }            from '../../context/FinanceContext.jsx'
+import { useHoldings }           from '../../hooks/useHoldings'
+import { usePortfolioData }      from '../../hooks/usePortfolioData'
 import { usePortfolioSnapshots } from '../../hooks/usePortfolioSnapshots'
-import { useGoals } from '../../hooks/useGoals'
-import { useFlexBudget } from '../../hooks/useFlexBudget'
-import { useTransactionsRange } from '../../hooks/useTransactions'
-import { useDebts } from '../../hooks/useDebts'
-import { Btn, Spinner } from '../shared/ui.jsx'
-import { inr, inrCompact, pct, currentMonth } from '../../lib/formatters.js'
-import theme from '../../lib/theme.js'
-import { 
-  Copy, Clock, Check, Sparkles, TrendingUp, 
-  TrendingDown, Wallet, Target, PieChart, 
-  BarChart3, Shield, Zap, ArrowRight, Send,
-  ChevronLeft, ChevronRight, Bot, User, Landmark,
-  CreditCard, LineChart, Calendar, Receipt, Coffee,
-  Home, Car, ShoppingBag, Briefcase, Heart, Smile
+import { useGoals }              from '../../hooks/useGoals'
+import { useFlexBudget }         from '../../hooks/useFlexBudget'
+import { useTransactionsRange }  from '../../hooks/useTransactions'
+import { useDebts }              from '../../hooks/useDebts'
+import { inr, inrCompact, currentMonth } from '../../lib/formatters.js'
+import {
+  TrendingUp, TrendingDown, Wallet, Target, PieChart,
+  BarChart3, Shield, Zap, ArrowUp, ArrowDown,
+  ChevronRight, Layers, Receipt, Globe, Cpu,
+  Scale, Sparkles, Info, AlertTriangle, CheckCircle,
+  Home, RefreshCw, CircleDot, Send, Bot,
 } from 'lucide-react'
 
-// Category icons for better visualization
-const CATEGORY_ICONS = {
-  'Food & Dining': <Coffee size={14} />,
-  'Shopping': <ShoppingBag size={14} />,
-  'Transportation': <Car size={14} />,
-  'Entertainment': <Smile size={14} />,
-  'Healthcare': <Heart size={14} />,
-  'Utilities': <Zap size={14} />,
-  'Rent': <Home size={14} />,
-  'Income': <Briefcase size={14} />,
-  'default': <Receipt size={14} />
+// ─── Glass helpers ─────────────────────────────────────────────────────────
+const makeGlass = (isDark, o = 0.04, b = 20) => ({
+  background:           isDark ? `rgba(255,255,255,${o})` : `rgba(0,0,0,${o * 0.7})`,
+  backdropFilter:       `blur(${b}px) saturate(160%)`,
+  WebkitBackdropFilter: `blur(${b}px) saturate(160%)`,
+})
+const makeInset = (isDark) => isDark
+  ? `inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -1px 0 rgba(0,0,0,0.10)`
+  : `inset 0 1px 0 rgba(255,255,255,0.90), inset 0 -1px 0 rgba(0,0,0,0.04)`
+const shine = {
+  position: 'absolute', top: 0, left: '10%', right: '10%', height: 1,
+  background: 'linear-gradient(90deg,transparent,rgba(255,255,255,0.08),transparent)',
+  pointerEvents: 'none',
 }
 
-// Enhanced quick prompts with categories and colors
-const QUICK_PROMPTS = [
-  { text: 'Analyze my portfolio', category: 'portfolio', icon: <PieChart size={14} />, color: '#8B5CF6' },
-  { text: 'Market trends', category: 'markets', icon: <TrendingUp size={14} />, color: '#10B981' },
-  { text: 'Debt payoff strategy', category: 'debt', icon: <Shield size={14} />, color: '#EF4444' },
-  { text: 'Budget analysis', category: 'budget', icon: <Wallet size={14} />, color: '#F59E0B' },
-  { text: 'Spending breakdown', category: 'budget', icon: <Receipt size={14} />, color: '#F59E0B' },
-  { text: 'Savings goals', category: 'goals', icon: <Target size={14} />, color: '#3B82F6' },
-  { text: 'Health report', category: 'health', icon: <BarChart3 size={14} />, color: '#EC4899' },
-  { text: 'Flex budget rebalance', category: 'budget', icon: <Zap size={14} />, color: '#F59E0B' },
-  { text: 'Tax-saving options', category: 'tax', icon: <Landmark size={14} />, color: '#14B8A6' },
-  { text: 'Overspent categories', category: 'budget', icon: <TrendingDown size={14} />, color: '#EF4444' },
-  { text: 'Monthly summary', category: 'budget', icon: <Calendar size={14} />, color: '#F59E0B' },
-  { text: 'Credit card debt', category: 'debt', icon: <CreditCard size={14} />, color: '#EF4444' },
-]
-
-// ── Advanced Financial Advisor Engine using hooks data ─────────────────────
-class FinancialAdvisor {
-  constructor(data) {
-    this.data = data || {}
-    console.log('Advisor initialized with data:', Object.keys(this.data))
-  }
-
-  // Helper to format currency
-  formatMoney(amount) {
-    if (amount === undefined || amount === null || isNaN(amount)) return '₹0'
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount)
-  }
-
-  // Helper to format percentage
-  formatPercent(value) {
-    if (value === undefined || value === null || isNaN(value)) return '0.0%'
-    return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`
-  }
-
-  // Analyze portfolio using holdings and quotes data
-  analyzePortfolio() {
-    try {
-      const { holdings = [], quotesMap = {}, usdInrRate = 86.5 } = this.data
-      
-      // Calculate portfolio metrics
-      let portfolioValue = 0
-      let portfolioCost = 0
-      
-      const holdingsWithValues = holdings
-        .filter(h => h.quantity > 0)
-        .map(h => {
-          const isUS = ["NYSE","NASDAQ","PCX"].includes(h.exchange)
-          const currentPrice = quotesMap[h.ticker]?.price ?? h.avg_cost ?? 0
-          const value = currentPrice * (h.quantity || 0)
-          const cost = isUS 
-            ? (h.avg_cost || 0) * (h.quantity || 0) * usdInrRate 
-            : (h.avg_cost || 0) * (h.quantity || 0)
-          
-          portfolioValue += value
-          portfolioCost += cost
-          
-          const gain = value - cost
-          const gainPct = cost > 0 ? (gain / cost) * 100 : 0
-          
-          return {
-            ...h,
-            value,
-            cost,
-            gain,
-            gainPct,
-            currentPrice,
-            isUS
-          }
-        })
-
-      const portfolioGain = portfolioValue - portfolioCost
-      const portfolioGainPct = portfolioCost > 0 ? (portfolioGain / portfolioCost) * 100 : 0
-
-      let analysis = `📊 **Portfolio Analysis**\n\n`
-      analysis += `┌─────────────────────────────┐\n`
-      analysis += `│ Total Value: ${this.formatMoney(portfolioValue).padStart(15)}\n`
-      analysis += `│ Total Cost: ${this.formatMoney(portfolioCost).padStart(15)}\n`
-      analysis += `│ Unrealized P&L: ${this.formatMoney(portfolioGain).padStart(13)}\n`
-      analysis += `│ Return: ${this.formatPercent(portfolioGainPct).padStart(18)}\n`
-      analysis += `└─────────────────────────────┘\n`
-
-      if (holdingsWithValues.length === 0) {
-        analysis += `\n✨ No active holdings found. Start your investment journey today!\n`
-        return analysis
-      }
-
-      // Sort by value for top holdings
-      const topHoldings = [...holdingsWithValues].sort((a, b) => b.value - a.value).slice(0, 5)
-      
-      analysis += `\n🌟 **Top Holdings:**\n`
-      topHoldings.forEach(h => {
-        const pctOfPortfolio = portfolioValue > 0 ? (h.value / portfolioValue) * 100 : 0
-        analysis += `  • ${h.name || h.ticker}: ${this.formatMoney(h.value)} (${pctOfPortfolio.toFixed(1)}%)\n`
-      })
-
-      // Best and worst performers
-      const performers = [...holdingsWithValues].sort((a, b) => b.gainPct - a.gainPct)
-      const winners = performers.filter(p => p.gainPct > 0).slice(0, 3)
-      const losers = performers.filter(p => p.gainPct < 0).slice(0, 3)
-
-      if (winners.length > 0) {
-        analysis += `\n🚀 **Top Gainers:**\n`
-        winners.forEach(w => {
-          analysis += `  • ${w.ticker}: ${this.formatMoney(w.gain)} (${this.formatPercent(w.gainPct)})\n`
-        })
-      }
-
-      if (losers.length > 0) {
-        analysis += `\n📉 **Top Losers:**\n`
-        losers.forEach(l => {
-          analysis += `  • ${l.ticker}: ${this.formatMoney(l.gain)} (${this.formatPercent(l.gainPct)})\n`
-        })
-      }
-
-      return analysis
-    } catch (error) {
-      console.error('Error in analyzePortfolio:', error)
-      return "I encountered an error analyzing your portfolio. Please try again."
-    }
-  }
-
-  // Analyze flex budget
-  analyzeBudget() {
-    try {
-      const { flexFund = {}, transactions = [], month = currentMonth() } = this.data
-      const { categories = {}, totalAllocated = 0, totalSpent = 0, flexReserve = 0 } = flexFund
-
-      if (Object.keys(categories).length === 0) {
-        return "💰 **No budget set for this month.**\n\n" +
-          "Set up your flex budget to track spending:\n" +
-          "• Add budget limits for different categories\n" +
-          "• Track transactions against your budget\n" +
-          "• Get rebalancing suggestions automatically"
-      }
-
-      const totalRemaining = totalAllocated - totalSpent
-      const percentUsed = totalAllocated > 0 ? (totalSpent / totalAllocated) * 100 : 0
-
-      let analysis = `💰 **Flex Budget - ${month}**\n\n`
-      analysis += `┌─────────────────────────────┐\n`
-      analysis += `│ Allocated: ${this.formatMoney(totalAllocated).padStart(16)}\n`
-      analysis += `│ Spent: ${this.formatMoney(totalSpent).padStart(21)}\n`
-      analysis += `│ Remaining: ${this.formatMoney(totalRemaining).padStart(17)}\n`
-      analysis += `│ Used: ${this.formatPercent(percentUsed).padStart(22)}\n`
-      analysis += `└─────────────────────────────┘\n\n`
-
-      // Spending by category
-      analysis += `📋 **Category Breakdown:**\n`
-      
-      // Sort categories by spending (highest first)
-      const sortedCategories = Object.entries(categories)
-        .filter(([name]) => name !== 'Flex Reserve')
-        .sort((a, b) => b[1].spent - a[1].spent)
-
-      sortedCategories.forEach(([name, data]) => {
-        const percentOfTotal = totalAllocated > 0 ? (data.limit / totalAllocated) * 100 : 0
-        const status = data.isOver ? '🔴' : data.percentUsed > 80 ? '🟡' : '🟢'
-        
-        analysis += `  ${status} **${name}**\n`
-        analysis += `    • Limit: ${this.formatMoney(data.limit)} (${percentOfTotal.toFixed(1)}%)\n`
-        analysis += `    • Spent: ${this.formatMoney(data.spent)}\n`
-        analysis += `    • Left: ${this.formatMoney(data.remaining)}\n`
-        
-        // Progress bar
-        const barLength = 15
-        const filledBars = Math.floor((data.percentUsed / 100) * barLength)
-        analysis += `    • [${'█'.repeat(filledBars)}${'░'.repeat(barLength - filledBars)}] ${data.percentUsed.toFixed(0)}%\n`
-      })
-
-      // Flex Reserve
-      if (flexReserve > 0) {
-        analysis += `\n✨ **Flex Reserve:** ${this.formatMoney(flexReserve)} (rollover available)\n`
-      }
-
-      // Overspent categories alert
-      const overspent = Object.entries(categories)
-        .filter(([_, data]) => data.isOver)
-      
-      if (overspent.length > 0) {
-        analysis += `\n⚠️ **Overspent Categories:**\n`
-        overspent.forEach(([name, data]) => {
-          analysis += `  • ${name}: Over by ${this.formatMoney(data.overAmount)}\n`
-        })
-        
-        // Show rebalancing suggestion if available
-        const { showSuggestion } = this.data
-        if (showSuggestion) {
-          analysis += `\n💡 **Suggestion:** Move funds from available categories to cover overspend\n`
-        }
-      }
-
-      // Recent transactions
-      if (transactions.length > 0) {
-        analysis += `\n📝 **Recent Transactions:**\n`
-        transactions.slice(0, 5).forEach(t => {
-          const icon = CATEGORY_ICONS[t.category] || CATEGORY_ICONS.default
-          analysis += `  • ${t.description || 'Transaction'}: ${t.amount > 0 ? '+' : ''}${this.formatMoney(t.amount)}\n`
-        })
-      }
-
-      return analysis
-    } catch (error) {
-      console.error('Error in analyzeBudget:', error)
-      return "I encountered an error analyzing your budget."
-    }
-  }
-
-  // Get overspending alerts
-  analyzeOverspent() {
-    try {
-      const { flexFund = {} } = this.data
-      const { categories = {} } = flexFund
-
-      const overspent = Object.entries(categories)
-        .filter(([_, data]) => data.isOver)
-
-      if (overspent.length === 0) {
-        return "✅ **Great job!** No overspent categories this month."
-      }
-
-      let analysis = `⚠️ **Overspending Alert**\n\n`
-      
-      overspent.forEach(([name, data]) => {
-        analysis += `**${name}**\n`
-        analysis += `  • Budget: ${this.formatMoney(data.limit)}\n`
-        analysis += `  • Spent: ${this.formatMoney(data.spent)}\n`
-        analysis += `  • Over by: ${this.formatMoney(data.overAmount)}\n`
-        analysis += `  • Used: ${data.percentUsed.toFixed(0)}%\n\n`
-      })
-
-      // Check for available surplus to rebalance
-      const availableSurplus = Object.entries(categories)
-        .filter(([_, data]) => !data.isOver && data.remaining > 0 && data.remaining > 0)
-
-      if (availableSurplus.length > 0) {
-        analysis += `💡 **You can rebalance from:**\n`
-        availableSurplus.slice(0, 3).forEach(([name, data]) => {
-          analysis += `  • ${name}: ${this.formatMoney(data.remaining)} available\n`
-        })
-        analysis += `\nUse drag & drop in the flex budget view to rebalance.`
-      }
-
-      return analysis
-    } catch (error) {
-      console.error('Error in analyzeOverspent:', error)
-      return "I encountered an error analyzing overspending."
-    }
-  }
-
-  // Analyze debts
-  analyzeDebt() {
-    try {
-      const { debts = [] } = this.data
-      
-      if (debts.length === 0) {
-        return "✅ **Great news!** You have no active debts. Focus on investing and building wealth."
-      }
-
-      const totalDebt = debts.reduce((sum, d) => sum + (d.balance || 0), 0)
-      const sortedDebts = [...debts].sort((a, b) => (b.rate || 0) - (a.rate || 0))
-
-      let analysis = `💰 **Debt Analysis**\n\n`
-      analysis += `┌─────────────────────────────┐\n`
-      analysis += `│ Total Debt: ${this.formatMoney(totalDebt).padStart(15)}\n`
-      analysis += `│ Number of Loans: ${debts.length.toString().padStart(11)}\n`
-      analysis += `└─────────────────────────────┘\n\n`
-
-      analysis += `**Your Debts (Highest Interest First):**\n`
-      sortedDebts.forEach((d, i) => {
-        analysis += `  ${i+1}. ${d.name}: ${this.formatMoney(d.balance)} @ ${d.rate}% p.a.\n`
-        if (d.min_payment) {
-          analysis += `     Min Payment: ${this.formatMoney(d.min_payment)}/mo\n`
-        }
-      })
-
-      // Strategy recommendation
-      if (sortedDebts.length > 0) {
-        const highest = sortedDebts[0]
-        analysis += `\n💡 **Recommended Strategy:**\n`
-        analysis += `  • Pay off ${highest.name} first (${highest.rate}% interest) - Avalanche Method\n`
-        
-        if (highest.rate > 15) {
-          analysis += `  • ⚠️ This is high interest debt - prioritize paying it down\n`
-        }
-      }
-
-      return analysis
-    } catch (error) {
-      console.error('Error in analyzeDebt:', error)
-      return "I encountered an error analyzing your debts."
-    }
-  }
-
-  // Analyze goals
-  analyzeGoals() {
-    try {
-      const { goals = [] } = this.data
-      
-      if (goals.length === 0) {
-        return "🎯 **No goals set yet.** Set financial goals to track your progress!\n\n" +
-          "Common goals:\n" +
-          "  • Emergency fund (3-6 months expenses)\n" +
-          "  • Retirement corpus\n" +
-          "  • Home down payment\n" +
-          "  • Vacation fund"
-      }
-
-      let analysis = `🎯 **Goal Progress**\n\n`
-      
-      goals.forEach(g => {
-        const progress = g.target > 0 ? ((g.saved || 0) / g.target) * 100 : 0
-        const remaining = (g.target || 0) - (g.saved || 0)
-        
-        analysis += `**${g.name}**\n`
-        analysis += `  • Target: ${this.formatMoney(g.target)}\n`
-        analysis += `  • Saved: ${this.formatMoney(g.saved)} (${progress.toFixed(1)}%)\n`
-        
-        // Progress bar
-        const barLength = 20
-        const filledBars = Math.floor((progress / 100) * barLength)
-        analysis += `  • [${'█'.repeat(filledBars)}${'░'.repeat(barLength - filledBars)}]\n`
-        
-        if (g.target_date) {
-          const targetDate = new Date(g.target_date)
-          const today = new Date()
-          const monthsLeft = (targetDate.getFullYear() - today.getFullYear()) * 12 + 
-                            (targetDate.getMonth() - today.getMonth())
-          
-          if (monthsLeft > 0 && remaining > 0) {
-            const monthlyNeeded = remaining / monthsLeft
-            analysis += `  • Need to save ${this.formatMoney(monthlyNeeded)}/month to reach goal by ${g.target_date}\n`
-          }
-        }
-        analysis += `\n`
-      })
-
-      return analysis
-    } catch (error) {
-      console.error('Error in analyzeGoals:', error)
-      return "I encountered an error analyzing your goals."
-    }
-  }
-
-  // Generate complete financial health report
-  generateHealthReport() {
-    try {
-      const { 
-        holdings = [], 
-        debts = [], 
-        goals = [],
-        flexFund = {},
-        transactions = [],
-        quotesMap = {},
-        usdInrRate = 86.5,
-      } = this.data
-
-      // Calculate portfolio value
-      let portfolioValue = 0
-      holdings
-        .filter(h => h.quantity > 0)
-        .forEach(h => {
-          const isUS = ["NYSE","NASDAQ","PCX"].includes(h.exchange)
-          const currentPrice = quotesMap[h.ticker]?.price ?? h.avg_cost ?? 0
-          const value = currentPrice * (h.quantity || 0)
-          portfolioValue += value
-        })
-
-      const totalDebt = debts.reduce((sum, d) => sum + (d.balance || 0), 0)
-      const cashBalance = 0 // This would come from cash accounts
-      const netWorth = cashBalance + portfolioValue - totalDebt
-      
-      // Budget metrics
-      const { totalSpent = 0, totalAllocated = 0 } = flexFund
-      const savings = totalAllocated - totalSpent
-      const savingsRate = totalAllocated > 0 ? (savings / totalAllocated) * 100 : 0
-
-      let report = `🏥 **FINANCIAL HEALTH REPORT**\n\n`
-      report += `┌─────────────────────────────┐\n`
-      report += `│ Net Worth: ${this.formatMoney(netWorth).padStart(16)}\n`
-      report += `│ Investments: ${this.formatMoney(portfolioValue).padStart(14)}\n`
-      report += `│ Debt: -${this.formatMoney(totalDebt).padStart(20)}\n`
-      report += `└─────────────────────────────┘\n\n`
-
-      report += `📊 **Key Metrics:**\n`
-      report += `  • Monthly Budget: ${this.formatMoney(totalAllocated)}\n`
-      report += `  • Monthly Spent: ${this.formatMoney(totalSpent)}\n`
-      report += `  • Monthly Savings: ${this.formatMoney(savings)}\n`
-      report += `  • Savings Rate: ${this.formatPercent(savingsRate)}\n\n`
-
-      // Health score
-      let score = 0
-      let maxScore = 5
-      let recommendations = []
-
-      if (savingsRate >= 20) {
-        score++
-        report += `✅ Excellent savings rate (20%+)\n`
-      } else if (savingsRate >= 10) {
-        report += `👍 Good savings rate (10-20%)\n`
-      } else {
-        recommendations.push(`Increase savings rate to at least 10-20% of budget`)
-      }
-
-      if (totalDebt === 0) {
-        score++
-        report += `✅ Debt-free! 🎉\n`
-      } else if (totalDebt < portfolioValue) {
-        score++
-        report += `✅ Manageable debt level\n`
-      } else {
-        recommendations.push(`Consider debt reduction strategy`)
-      }
-
-      if (portfolioValue > 0) {
-        score++
-        report += `✅ Investing for the future\n`
-      } else {
-        recommendations.push(`Start investing to build long-term wealth`)
-      }
-
-      if (goals.length > 0) {
-        score++
-        report += `✅ Tracking financial goals\n`
-      } else {
-        recommendations.push(`Set specific financial goals to track progress`)
-      }
-
-      if (Object.keys(flexFund?.categories || {}).length > 0) {
-        score++
-        report += `✅ Using budget tracking\n`
-      } else {
-        recommendations.push(`Set up a flex budget to track spending`)
-      }
-
-      report += `\n📈 **Health Score: ${score}/${maxScore}**\n`
-
-      if (recommendations.length > 0) {
-        report += `\n💡 **Recommendations:**\n`
-        recommendations.forEach(r => {
-          report += `  • ${r}\n`
-        })
-      }
-
-      return report
-    } catch (error) {
-      console.error('Error in generateHealthReport:', error)
-      return "I encountered an error generating your health report."
-    }
-  }
-
-  // Main method to route queries
-  answer(query) {
-    try {
-      const lower = query.toLowerCase()
-      
-      // Route to appropriate analysis
-      if (lower.includes('portfolio') || lower.includes('holding') || lower.includes('investment')) {
-        return this.analyzePortfolio()
-      }
-      
-      if (lower.includes('budget') || lower.includes('spend') || lower.includes('expense') || 
-          lower.includes('category') || lower.includes('overspent')) {
-        if (lower.includes('overspent')) {
-          return this.analyzeOverspent()
-        }
-        return this.analyzeBudget()
-      }
-      
-      if (lower.includes('debt') || lower.includes('loan') || lower.includes('credit card')) {
-        return this.analyzeDebt()
-      }
-      
-      if (lower.includes('goal') || lower.includes('target') || lower.includes('save')) {
-        return this.analyzeGoals()
-      }
-      
-      if (lower.includes('health') || lower.includes('report') || lower.includes('overview')) {
-        return this.generateHealthReport()
-      }
-      
-      if (lower.includes('tax')) {
-        return this.generateTaxAdvice()
-      }
-      
-      if (lower.includes('sip') || lower.includes('calculator')) {
-        return this.handleCalculatorQuery(query)
-      }
-      
-      // Default to health report
-      return this.generateHealthReport()
-      
-    } catch (error) {
-      console.error('Error in advisor answer:', error)
-      return "I encountered an error. Please try rephrasing your question."
-    }
-  }
-
-  handleCalculatorQuery(query) {
-    const matches = query.match(/\d+/g)
-    if (matches && matches.length >= 2) {
-      const amount = parseInt(matches[0])
-      const years = parseInt(matches[1])
-      
-      if (query.includes('sip')) {
-        const result = this.calculateSIP(amount, years)
-        return `🧮 **SIP Calculator**\n\n` +
-          `Monthly SIP: ${this.formatMoney(result.monthlyInvestment)}\n` +
-          `Duration: ${result.years} years\n` +
-          `Expected Return: ${result.expectedReturn}%\n\n` +
-          `┌─────────────────────────────┐\n` +
-          `│ Invested: ${this.formatMoney(result.investedAmount).padStart(17)}\n` +
-          `│ Returns: ${this.formatMoney(result.estimatedReturns).padStart(18)}\n` +
-          `│ Total: ${this.formatMoney(result.totalValue).padStart(20)}\n` +
-          `└─────────────────────────────┘`
-      }
-      
-      if (query.includes('fd')) {
-        const result = this.calculateFD(amount, years)
-        return `🧮 **FD Calculator**\n\n` +
-          `Principal: ${this.formatMoney(result.principal)}\n` +
-          `Duration: ${result.years} years\n` +
-          `Interest Rate: ${result.rate}%\n\n` +
-          `┌─────────────────────────────┐\n` +
-          `│ Maturity: ${this.formatMoney(result.amount).padStart(17)}\n` +
-          `│ Interest: ${this.formatMoney(result.interest).padStart(17)}\n` +
-          `└─────────────────────────────┘`
-      }
-    }
-    return null
-  }
-
-  calculateSIP(monthlyInvestment, years, expectedReturn = 12) {
-    const months = years * 12
-    const monthlyRate = expectedReturn / 12 / 100
-    let totalValue = 0
-    let investedAmount = monthlyInvestment * months
-    
-    for (let i = 0; i < months; i++) {
-      totalValue = (totalValue + monthlyInvestment) * (1 + monthlyRate)
-    }
-    
-    const estimatedReturns = totalValue - investedAmount
-    
-    return {
-      investedAmount,
-      estimatedReturns,
-      totalValue,
-      monthlyInvestment,
-      years,
-      expectedReturn
-    }
-  }
-
-  calculateFD(principal, years, rate = 7.5) {
-    const amount = principal * Math.pow(1 + rate/100, years)
-    const interest = amount - principal
-    
-    return {
-      principal,
-      amount,
-      interest,
-      years,
-      rate
-    }
-  }
-
-  generateTaxAdvice() {
-    return "🇮🇳 **Tax-Saving Options for India (FY 2023-24)**\n\n" +
-      "**Under Section 80C (up to ₹1.5 lakh):**\n" +
-      "  • ELSS: Lock-in 3 years, market-linked returns\n" +
-      "  • PPF: 15-year lock-in, tax-free returns\n" +
-      "  • Tax-saving FD: 5-year lock-in\n" +
-      "  • NSC, ULIP, Life Insurance Premium\n\n" +
-      "**Additional Deductions:**\n" +
-      "  • NPS: Extra ₹50,000 under 80CCD(1B)\n" +
-      "  • Health Insurance: Up to ₹25,000 under 80D\n" +
-      "  • Education Loan: Interest under 80E\n\n" +
-      "**Capital Gains Tax:**\n" +
-      "  • LTCG (Equity >1yr): 10% over ₹1 lakh\n" +
-      "  • STCG (Equity <1yr): 15%\n" +
-      "  • LTCG (Debt): Indexed as per slab"
-  }
+// ─── Formatters ────────────────────────────────────────────────────────────
+function pct(n, plus = true) {
+  if (n === undefined || n === null || isNaN(n)) return '0.00%'
+  const s = Math.abs(n).toFixed(2) + '%'
+  if (plus && n > 0) return '+' + s
+  if (n < 0) return '-' + s
+  return s
 }
 
-// ─── Modern Chat Message Component ─────────────────────────────────────────
-function Message({ msg, index, isMobile }) {
-  const isAI = msg.role === 'assistant'
-  const [copied, setCopied] = useState(false)
-  const timestamp = new Date(msg.timestamp || Date.now()).toLocaleTimeString('en-IN', {
-    hour: '2-digit',
-    minute: '2-digit'
-  })
+// ─── Sub-components ────────────────────────────────────────────────────────
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(msg.content)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+// Stat row — icon · label ·············· value
+function StatRow({ icon: Icon, label, value, color, theme }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: theme.muted }}>
+        <Icon size={11} strokeWidth={1.8} style={{ flexShrink: 0 }}/>
+        <span style={{ fontFamily: theme.mono, fontSize: '0.58rem', letterSpacing: '0.04em' }}>{label}</span>
+      </div>
+      <span style={{
+        fontFamily: theme.mono, fontSize: '0.70rem', fontWeight: 500,
+        color: color || theme.text,
+      }}>{value}</span>
+    </div>
+  )
+}
+
+// Divider
+function Div({ theme }) {
+  return <div style={{ height: 1, background: theme.border, margin: '2px 0' }}/>
+}
+
+// Badge
+function Badge({ color, icon: Icon, children, theme }) {
+  const map = {
+    green:  { bg: '#22c55e', border: '#22c55e' },
+    red:    { bg: '#ef4444', border: '#ef4444' },
+    yellow: { bg: '#f59e0b', border: '#f59e0b' },
+    blue:   { bg: '#3b82f6', border: '#3b82f6' },
   }
-
-  // Format message with modern styling
-  const formattedContent = msg.content.split('\n').map((line, i) => {
-    if (line.startsWith('┌') || line.startsWith('└') || line.startsWith('│')) {
-      return <div key={i} style={{ 
-        fontFamily: 'monospace', 
-        color: theme.accent,
-        fontSize: isMobile ? 11 : 12,
-        letterSpacing: '0.5px'
-      }}>{line}</div>
-    }
-    if (line.startsWith('**') && line.endsWith('**')) {
-      return <div key={i} style={{ 
-        fontFamily: theme.syne, 
-        fontWeight: 700, 
-        fontSize: isMobile ? 14 : 16, 
-        marginTop: i > 0 ? 16 : 0, 
-        marginBottom: 8,
-        background: `linear-gradient(135deg, ${theme.accent}, ${theme.blue})`,
-        WebkitBackgroundClip: 'text',
-        WebkitTextFillColor: 'transparent',
-        display: 'inline-block'
-      }}>{line.replace(/\*\*/g, '')}</div>
-    }
-    if (line.startsWith('  •')) {
-      return <div key={i} style={{ 
-        display: 'flex', 
-        gap: 8, 
-        marginLeft: isMobile ? 8 : 16, 
-        marginBottom: 4,
-        fontSize: isMobile ? 12 : 13
-      }}>
-        <span style={{ color: theme.accent }}>•</span>
-        <span>{line.substring(3)}</span>
-      </div>
-    }
-    if (line.startsWith('  •    •')) {
-      return <div key={i} style={{ 
-        display: 'flex', 
-        gap: 8, 
-        marginLeft: isMobile ? 24 : 32, 
-        marginBottom: 2,
-        fontSize: isMobile ? 11 : 12,
-        color: theme.muted
-      }}>
-        <span style={{ color: theme.accent }}>•</span>
-        <span>{line.substring(7)}</span>
-      </div>
-    }
-    if (line.startsWith('✅') || line.startsWith('👍') || line.startsWith('⚠️') || 
-        line.startsWith('🚀') || line.startsWith('📉') || line.startsWith('💰') ||
-        line.startsWith('🟢') || line.startsWith('🟡') || line.startsWith('🔴')) {
-      return <div key={i} style={{ 
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        marginBottom: 4,
-        fontSize: isMobile ? 12 : 13,
-        background: theme.bg2 + '40',
-        padding: '4px 8px',
-        borderRadius: 6,
-        borderLeft: `2px solid ${theme.accent}`
-      }}>{line}</div>
-    }
-    return <div key={i} style={{ 
-      marginBottom: 4,
-      fontSize: isMobile ? 12 : 13,
-      lineHeight: 1.6
-    }}>{line || <br/>}</div>
-  })
-
+  const c = map[color] || map.blue
   return (
     <div style={{
-      display: 'flex',
-      gap: isMobile ? 8 : 12,
-      flexDirection: isAI ? 'row' : 'row-reverse',
-      animation: 'fadeUp 0.3s ease',
-      marginBottom: 18,
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      padding: '2px 8px', borderRadius: 999,
+      background: `${c.bg}14`, border: `1px solid ${c.border}28`,
+      color: c.bg,
+      fontFamily: theme.mono, fontSize: '0.50rem',
+      letterSpacing: '0.08em', textTransform: 'uppercase',
+      flexShrink: 0,
+    }}>
+      {Icon && <Icon size={9} strokeWidth={2}/>}
+      {children}
+    </div>
+  )
+}
+
+// Info card wrapper
+function InfoCard({ icon: Icon, title, badge, children, theme, isDark }) {
+  return (
+    <div style={{
+      ...makeGlass(isDark, 0.04, 16),
+      border: `1px solid ${theme.border}`,
+      borderRadius: 14,
+      overflow: 'hidden',
       position: 'relative',
     }}>
+      <div style={shine}/>
       <div style={{
-        width: isMobile ? 28 : 36, 
-        height: isMobile ? 28 : 36, 
-        borderRadius: '50%',
-        flexShrink: 0,
-        background: isAI 
-          ? `linear-gradient(135deg, ${theme.accent}30, ${theme.accent}05)`
-          : `linear-gradient(135deg, ${theme.blue}30, ${theme.blue}05)`,
-        border: `1px solid ${isAI ? theme.accent + '40' : theme.blue + '40'}`,
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        fontSize: isMobile ? 12 : 16,
-        color: isAI ? theme.accent : theme.blue,
-        backdropFilter: 'blur(10px)',
-        boxShadow: `0 4px 12px ${isAI ? theme.accent + '20' : theme.blue + '20'}`,
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '12px 16px',
+        borderBottom: `1px solid ${theme.border}`,
       }}>
-        {isAI ? <Bot size={isMobile ? 14 : 18} /> : <User size={isMobile ? 14 : 18} />}
+        <div style={{
+          width: 24, height: 24, borderRadius: 7,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+          border: `1px solid ${theme.border}`,
+          color: theme.muted, flexShrink: 0,
+        }}>
+          <Icon size={12} strokeWidth={1.8}/>
+        </div>
+        <span style={{
+          fontFamily: theme.mono, fontSize: '0.58rem',
+          letterSpacing: '0.14em', textTransform: 'uppercase',
+          color: theme.muted, flex: 1,
+        }}>{title}</span>
+        {badge}
       </div>
-      
-      <div style={{
-        maxWidth: isMobile ? '85%' : '78%',
-        position: 'relative',
-      }}>
-        <div style={{
-          background: isAI ? theme.bg2 : `linear-gradient(135deg, ${theme.blue}15, ${theme.blue}05)`,
-          border: `1px solid ${isAI ? theme.border : theme.blue + '30'}`,
-          borderRadius: isMobile ? 12 : 16,
-          padding: isMobile ? '12px 14px' : '16px 20px',
-          fontFamily: theme.mono,
-          fontSize: isMobile ? 12 : 13,
-          lineHeight: 1.7,
-          color: theme.text,
-          whiteSpace: 'pre-wrap',
-          boxShadow: `0 8px 24px ${isAI ? 'rgba(0,0,0,0.2)' : theme.blue + '20'}`,
-          backdropFilter: 'blur(10px)',
-          borderBottomRightRadius: isAI ? 16 : 4,
-          borderBottomLeftRadius: isAI ? 4 : 16,
-        }}>
-          {formattedContent}
-        </div>
-        
-        {/* Message footer */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          alignItems: 'center',
-          gap: 8,
-          marginTop: 4,
-          paddingRight: 4,
-          fontSize: isMobile ? 9 : 10,
-          color: theme.muted,
-          fontFamily: theme.mono,
-          opacity: 0.6,
-        }}>
-          <Clock size={isMobile ? 10 : 12} />
-          <span>{timestamp}</span>
-          <button
-            onClick={handleCopy}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: copied ? '#10b981' : theme.muted,
-              cursor: 'pointer',
-              padding: '2px 4px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
-              transition: 'all 0.2s',
-            }}
-          >
-            {copied ? <Check size={isMobile ? 10 : 12} /> : <Copy size={isMobile ? 10 : 12} />}
-            <span>{copied ? 'Copied!' : 'Copy'}</span>
-          </button>
-        </div>
+      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {children}
       </div>
     </div>
   )
 }
 
-// ─── Modern Quick Prompts with Scroll ──────────────────────────────────────
-function QuickPrompts({ onSelect, isMobile }) {
-  const scrollRef = useRef(null)
-  const [showLeftArrow, setShowLeftArrow] = useState(false)
-  const [showRightArrow, setShowRightArrow] = useState(true)
-
-  const handleScroll = () => {
-    if (scrollRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current
-      setShowLeftArrow(scrollLeft > 0)
-      setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 10)
-    }
-  }
-
-  useEffect(() => {
-    const scrollElement = scrollRef.current
-    if (scrollElement) {
-      scrollElement.addEventListener('scroll', handleScroll)
-      handleScroll()
-      return () => scrollElement.removeEventListener('scroll', handleScroll)
-    }
-  }, [])
-
-  const scroll = (direction) => {
-    if (scrollRef.current) {
-      const scrollAmount = isMobile ? 150 : 200
-      scrollRef.current.scrollBy({
-        left: direction === 'left' ? -scrollAmount : scrollAmount,
-        behavior: 'smooth'
-      })
-    }
-  }
-
+// Progress bar — single fill
+function ProgressBar({ label, dotColor, spentPct, spent, limit, status, theme, isDark }) {
+  const clipped = Math.min(spentPct, 100)
+  const fillColor = status === 'over' ? theme.red : status === 'warn' ? theme.yellow : dotColor
   return (
-    <div style={{ 
-      position: 'relative', 
-      marginBottom: isMobile ? 12 : 16,
-      padding: '0 4px'
-    }}>
-      {showLeftArrow && (
-        <button
-          onClick={() => scroll('left')}
-          style={{
-            position: 'absolute',
-            left: 0,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            zIndex: 10,
-            background: `linear-gradient(90deg, ${theme.card}, ${theme.card}E6)`,
-            border: `1px solid ${theme.border}`,
-            borderRadius: '50%',
-            width: isMobile ? 28 : 32,
-            height: isMobile ? 28 : 32,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            color: theme.accent,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-            backdropFilter: 'blur(8px)',
-          }}
-        >
-          <ChevronLeft size={isMobile ? 16 : 18} />
-        </button>
-      )}
-      
-      <div
-        ref={scrollRef}
-        style={{
-          display: 'flex',
-          gap: isMobile ? 6 : 8,
-          overflowX: 'auto',
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none',
-          padding: isMobile ? '4px 24px' : '4px 32px',
-          scrollBehavior: 'smooth',
-        }}
-      >
-        {QUICK_PROMPTS.map((p, i) => (
-          <button
-            key={i}
-            onClick={() => onSelect(p.text)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: isMobile ? 4 : 6,
-              background: `linear-gradient(135deg, ${p.color}10, ${theme.bg2})`,
-              border: `1px solid ${p.color}30`,
-              borderRadius: isMobile ? 16 : 20,
-              color: theme.text,
-              fontFamily: theme.mono,
-              fontSize: isMobile ? 10 : 11,
-              padding: isMobile ? '6px 12px' : '8px 16px',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              transition: 'all 0.2s',
-              flexShrink: 0,
-              backdropFilter: 'blur(8px)',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.transform = 'translateY(-2px)'
-              e.currentTarget.style.boxShadow = `0 8px 16px ${p.color}30`
-              e.currentTarget.style.borderColor = p.color + '80'
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.transform = 'translateY(0)'
-              e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)'
-              e.currentTarget.style.borderColor = p.color + '30'
-            }}
-          >
-            <span style={{ color: p.color }}>{p.icon}</span>
-            {p.text}
-          </button>
-        ))}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: theme.muted }}>
+          <div style={{ width: 6, height: 6, borderRadius: '50%', background: fillColor, flexShrink: 0 }}/>
+          <span style={{ fontFamily: theme.mono, fontSize: '0.55rem', letterSpacing: '0.04em' }}>{label}</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {status === 'over'
+            ? <Badge color="red"   icon={AlertTriangle} theme={theme}>Over by {inrCompact(spent - limit)}</Badge>
+            : status === 'warn'
+            ? <Badge color="yellow" icon={AlertTriangle} theme={theme}>{pct(spentPct, false)} used</Badge>
+            : <Badge color="green"  icon={CheckCircle}   theme={theme}>{pct(spentPct, false)} used</Badge>
+          }
+          <span style={{ fontFamily: theme.mono, fontSize: '0.58rem', color: theme.muted }}>
+            {inrCompact(spent)} / {inrCompact(limit)}
+          </span>
+        </div>
       </div>
-
-      {showRightArrow && (
-        <button
-          onClick={() => scroll('right')}
-          style={{
-            position: 'absolute',
-            right: 0,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            zIndex: 10,
-            background: `linear-gradient(270deg, ${theme.card}, ${theme.card}E6)`,
-            border: `1px solid ${theme.border}`,
-            borderRadius: '50%',
-            width: isMobile ? 28 : 32,
-            height: isMobile ? 28 : 32,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            color: theme.accent,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-            backdropFilter: 'blur(8px)',
-          }}
-        >
-          <ChevronRight size={isMobile ? 16 : 18} />
-        </button>
-      )}
+      <div style={{
+        height: 5, borderRadius: 999,
+        background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+        overflow: 'hidden', position: 'relative',
+      }}>
+        <div style={{
+          width: `${clipped}%`, height: '100%', borderRadius: 999,
+          background: fillColor,
+          transition: 'width 1s cubic-bezier(0.4,0,0.2,1)',
+          boxShadow: `0 0 8px ${fillColor}50`,
+        }}/>
+      </div>
     </div>
   )
 }
 
-// ─── Typing Indicator ─────────────────────────────────────────────────────
-function TypingIndicator({ isMobile }) {
+// Dual progress bar — current vs target with marker
+function AllocationBar({ label, dotColor, currentPct, targetPct, currentValue, theme, isDark }) {
+  const drift  = currentPct - targetPct
+  const clipped = Math.min(currentPct, 100)
+  const markerLeft = Math.min(targetPct, 100)
   return (
-    <div style={{ 
-      display: 'flex', 
-      gap: isMobile ? 8 : 12, 
-      alignItems: 'center', 
-      marginBottom: 18 
-    }}>
-      <div style={{
-        width: isMobile ? 28 : 36, 
-        height: isMobile ? 28 : 36, 
-        borderRadius: '50%',
-        background: `linear-gradient(135deg, ${theme.accent}30, ${theme.accent}05)`,
-        border: `1px solid ${theme.accent}40`,
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        color: theme.accent,
-        backdropFilter: 'blur(10px)',
-      }}>
-        <Bot size={isMobile ? 14 : 18} />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor, flexShrink: 0 }}/>
+          <span style={{ fontFamily: theme.mono, fontSize: '0.55rem', color: theme.muted, letterSpacing: '0.04em' }}>{label}</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {Math.abs(drift) < 0.5
+            ? <Badge color="green"  icon={CheckCircle}   theme={theme}>On target</Badge>
+            : drift > 0
+            ? <Badge color="yellow" icon={AlertTriangle} theme={theme}>+{drift.toFixed(1)}% over</Badge>
+            : <Badge color="blue"   icon={Info}          theme={theme}>{drift.toFixed(1)}% under</Badge>
+          }
+          <span style={{ fontFamily: theme.mono, fontSize: '0.58rem', color: dotColor, fontWeight: 500 }}>
+            {pct(currentPct, false)}
+          </span>
+        </div>
       </div>
-      
+      {/* Dual track */}
       <div style={{
-        background: `linear-gradient(135deg, ${theme.bg2}, ${theme.bg2}80)`,
-        border: `1px solid ${theme.border}`,
-        borderRadius: isMobile ? 12 : 16,
-        padding: isMobile ? '10px 16px' : '12px 20px',
-        display: 'flex',
-        gap: 4,
-        alignItems: 'center',
-        backdropFilter: 'blur(10px)',
-        borderBottomLeftRadius: 4,
+        height: 7, borderRadius: 999,
+        background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+        position: 'relative', overflow: 'visible',
       }}>
-        <Spinner size={isMobile ? 12 : 14} />
-        <span style={{ 
-          fontFamily: theme.mono, 
-          fontSize: isMobile ? 11 : 13, 
-          color: theme.muted,
-          animation: 'pulse 1.5s infinite'
-        }}>
-          AI is thinking
+        <div style={{
+          position: 'absolute', top: 0, left: 0,
+          width: `${clipped}%`, height: '100%', borderRadius: 999,
+          background: dotColor, opacity: 0.85,
+          transition: 'width 1s cubic-bezier(0.4,0,0.2,1)',
+        }}/>
+        {/* Target marker */}
+        <div style={{
+          position: 'absolute', top: -3, left: `${markerLeft}%`,
+          width: 2, height: 13,
+          borderRadius: 999,
+          background: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.30)',
+          transform: 'translateX(-50%)',
+        }}/>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <span style={{ fontFamily: theme.mono, fontSize: '0.48rem', color: theme.muted }}>{inrCompact(currentValue)}</span>
+        <span style={{ fontFamily: theme.mono, fontSize: '0.48rem', color: theme.muted }}>Target {pct(targetPct, false)}</span>
+      </div>
+    </div>
+  )
+}
+
+// Reasoning block
+function ReasoningBox({ title, items, theme, isDark }) {
+  const colorMap = {
+    green:  '#22c55e', red: '#ef4444',
+    yellow: '#f59e0b', blue: '#3b82f6', purple: '#a78bfa',
+  }
+  return (
+    <div style={{
+      background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)',
+      border: `1px solid ${theme.border}`,
+      borderLeft: `2px solid ${isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)'}`,
+      borderRadius: 10,
+      padding: '12px 14px',
+      display: 'flex', flexDirection: 'column', gap: 10,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: theme.muted }}>
+        <Sparkles size={10} strokeWidth={1.8}/>
+        <span style={{ fontFamily: theme.mono, fontSize: '0.50rem', letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+          {title}
         </span>
-        <span style={{ 
-          animation: 'ellipsis 1.5s infinite',
-          fontSize: isMobile ? 11 : 13,
-          color: theme.muted
-        }}>...</span>
+      </div>
+      {items.map(([IconComp, color, text], i) => {
+        const c = colorMap[color] || color
+        return (
+          <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
+            <div style={{
+              width: 20, height: 20, borderRadius: 6, flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: `${c}16`, border: `1px solid ${c}26`, color: c,
+              marginTop: 1,
+            }}>
+              <IconComp size={10} strokeWidth={2}/>
+            </div>
+            <p style={{
+              fontFamily: theme.sans, fontSize: '0.80rem',
+              lineHeight: 1.65, color: theme.muted, margin: 0,
+            }}>{text}</p>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// Trade row
+function TradeRow({ action, ticker, detail, amount, theme, isDark }) {
+  const isBuy   = action === 'BUY'
+  const color   = isBuy ? '#22c55e' : '#ef4444'
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10,
+      padding: '9px 12px', borderRadius: 9,
+      border: `1px solid ${theme.border}`,
+      background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)',
+    }}>
+      <div style={{
+        width: 22, height: 22, borderRadius: 6,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: `${color}14`, border: `1px solid ${color}24`, color,
+        flexShrink: 0,
+      }}>
+        {isBuy ? <ArrowUp size={10} strokeWidth={2.5}/> : <ArrowDown size={10} strokeWidth={2.5}/>}
+      </div>
+      <span style={{ fontFamily: theme.mono, fontSize: '0.65rem', color: theme.text, fontWeight: 500, flex: 1 }}>
+        {ticker}
+      </span>
+      <span style={{ fontFamily: theme.mono, fontSize: '0.55rem', color: theme.muted }}>{detail}</span>
+      <span style={{ fontFamily: theme.mono, fontSize: '0.65rem', fontWeight: 500, color, textAlign: 'right' }}>
+        {isBuy ? '+' : '-'}{amount}
+      </span>
+    </div>
+  )
+}
+
+// Suggestion chips
+function Chips({ items, onSelect, theme, isDark }) {
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+      {items.map(([Icon, label], i) => (
+        <button key={i} onClick={() => onSelect(label)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '7px 12px',
+            ...makeGlass(isDark, 0.04, 10),
+            border: `1px solid ${theme.border}`,
+            borderRadius: 999,
+            fontFamily: theme.mono, fontSize: '0.58rem',
+            color: theme.muted, cursor: 'pointer',
+            transition: 'all 0.2s', letterSpacing: '0.04em',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = theme.border; e.currentTarget.style.color = theme.text }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = theme.border;   e.currentTarget.style.color = theme.muted }}
+        >
+          <Icon size={11} strokeWidth={1.8} style={{ flexShrink: 0 }}/>
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// Thinking indicator
+function Thinking({ theme, isDark }) {
+  return (
+    <div style={{
+      display: 'flex', gap: 12, alignItems: 'flex-start',
+      animation: 'agentIn 0.3s cubic-bezier(0.4,0,0.2,1)',
+    }}>
+      <style>{`@keyframes agentIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}`}</style>
+      <div style={{
+        width: 30, height: 30, borderRadius: 9, flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        ...makeGlass(isDark, 0.06, 10),
+        border: `1px solid ${theme.border}`,
+        color: theme.muted, marginTop: 2,
+      }}>
+        <Bot size={14} strokeWidth={1.6}/>
+      </div>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '10px 14px',
+        ...makeGlass(isDark, 0.04, 14),
+        border: `1px solid ${theme.border}`,
+        borderRadius: 12,
+        fontFamily: theme.mono, fontSize: '0.58rem',
+        color: theme.muted, letterSpacing: '0.04em',
+      }}>
+        <style>{`
+          @keyframes td{0%,80%,100%{transform:scale(0.5);opacity:0.2}40%{transform:scale(1);opacity:1}}
+        `}</style>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {[0, 0.16, 0.32].map((d, i) => (
+            <div key={i} style={{
+              width: 4, height: 4, borderRadius: '50%',
+              background: theme.muted,
+              animation: `td 1.4s ${d}s infinite both`,
+            }}/>
+          ))}
+        </div>
+        Analysing your data
       </div>
     </div>
   )
 }
 
-// ─── Main AI Agent Component ───────────────────────────────────────────────
-export default function AIAgent() {
-  const { userId } = useFinance()
-  const currentMonthStr = currentMonth()
-  
-  // Use the same hooks as your other components
-  const { data: holdings = [], isLoading: holdingsLoading } = useHoldings(userId)
-  const { data: portfolioData, isLoading: portfolioLoading } = usePortfolioData(userId)
-  const { data: goals = [], isLoading: goalsLoading } = useGoals(userId)
-  const { data: debts = [], isLoading: debtsLoading } = useDebts(userId)
-  const { data: snapshots = [] } = usePortfolioSnapshots(userId, '1M')
-  
-  // Flex budget hook
-  const { 
-    flexFund, 
-    overspentCategories, 
-    availableSurplus,
-    showSuggestion,
-    isLoading: budgetLoading 
-  } = useFlexBudget(userId, currentMonthStr)
-  
-  // Transactions for the current month
-  const { data: transactionsData } = useTransactionsRange(
-    userId, 
-    `${currentMonthStr}-01`, 
-    `${currentMonthStr}-31`
+// ─── Response builder ──────────────────────────────────────────────────────
+function useResponseBuilder(data, theme, isDark, onSelect) {
+  const { holdings = [], quotesMap = {}, usdInrRate = 87.5, flexFund = {}, debts = [], goals = [] } = data
+
+  // Compute portfolio metrics
+  const portfolio = useMemo(() => {
+    let value = 0, cost = 0
+    const USD_EX = new Set(['NYSE','NASDAQ','PCX'])
+    const list = holdings.filter(h => h.quantity > 0).map(h => {
+      const isUSD  = h.asset_class === 'us_equity' || USD_EX.has(h.exchange) || h.currency === 'USD'
+      const price  = quotesMap[h.ticker]?.price ?? h.avg_cost ?? 0
+      const v      = price * h.quantity * (isUSD ? usdInrRate : 1)
+      const c      = (h.avg_cost || 0) * h.quantity * (isUSD ? usdInrRate : 1)
+      value += v; cost += c
+      return { ...h, value: v, cost: c, gain: v - c, gainPct: c > 0 ? ((v-c)/c)*100 : 0 }
+    })
+    return { value, cost, gain: value - cost, gainPct: cost > 0 ? ((value-cost)/cost)*100 : 0, list }
+  }, [holdings, quotesMap, usdInrRate])
+
+  // by asset class
+  const byClass = useMemo(() => {
+    const map = {}
+    portfolio.list.forEach(h => {
+      const k = h.asset_class || 'equity'
+      map[k] = (map[k] || 0) + h.value
+    })
+    return map
+  }, [portfolio])
+
+  const buildPortfolio = () => {
+    const isUp   = portfolio.gain >= 0
+    const topHoldings = [...portfolio.list].sort((a,b) => b.value - a.value).slice(0,5)
+    const gainers     = [...portfolio.list].filter(h => h.gainPct > 0).sort((a,b) => b.gainPct - a.gainPct).slice(0,3)
+    const losers      = [...portfolio.list].filter(h => h.gainPct < 0).sort((a,b) => a.gainPct - b.gainPct).slice(0,3)
+
+    const allocBuckets = [
+      { name: 'Equity',        color: '#3b82f6', classes: ['equity','etf','index_fund','mutual_fund','elss'], target: 60 },
+      { name: 'Debt',          color: '#f59e0b', classes: ['debt_fund','liquid_fund','hybrid_fund'], target: 20 },
+      { name: 'International', color: '#a78bfa', classes: ['us_equity'], target: 10 },
+      { name: 'Commodities',   color: '#f59e0b', classes: ['gold','silver'], target: 5 },
+      { name: 'Real Estate',   color: '#22c55e', classes: ['reit','invit'], target: 5 },
+    ]
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <p style={{ fontFamily: theme.sans, fontSize: '0.875rem', lineHeight: 1.65, color: theme.muted, margin: 0 }}>
+          Your portfolio is{' '}
+          <strong style={{ color: isUp ? theme.green : theme.red }}>
+            {isUp ? 'up' : 'down'} {pct(Math.abs(portfolio.gainPct), false)}
+          </strong>{' '}
+          against your cost basis.
+          {portfolio.list.length === 0 && ' No active holdings found — start by adding your positions.'}
+        </p>
+
+        <InfoCard icon={TrendingUp} title="Portfolio Summary"
+          badge={<Badge color={isUp ? 'green' : 'red'} icon={isUp ? TrendingUp : TrendingDown} theme={theme}>
+            {pct(portfolio.gainPct)}
+          </Badge>}
+          theme={theme} isDark={isDark}>
+          <StatRow icon={Wallet}       label="Current Value"    value={inrCompact(portfolio.value)}              theme={theme}/>
+          <Div theme={theme}/>
+          <StatRow icon={Scale}        label="Total Invested"   value={inrCompact(portfolio.cost)}               theme={theme}/>
+          <StatRow icon={TrendingUp}   label="Unrealised Gain"  value={inrCompact(portfolio.gain)}
+            color={portfolio.gain >= 0 ? theme.green : theme.red}                                                theme={theme}/>
+          <StatRow icon={Zap}          label="XIRR (approx)"   value="—"                                        theme={theme}/>
+          <Div theme={theme}/>
+          <StatRow icon={CircleDot}    label="Active Positions" value={`${portfolio.list.length} holdings`}      theme={theme}/>
+        </InfoCard>
+
+        {portfolio.list.length > 0 && (
+          <InfoCard icon={Layers} title="Asset Allocation vs Target" theme={theme} isDark={isDark}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {allocBuckets.map(({ name, color, classes, target }) => {
+                const bucketValue = classes.reduce((s, c) => s + (byClass[c] || 0), 0)
+                const curPct = portfolio.value > 0 ? (bucketValue / portfolio.value) * 100 : 0
+                return (
+                  <AllocationBar key={name} label={name} dotColor={color}
+                    currentPct={curPct} targetPct={target} currentValue={bucketValue}
+                    theme={theme} isDark={isDark}/>
+                )
+              })}
+            </div>
+            <p style={{ fontFamily: theme.mono, fontSize: '0.50rem', color: theme.muted, margin: 0 }}>
+              Thin white line marks your target. Filled bar is current allocation.
+            </p>
+          </InfoCard>
+        )}
+
+        {gainers.length > 0 && (
+          <InfoCard icon={TrendingUp} title="Top Performers" theme={theme} isDark={isDark}>
+            {gainers.map(h => (
+              <StatRow key={h.ticker} icon={ArrowUp} label={h.name || h.ticker}
+                value={pct(h.gainPct)} color={theme.green} theme={theme}/>
+            ))}
+            {losers.map(h => (
+              <StatRow key={h.ticker} icon={ArrowDown} label={h.name || h.ticker}
+                value={pct(h.gainPct)} color={theme.red} theme={theme}/>
+            ))}
+          </InfoCard>
+        )}
+
+        <ReasoningBox title="Key Observations" items={[
+          [AlertTriangle, 'yellow', portfolio.list.length === 0
+            ? 'No holdings found. Add your positions in the Portfolio page to get analysis.'
+            : `Your overall ${isUp ? 'gain' : 'loss'} of ${pct(Math.abs(portfolio.gainPct),false)} is calculated against your average cost basis across all positions.`],
+          [Info,          'blue',   'The white marker on each allocation bar is your target. Any bar extending past the marker means that bucket is overweight and may need trimming.'],
+          [CheckCircle,   'green',  'XIRR requires daily price history — it will populate once the snapshot cron job has been running for at least 7 days.'],
+        ]} theme={theme} isDark={isDark}/>
+
+        <Chips items={[[Scale,'Should I rebalance now?'],[Receipt,'Show my recent trades'],[Zap,'Where to invest new money?']]}
+          onSelect={onSelect} theme={theme} isDark={isDark}/>
+      </div>
+    )
+  }
+
+  const buildBudget = () => {
+    const { categories = {}, totalAllocated = 0, totalSpent = 0 } = flexFund
+    const catList = Object.entries(categories).filter(([n]) => n !== 'Flex Reserve')
+    const overCount = catList.filter(([,d]) => d.isOver).length
+    const hasData   = catList.length > 0
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <p style={{ fontFamily: theme.sans, fontSize: '0.875rem', lineHeight: 1.65, color: theme.muted, margin: 0 }}>
+          {!hasData
+            ? <>No budget categories set up yet. Add limits in the <strong style={{color:theme.text}}>Budget</strong> page to start tracking.</>
+            : overCount > 0
+            ? <>You are <strong style={{ color: theme.red }}>over budget in {overCount} {overCount === 1 ? 'category' : 'categories'}</strong> this month. Here is the full breakdown.</>
+            : <>Budget is on track this month. <strong style={{ color: theme.green }}>All categories within limits.</strong></>
+          }
+        </p>
+
+        {hasData && (
+          <InfoCard icon={Receipt} title={`${currentMonth()} Budget`}
+            badge={<Badge color={overCount > 0 ? 'red' : 'green'}
+              icon={overCount > 0 ? AlertTriangle : CheckCircle} theme={theme}>
+              {inrCompact(totalSpent)} of {inrCompact(totalAllocated)}
+            </Badge>}
+            theme={theme} isDark={isDark}>
+            <StatRow icon={Wallet}      label="Total Allocated" value={inrCompact(totalAllocated)} theme={theme}/>
+            <StatRow icon={Receipt}     label="Total Spent"     value={inrCompact(totalSpent)}     theme={theme}/>
+            <StatRow icon={TrendingDown} label="Remaining"      value={inrCompact(totalAllocated - totalSpent)}
+              color={totalAllocated > totalSpent ? theme.green : theme.red}  theme={theme}/>
+          </InfoCard>
+        )}
+
+        {hasData && (
+          <InfoCard icon={BarChart3} title="Category Breakdown" theme={theme} isDark={isDark}>
+            {catList.sort((a,b) => b[1].spent - a[1].spent).map(([name, d]) => (
+              <ProgressBar key={name} label={name}
+                dotColor={d.isOver ? theme.red : d.percentUsed > 85 ? theme.yellow : theme.blue}
+                spentPct={d.percentUsed} spent={d.spent} limit={d.limit}
+                status={d.isOver ? 'over' : d.percentUsed > 85 ? 'warn' : 'ok'}
+                theme={theme} isDark={isDark}/>
+            ))}
+          </InfoCard>
+        )}
+
+        {hasData && (
+          <ReasoningBox title="Spending Insights" items={[
+            [AlertTriangle, 'red',    overCount > 0
+              ? `${overCount} ${overCount>1?'categories have':'category has'} exceeded the monthly limit. Consider moving surplus from under-used categories to cover the gap using the flex budget controls.`
+              : 'All categories are within budget. Keep monitoring as the month progresses.'],
+            [Info,          'blue',   `Total spend rate: ${totalAllocated > 0 ? ((totalSpent/totalAllocated)*100).toFixed(1) : 0}% of allocated budget used. At this rate you will ${totalSpent/totalAllocated > 0.9 ? 'likely exceed' : 'finish within'} your total budget this month.`],
+            [CheckCircle,   'green',  'Categories with remaining balance can be rolled over to next month using the Flex Budget rollover feature.'],
+          ]} theme={theme} isDark={isDark}/>
+        )}
+
+        <Chips items={[[Receipt,'Add a transaction'],[Scale,'Move budget between categories'],[Wallet,'Show last month']]}
+          onSelect={onSelect} theme={theme} isDark={isDark}/>
+      </div>
+    )
+  }
+
+  const buildDebts = () => {
+    const totalDebt  = debts.reduce((s, d) => s + (d.balance || 0), 0)
+    const sorted     = [...debts].sort((a,b) => (b.rate||0) - (a.rate||0))
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <p style={{ fontFamily: theme.sans, fontSize: '0.875rem', lineHeight: 1.65, color: theme.muted, margin: 0 }}>
+          {debts.length === 0
+            ? <><strong style={{ color: theme.green }}>No active debts.</strong> Focus on building your investment portfolio.</>
+            : <>You have <strong style={{ color: theme.text }}>{debts.length} active {debts.length>1?'loans':'loan'}</strong> totalling <strong style={{ color: theme.red }}>{inrCompact(totalDebt)}</strong>. Here is the payoff strategy.</>
+          }
+        </p>
+
+        {debts.length > 0 && (
+          <InfoCard icon={Shield} title="Debt Summary"
+            badge={<Badge color="red" icon={AlertTriangle} theme={theme}>{inrCompact(totalDebt)} total</Badge>}
+            theme={theme} isDark={isDark}>
+            {sorted.map((d, i) => (
+              <div key={d.id || i}>
+                <StatRow icon={i === 0 ? AlertTriangle : CircleDot}
+                  label={d.name} value={`${inrCompact(d.balance)} @ ${d.rate}%`}
+                  color={i === 0 ? theme.red : theme.text} theme={theme}/>
+                {d.min_payment && (
+                  <div style={{ paddingLeft: 20, marginTop: -4 }}>
+                    <StatRow icon={Receipt} label="Min payment" value={`${inrCompact(d.min_payment)}/mo`} theme={theme}/>
+                  </div>
+                )}
+              </div>
+            ))}
+          </InfoCard>
+        )}
+
+        {debts.length > 0 && sorted.length > 0 && (
+          <>
+            <InfoCard icon={Target} title="Recommended Payoff — Avalanche Method" theme={theme} isDark={isDark}>
+              {sorted.map((d, i) => (
+                <div key={d.id || i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{
+                    width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: i === 0 ? `${theme.red}18` : `${theme.muted}14`,
+                    border: `1px solid ${i === 0 ? theme.red+'30' : theme.border}`,
+                    fontFamily: theme.mono, fontSize: '0.55rem',
+                    color: i === 0 ? theme.red : theme.muted,
+                  }}>{i + 1}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontFamily: theme.mono, fontSize: '0.65rem', color: theme.text }}>{d.name}</div>
+                    <div style={{ fontFamily: theme.mono, fontSize: '0.52rem', color: theme.muted }}>{d.rate}% interest · {inrCompact(d.balance)} remaining</div>
+                  </div>
+                  {i === 0 && <Badge color="red" icon={Zap} theme={theme}>Pay first</Badge>}
+                </div>
+              ))}
+            </InfoCard>
+
+            <ReasoningBox title="Why Avalanche?" items={[
+              [Zap,         'red',    `${sorted[0].name} has the highest interest rate at ${sorted[0].rate}%. Every extra rupee paid here saves the most in interest over time.`],
+              [Shield,      'green',  'The Avalanche method (highest rate first) minimises total interest paid. It may feel slower than Snowball (smallest balance first) but costs less overall.'],
+              [Info,        'blue',   sorted[0].rate > 15 ? `${sorted[0].rate}% is high-cost debt. Consider pausing non-essential investments until this is paid down.` : 'Your rates are manageable. Continue investing while making minimum payments on lower-rate loans.'],
+            ]} theme={theme} isDark={isDark}/>
+          </>
+        )}
+
+        <Chips items={[[Shield,'Payoff timeline'],[Wallet,'How much to pay monthly?'],[TrendingUp,'Invest vs pay debt?']]}
+          onSelect={onSelect} theme={theme} isDark={isDark}/>
+      </div>
+    )
+  }
+
+  const buildGoals = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <p style={{ fontFamily: theme.sans, fontSize: '0.875rem', lineHeight: 1.65, color: theme.muted, margin: 0 }}>
+        {goals.length === 0
+          ? <><strong style={{ color: theme.text }}>No goals set yet.</strong> Set financial goals in the Goals page to track your progress here.</>
+          : <>You have <strong style={{ color: theme.text }}>{goals.length} financial {goals.length>1?'goals':'goal'}</strong> in progress.</>
+        }
+      </p>
+
+      {goals.map((g, i) => {
+        const progress = g.target > 0 ? Math.min(((g.saved||0)/g.target)*100, 100) : 0
+        const remaining = (g.target||0) - (g.saved||0)
+        let monthlyNeeded = null
+        if (g.target_date && remaining > 0) {
+          const d = new Date(g.target_date)
+          const t = new Date()
+          const months = Math.max(1, (d.getFullYear()-t.getFullYear())*12 + (d.getMonth()-t.getMonth()))
+          monthlyNeeded = remaining / months
+        }
+        return (
+          <InfoCard key={g.id || i} icon={Target} title={g.name}
+            badge={<Badge color={progress >= 100 ? 'green' : progress > 50 ? 'blue' : 'yellow'}
+              icon={progress >= 100 ? CheckCircle : CircleDot} theme={theme}>
+              {progress.toFixed(0)}% done
+            </Badge>}
+            theme={theme} isDark={isDark}>
+            <StatRow icon={Target}    label="Target"    value={inrCompact(g.target)}     theme={theme}/>
+            <StatRow icon={Wallet}    label="Saved"     value={inrCompact(g.saved||0)}   theme={theme}/>
+            <StatRow icon={TrendingUp} label="Remaining" value={inrCompact(remaining)}
+              color={remaining > 0 ? theme.yellow : theme.green}                          theme={theme}/>
+            {monthlyNeeded && (
+              <StatRow icon={Zap} label="Monthly needed"
+                value={`${inrCompact(monthlyNeeded)}/mo`} color={theme.blue}             theme={theme}/>
+            )}
+            <ProgressBar label={g.name} dotColor={theme.blue}
+              spentPct={progress} spent={g.saved||0} limit={g.target}
+              status={progress > 90 ? 'ok' : progress > 60 ? 'ok' : 'ok'}
+              theme={theme} isDark={isDark}/>
+          </InfoCard>
+        )
+      })}
+
+      <Chips items={[[Target,'Add a new goal'],[Wallet,'How much to save monthly?'],[TrendingUp,'Invest for a goal']]}
+        onSelect={onSelect} theme={theme} isDark={isDark}/>
+    </div>
   )
-  const transactions = transactionsData || []
 
-  const [messages, setMessages] = useState([{
-    role: 'assistant',
-    content: '✨ **Welcome to your AI Financial Advisor**\n\nI can see your portfolio, flex budget, debts, and goals. Ask me anything!\n\nTry:\n• "Analyze my portfolio"\n• "Budget analysis"\n• "Overspent categories"\n• "Financial health report"',
-    timestamp: Date.now()
-  }])
-  
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [typingIndicator, setTypingIndicator] = useState(false)
-  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200)
-  const endRef = useRef(null)
-  const inputRef = useRef(null)
+  const buildHealth = () => {
+    const isInProfit = portfolio.gain >= 0
+    const debtTotal  = debts.reduce((s,d) => s+(d.balance||0), 0)
+    const netWorth   = portfolio.value - debtTotal
+    const { totalAllocated = 0, totalSpent = 0 } = flexFund
+    const savingsRate = totalAllocated > 0 ? ((totalAllocated-totalSpent)/totalAllocated)*100 : 0
 
-  useEffect(() => {
-    const handleResize = () => setWindowWidth(window.innerWidth)
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
+    const checks = [
+      { label: 'Investing',      pass: portfolio.value > 0,    note: portfolio.value > 0 ? `${portfolio.list.length} positions, ${pct(portfolio.gainPct)} overall` : 'No holdings found' },
+      { label: 'Budget tracking',pass: Object.keys(flexFund?.categories||{}).length > 0, note: 'Monthly limits configured' },
+      { label: 'Debt managed',   pass: debtTotal < portfolio.value || debtTotal === 0, note: debtTotal === 0 ? 'Debt free' : `${inrCompact(debtTotal)} outstanding` },
+      { label: 'Goals set',      pass: goals.length > 0,       note: goals.length > 0 ? `${goals.length} active goals` : 'No goals configured' },
+      { label: 'Savings rate',   pass: savingsRate >= 15,       note: `${savingsRate.toFixed(1)}% of budget saved` },
+    ]
+    const score = checks.filter(c => c.pass).length
 
-  const isMobile = windowWidth <= 768
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <p style={{ fontFamily: theme.sans, fontSize: '0.875rem', lineHeight: 1.65, color: theme.muted, margin: 0 }}>
+          Overall financial health score: <strong style={{ color: score >= 4 ? theme.green : score >= 2 ? theme.yellow : theme.red }}>
+            {score} / {checks.length}
+          </strong>. Here is what is working and what needs attention.
+        </p>
+
+        <InfoCard icon={BarChart3} title="Net Worth Overview" theme={theme} isDark={isDark}>
+          <StatRow icon={Wallet}    label="Portfolio Value" value={inrCompact(portfolio.value)} theme={theme}/>
+          <StatRow icon={Shield}    label="Total Debt"      value={inrCompact(debtTotal)}
+            color={debtTotal > 0 ? theme.red : theme.green}                                     theme={theme}/>
+          <Div theme={theme}/>
+          <StatRow icon={TrendingUp} label="Net Worth"      value={inrCompact(netWorth)}
+            color={netWorth >= 0 ? theme.green : theme.red}                                     theme={theme}/>
+          <StatRow icon={Zap}        label="Savings Rate"   value={`${savingsRate.toFixed(1)}%`}
+            color={savingsRate >= 20 ? theme.green : savingsRate >= 10 ? theme.yellow : theme.red} theme={theme}/>
+        </InfoCard>
+
+        <InfoCard icon={CheckCircle} title="Health Checklist" theme={theme} isDark={isDark}>
+          {checks.map((c, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{
+                width: 20, height: 20, borderRadius: 6, flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: c.pass ? `${theme.green}14` : `${theme.red}12`,
+                border: `1px solid ${c.pass ? theme.green+'28' : theme.red+'22'}`,
+                color: c.pass ? theme.green : theme.red,
+              }}>
+                {c.pass ? <CheckCircle size={10} strokeWidth={2}/> : <AlertTriangle size={10} strokeWidth={2}/>}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: theme.mono, fontSize: '0.62rem', color: theme.text }}>{c.label}</div>
+                <div style={{ fontFamily: theme.mono, fontSize: '0.52rem', color: theme.muted }}>{c.note}</div>
+              </div>
+            </div>
+          ))}
+        </InfoCard>
+
+        <ReasoningBox title="Priority Actions" items={[
+          [Zap,         'yellow', checks.filter(c => !c.pass).length === 0
+            ? 'All checks passing. Focus on increasing SIP amounts and reviewing allocation drift quarterly.'
+            : `Start with: ${checks.filter(c=>!c.pass).map(c=>c.label).join(', ')}.`],
+          [TrendingUp,  'green',  'A savings rate above 20% of income is the single most impactful lever for long-term wealth creation.'],
+          [Shield,      'blue',   'Review your allocation drift every quarter. Small corrections early prevent large rebalancing trades later.'],
+        ]} theme={theme} isDark={isDark}/>
+
+        <Chips items={[[TrendingUp,'Analyse portfolio'],[Receipt,'Check budget'],[Scale,'Rebalance now']]}
+          onSelect={onSelect} theme={theme} isDark={isDark}/>
+      </div>
+    )
+  }
+
+  return { buildPortfolio, buildBudget, buildDebts, buildGoals, buildHealth }
+}
+
+// ─── Intent matcher ────────────────────────────────────────────────────────
+function matchIntent(q) {
+  const l = q.toLowerCase()
+  if (l.match(/portfolio|holding|position|invest|performance|gain|loss|xirr|return/)) return 'portfolio'
+  if (l.match(/rebalanc|drift|alloc|target|overweight|underweight/))                  return 'rebalance'
+  if (l.match(/budget|spend|expense|overspend|category|monthly|bill/))                return 'budget'
+  if (l.match(/debt|loan|emi|credit|borrow|pay.?off/))                               return 'debt'
+  if (l.match(/goal|target|save for|saving for|when will/))                          return 'goal'
+  if (l.match(/health|report|overview|summary|net.?worth|how am i/))                 return 'health'
+  if (l.match(/invest.*₹|put.*₹|deploy|where.*invest|new money|₹.*invest/))         return 'invest'
+  return 'health'
+}
+
+// ─── Welcome prompts ───────────────────────────────────────────────────────
+const WELCOME_PROMPTS = [
+  { icon: TrendingUp,  title: 'Portfolio Overview',    sub: 'Performance, gains, allocation',  q: 'How is my portfolio doing overall?' },
+  { icon: Scale,       title: 'Rebalancing Check',     sub: 'Drift analysis, buy/sell plan',   q: 'Should I rebalance my portfolio?'   },
+  { icon: Receipt,     title: 'Budget Analysis',       sub: 'Spending patterns, overspend',    q: 'Where am I overspending this month?'},
+  { icon: BarChart3,   title: 'Financial Health',      sub: 'Net worth, savings rate, goals',  q: 'Give me a financial health report'  },
+]
+
+// ─── Main component ────────────────────────────────────────────────────────
+export default function AIAgent() {
+  const { theme, isDark } = useTheme()
+  const { userId }        = useFinance()
+  const gi                = makeInset(isDark)
+
+  const monthStr = currentMonth()
+
+  // Connect all the hooks
+  const { data: holdings = [],   isLoading: l1 } = useHoldings(userId)
+  const { data: portfolioData,   isLoading: l2 } = usePortfolioData(userId)
+  const { data: goals = [],      isLoading: l3 } = useGoals(userId)
+  const { data: debts = [],      isLoading: l4 } = useDebts(userId)
+  const { flexFund,              isLoading: l5 } = useFlexBudget(userId, monthStr)
+  const { data: txData }                         = useTransactionsRange(userId, `${monthStr}-01`, `${monthStr}-31`)
+
+  const [messages,  setMessages]  = useState([])
+  const [input,     setInput]     = useState('')
+  const [thinking,  setThinking]  = useState(false)
+  const endRef    = useRef(null)
+  const inputRef  = useRef(null)
+  const textaRef  = useRef(null)
+
+  const isLoading = l1 || l2 || l3 || l4 || l5
 
   // Combine all data for the advisor
   const advisorData = useMemo(() => ({
     holdings,
-    quotesMap: portfolioData?.quotesMap || {},
-    usdInrRate: portfolioData?.usdInrRate || 86.5,
-    indices: portfolioData?.indices || {},
+    quotesMap:   portfolioData?.quotesMap || {},
+    usdInrRate:  portfolioData?.usdInrRate || 87.5,
     goals,
     debts,
-    snapshots,
-    transactions,
-    flexFund,
-    overspentCategories,
-    availableSurplus,
-    showSuggestion,
-    month: currentMonthStr,
-    // Calculate derived metrics
-    portfolioValue: holdings.reduce((sum, h) => {
-      const price = portfolioData?.quotesMap?.[h.ticker]?.price ?? h.avg_cost ?? 0
-      return sum + (price * (h.quantity || 0))
-    }, 0),
-  }), [holdings, portfolioData, goals, debts, snapshots, transactions, flexFund, 
-      overspentCategories, availableSurplus, showSuggestion, currentMonthStr])
+    flexFund:    flexFund || {},
+    transactions: txData || [],
+  }), [holdings, portfolioData, goals, debts, flexFund, txData])
 
-  // Log data for debugging
+  // Debug log to verify data is flowing
   useEffect(() => {
-    console.log('Advisor Data:', {
+    console.log('AIAgent Data Loaded:', {
       holdingsCount: holdings.length,
-      debtsCount: debts.length,
       goalsCount: goals.length,
-      transactionsCount: transactions.length,
-      budgetCategories: Object.keys(flexFund?.categories || {}).length,
+      debtsCount: debts.length,
+      hasFlexFund: !!flexFund,
       hasQuotes: !!portfolioData?.quotesMap,
     })
-  }, [holdings, debts, goals, transactions, flexFund, portfolioData])
+  }, [holdings, goals, debts, flexFund, portfolioData])
 
-  const advisor = useMemo(() => new FinancialAdvisor(advisorData), [advisorData])
+  const handleSelect = useCallback((q) => {
+    setInput(q)
+    setTimeout(() => sendMessage(q), 0)
+  }, [])
 
-  // Auto-scroll to bottom
+  const { buildPortfolio, buildBudget, buildDebts, buildGoals, buildHealth } =
+    useResponseBuilder(advisorData, theme, isDark, handleSelect)
+
+  const buildResponse = useCallback((q) => {
+    const intent = matchIntent(q)
+    switch (intent) {
+      case 'portfolio': return buildPortfolio()
+      case 'budget':    return buildBudget()
+      case 'debt':      return buildDebts()
+      case 'goal':      return buildGoals()
+      default:          return buildHealth()
+    }
+  }, [buildPortfolio, buildBudget, buildDebts, buildGoals, buildHealth])
+
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages, thinking])
 
-  const handleQuery = useCallback(async (query) => {
-    if (!query.trim() || loading) return
-    
-    const userMsg = { 
-      role: 'user', 
-      content: query,
-      timestamp: Date.now()
-    }
-    
-    setMessages(prev => [...prev, userMsg])
+  const sendMessage = useCallback(async (q) => {
+    const query = (q || input).trim()
+    if (!query) return
+
     setInput('')
-    setLoading(true)
-    setTypingIndicator(true)
+    if (textaRef.current) { textaRef.current.style.height = 'auto' }
+
+    setMessages(prev => [...prev, { role: 'user', content: query, id: Date.now() }])
+    setThinking(true)
 
     // Simulate processing time
-    setTimeout(() => {
-      try {
-        const response = advisor.answer(query)
-        setMessages(prev => [...prev, { 
-          role: 'assistant', 
-          content: response,
-          timestamp: Date.now()
-        }])
-      } catch (error) {
-        console.error('Error:', error)
-        setMessages(prev => [...prev, { 
-          role: 'assistant', 
-          content: '⚠️ I encountered an error. Please try again.',
-          timestamp: Date.now()
-        }])
-      } finally {
-        setLoading(false)
-        setTypingIndicator(false)
-      }
-    }, 800)
-  }, [advisor, loading])
+    await new Promise(r => setTimeout(r, 900 + Math.random() * 500))
+    
+    try {
+      const response = buildResponse(query)
+      setThinking(false)
+      setMessages(prev => [...prev, { role: 'assistant', content: response, id: Date.now() + 1 }])
+    } catch (error) {
+      console.error('Error building response:', error)
+      setThinking(false)
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: <div style={{ color: theme.red }}>Sorry, I encountered an error analyzing your request.</div>, 
+        id: Date.now() + 1 
+      }])
+    }
+  }, [input, buildResponse, theme])
 
-  const isLoading = holdingsLoading || portfolioLoading || goalsLoading || 
-                    debtsLoading || budgetLoading
+  const handleKey = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() }
+  }
+
+  const handleTextInput = (e) => {
+    setInput(e.target.value)
+    const t = e.target
+    t.style.height = 'auto'
+    t.style.height = Math.min(t.scrollHeight, 120) + 'px'
+  }
 
   if (isLoading) {
     return (
       <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '400px',
-        background: theme.card + 'CC',
-        backdropFilter: 'blur(12px)',
-        border: `1px solid ${theme.border}`,
-        borderRadius: 24,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        height: 400,
+        ...makeGlass(isDark, 0.04, 16),
+        border: `1px solid ${theme.border}`, borderRadius: 18,
       }}>
-        <div style={{ textAlign: 'center' }}>
-          <Spinner size={32} />
-          <div style={{ marginTop: 16, fontFamily: theme.mono, color: theme.muted }}>
-            Loading your financial data...
-          </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+          <style>{`@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}`}</style>
+          <RefreshCw size={22} style={{ color: theme.muted, animation: 'spin 1.2s linear infinite' }}/>
+          <span style={{ fontFamily: theme.mono, fontSize: '0.62rem', color: theme.muted, letterSpacing: '0.08em' }}>
+            Loading financial data
+          </span>
         </div>
       </div>
     )
   }
 
   return (
-    <div style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      height: isMobile ? 'calc(100vh - 160px)' : 'calc(100vh - 170px)',
-      gap: isMobile ? 8 : 12,
-      position: 'relative',
-    }}>
-      {/* Background gradient effect */}
-      <div style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: '200px',
-        background: `radial-gradient(circle at 50% 0%, ${theme.accent}20, transparent 70%)`,
-        pointerEvents: 'none',
-        zIndex: 0,
-      }} />
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 170px)', gap: 0 }}>
+      <style>{`
+        @keyframes agentIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes userIn {from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)}}
+      `}</style>
 
-      <QuickPrompts onSelect={handleQuery} isMobile={isMobile} />
-
-      {/* Chat Window */}
+      {/* ── Messages ── */}
       <div style={{
-        flex: 1,
-        background: theme.card + 'CC',
-        backdropFilter: 'blur(12px)',
-        border: `1px solid ${theme.border}`,
-        borderRadius: isMobile ? 16 : 24,
-        overflow: 'auto',
-        padding: isMobile ? 16 : 24,
-        boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
-        position: 'relative',
-        zIndex: 1,
+        flex: 1, overflowY: 'auto',
+        padding: '24px 0 12px',
+        display: 'flex', flexDirection: 'column', gap: 24,
+        scrollBehavior: 'smooth',
       }}>
-        {messages.map((m, i) => (
-          <Message key={i} msg={m} index={i} isMobile={isMobile} />
-        ))}
-        
-        {typingIndicator && <TypingIndicator isMobile={isMobile} />}
-        
-        <div ref={endRef} />
-      </div>
 
-      {/* Input Area */}
-      <div style={{
-        position: 'relative',
-        zIndex: 2,
-      }}>
-        <div style={{ 
-          display: 'flex', 
-          gap: isMobile ? 8 : 10,
-          background: theme.card + 'CC',
-          backdropFilter: 'blur(12px)',
-          border: `1px solid ${theme.border}`,
-          borderRadius: isMobile ? 16 : 100,
-          padding: isMobile ? 4 : 6,
-          boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
-        }}>
-          <input
-            ref={inputRef}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleQuery(input)}
-            placeholder="Ask about your finances..."
+        {/* Welcome */}
+        {messages.length === 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <div>
+              <h2 style={{
+                fontFamily: theme.display || theme.sans,
+                fontSize: 'clamp(1.5rem, 3vw, 2rem)',
+                fontWeight: 400, color: theme.text,
+                lineHeight: 1.2, margin: 0,
+              }}>
+                Your portfolio,<br/>understood.
+              </h2>
+              <p style={{ fontFamily: theme.sans, fontSize: '0.875rem', color: theme.muted, marginTop: 10, lineHeight: 1.6, maxWidth: 440 }}>
+                Ask me anything about your investments, rebalancing, budget, or performance.
+                I reason through the numbers and show you exactly what to do.
+              </p>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
+              {WELCOME_PROMPTS.map(({ icon: Icon, title, sub, q }) => (
+                <button key={q} onClick={() => handleSelect(q)}
+                  style={{
+                    ...makeGlass(isDark, 0.04, 16),
+                    border: `1px solid ${theme.border}`,
+                    borderRadius: 14, padding: 16,
+                    display: 'flex', flexDirection: 'column', gap: 10,
+                    cursor: 'pointer', textAlign: 'left',
+                    transition: 'all 0.2s', position: 'relative', overflow: 'hidden',
+                    boxShadow: gi,
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = theme.border; e.currentTarget.style.transform = 'translateY(-1px)' }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = theme.border;   e.currentTarget.style.transform = 'translateY(0)' }}
+                >
+                  <div style={shine}/>
+                  <div style={{
+                    width: 28, height: 28, borderRadius: 8,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    ...makeGlass(isDark, 0.06, 10),
+                    border: `1px solid ${theme.border}`, color: theme.muted,
+                  }}>
+                    <Icon size={13} strokeWidth={1.8}/>
+                  </div>
+                  <div>
+                    <div style={{ fontFamily: theme.sans, fontSize: '0.80rem', fontWeight: 500, color: theme.text }}>{title}</div>
+                    <div style={{ fontFamily: theme.mono, fontSize: '0.52rem', color: theme.muted, marginTop: 3, letterSpacing: '0.04em' }}>{sub}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Message list */}
+        {messages.map((msg) => (
+          <div key={msg.id}
             style={{
-              flex: 1,
-              background: 'transparent',
-              border: 'none',
-              color: theme.text,
-              fontFamily: theme.mono,
-              fontSize: isMobile ? 13 : 14,
-              padding: isMobile ? '12px 16px' : '14px 20px',
-              outline: 'none',
-            }}
-          />
-          <button
-            onClick={() => handleQuery(input)}
-            disabled={loading || !input.trim()}
-            style={{
-              background: `linear-gradient(135deg, ${theme.accent}, ${theme.blue})`,
-              border: 'none',
-              borderRadius: isMobile ? 12 : 100,
-              color: 'white',
-              padding: isMobile ? '0 16px' : '0 24px',
-              cursor: loading || !input.trim() ? 'not-allowed' : 'pointer',
-              opacity: loading || !input.trim() ? 0.5 : 1,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              fontFamily: theme.mono,
-              fontSize: isMobile ? 12 : 13,
-              fontWeight: 600,
-              transition: 'all 0.2s',
-              boxShadow: `0 4px 12px ${theme.accent}40`,
-            }}
-            onMouseEnter={e => {
-              if (!loading && input.trim()) {
-                e.currentTarget.style.transform = 'scale(1.02)'
-                e.currentTarget.style.boxShadow = `0 8px 20px ${theme.accent}60`
-              }
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.transform = 'scale(1)'
-              e.currentTarget.style.boxShadow = `0 4px 12px ${theme.accent}40`
+              display: 'flex', gap: 12,
+              flexDirection: msg.role === 'user' ? 'row-reverse' : 'row',
+              animation: msg.role === 'user' ? 'userIn 0.2s ease' : 'agentIn 0.3s cubic-bezier(0.4,0,0.2,1)',
             }}
           >
-            {loading ? <Spinner size={isMobile ? 14 : 16} /> : <Send size={isMobile ? 14 : 16} />}
-            {!isMobile && 'Send'}
-          </button>
-        </div>
+            {/* Avatar */}
+            <div style={{
+              width: 30, height: 30, borderRadius: 9, flexShrink: 0, marginTop: 2,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              ...makeGlass(isDark, msg.role === 'user' ? 0.08 : 0.06, 10),
+              border: `1px solid ${msg.role === 'user' ? theme.blue+'30' : theme.border}`,
+              color: msg.role === 'user' ? theme.blue : theme.muted,
+            }}>
+              {msg.role === 'user'
+                ? <ArrowUp size={13} strokeWidth={2.2}/>
+                : <TrendingUp size={13} strokeWidth={1.8}/>
+              }
+            </div>
+
+            {/* Content */}
+            <div style={{ maxWidth: msg.role === 'user' ? '72%' : '100%', flex: msg.role === 'assistant' ? 1 : undefined }}>
+              {msg.role === 'user' ? (
+                <div style={{
+                  ...makeGlass(isDark, 0.06, 12),
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '13px 13px 4px 13px',
+                  padding: '10px 14px',
+                  fontFamily: theme.mono, fontSize: '0.82rem',
+                  color: theme.text, lineHeight: 1.5,
+                }}>
+                  {msg.content}
+                </div>
+              ) : (
+                <div>
+                  <div style={{
+                    fontFamily: theme.mono, fontSize: '0.50rem',
+                    letterSpacing: '0.18em', textTransform: 'uppercase',
+                    color: theme.muted, marginBottom: 8,
+                  }}>
+                    PortaFi Agent
+                  </div>
+                  {msg.content}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+
+        {thinking && <Thinking theme={theme} isDark={isDark}/>}
+        <div ref={endRef}/>
       </div>
 
-      {/* CSS Animations */}
-      <style>{`
-        @keyframes fadeUp {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
-        @keyframes ellipsis {
-          0%, 100% { opacity: .2; }
-          50% { opacity: 1; }
-        }
-        
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.6; }
-        }
-        
-        ::-webkit-scrollbar {
-          width: 6px;
-          height: 6px;
-        }
-        
-        ::-webkit-scrollbar-track {
-          background: ${theme.bg2}40;
-          border-radius: 10px;
-        }
-        
-        ::-webkit-scrollbar-thumb {
-          background: ${theme.accent}40;
-          border-radius: 10px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-          background: ${theme.accent}60;
-        }
-      `}</style>
+      {/* ── Input ── */}
+      <div style={{
+        ...makeGlass(isDark, 0.05, 20),
+        border: `1px solid ${theme.border}`,
+        borderRadius: 14, padding: '4px 6px 4px 16px',
+        display: 'flex', alignItems: 'center', gap: 8,
+        position: 'relative', overflow: 'hidden',
+        boxShadow: gi,
+        transition: 'border-color 0.2s',
+      }}>
+        <div style={shine}/>
+        <textarea
+          ref={textaRef}
+          value={input}
+          onChange={handleTextInput}
+          onKeyDown={handleKey}
+          placeholder="Ask about your portfolio, budget, or investments…"
+          rows={1}
+          style={{
+            flex: 1, background: 'transparent', border: 'none', outline: 'none',
+            color: theme.text, fontFamily: theme.mono, fontSize: '0.80rem',
+            padding: '10px 0', resize: 'none', overflow: 'hidden',
+            lineHeight: 1.5, letterSpacing: '0.02em', minHeight: 38,
+          }}
+        />
+        <button
+          onClick={() => sendMessage()}
+          disabled={!input.trim() || thinking}
+          style={{
+            width: 34, height: 34, borderRadius: 9, flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: input.trim() && !thinking ? theme.accent : (isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)'),
+            border: `1px solid ${input.trim() && !thinking ? theme.accent : theme.border}`,
+            color: input.trim() && !thinking ? (isDark ? '#0a0a0f' : '#fff') : theme.muted,
+            cursor: input.trim() && !thinking ? 'pointer' : 'not-allowed',
+            transition: 'all 0.2s',
+            boxShadow: input.trim() && !thinking ? `0 0 16px ${theme.accent}25` : 'none',
+          }}
+          onMouseEnter={e => { if (input.trim() && !thinking) e.currentTarget.style.transform = 'scale(1.06)' }}
+          onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+        >
+          <Send size={13} strokeWidth={2}/>
+        </button>
+      </div>
     </div>
   )
 }

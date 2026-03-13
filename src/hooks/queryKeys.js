@@ -23,4 +23,7 @@ export const queryKeys = {
   // Combined queries
   dashboard: (userId) => ['dashboard', userId],
   portfolio: (userId) => ['portfolio', userId],
+
+  taxCosts:         (userId) => ['taxCosts', userId],
+fundLots:         (userId) => ['fundLots', userId],
 }
