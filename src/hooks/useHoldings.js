@@ -1,4 +1,4 @@
-// src/hooks/useHoldings.js
+// src/hooks/useHoldings.js - UPDATED
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { queryKeys } from './queryKeys'
@@ -71,6 +71,65 @@ export function useGetOrCreateHolding(userId) {
       queryClient.invalidateQueries({ queryKey: queryKeys.holdings(userId) })
       
       return newHolding
+    },
+  })
+}
+
+// NEW: Function to update holding quantity and average cost
+export function useUpdateHoldingAfterBuy(userId) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ holdingId, newQuantity, newAvgCost }) => {
+      console.log('📈 Updating holding after buy:', { holdingId, newQuantity, newAvgCost })
+      
+      const { data, error } = await supabase
+        .from('holdings')
+        .update({ 
+          quantity: newQuantity, 
+          avg_cost: newAvgCost,
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', holdingId)
+        .eq('user_id', userId)
+        .select()
+        .single()
+      
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.holdings(userId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.portfolio(userId) })
+    },
+  })
+}
+
+// NEW: Function to update holding after sell (decrease quantity)
+export function useUpdateHoldingAfterSell(userId) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ holdingId, soldQuantity, remainingQuantity }) => {
+      console.log('📉 Updating holding after sell:', { holdingId, soldQuantity, remainingQuantity })
+      
+      const { data, error } = await supabase
+        .from('holdings')
+        .update({ 
+          quantity: remainingQuantity,
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', holdingId)
+        .eq('user_id', userId)
+        .select()
+        .single()
+      
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.holdings(userId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.portfolio(userId) })
     },
   })
 }

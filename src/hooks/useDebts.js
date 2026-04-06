@@ -13,7 +13,7 @@ export function useDebts(userId) {
         .select('*')
         .eq('user_id', userId)
         .order('created_at')
-      
+
       if (error) throw error
       return data || []
     },

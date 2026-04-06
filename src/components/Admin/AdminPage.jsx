@@ -14,12 +14,12 @@ import {
   XCircle,
   Trash2,
   Download,
-  Users,
   Activity,
   BarChart3,
   Shield,
   TrendingUp,
 } from "lucide-react";
+import InstrumentsManager from "./InstrumentsManager.jsx";
 
 // Helper to calculate returns from historical data
 function calculateReturns(prices) {
@@ -85,6 +85,7 @@ export default function AdminPage() {
     bestPerformer: null,
   });
   const [deletingId, setDeletingId] = useState(null);
+  const [activeTab, setActiveTab] = useState("cache"); // "cache" or "instruments"
 
   // Load all price cache data (no user filter)
   const loadPriceCache = async () => {
@@ -223,51 +224,51 @@ export default function AdminPage() {
   };
 
   // Fetch 1-year historical data for a ticker
-const fetchHistoricalData = async (ticker) => {
-  try {
-    const response = await fetch(
-      "https://xrrztzqwugpnnahvqpfb.supabase.co/functions/v1/fetch-yahoo",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({ ticker, period: "1y" }), // 👈 Add period: "1y"
+  const fetchHistoricalData = async (ticker) => {
+    try {
+      const response = await fetch(
+        "https://xrrztzqwugpnnahvqpfb.supabase.co/functions/v1/fetch-yahoo",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({ ticker, period: "1y" }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch historical data");
       }
-    );
 
-    if (!response.ok) {
-      throw new Error("Failed to fetch historical data");
-    }
-
-    const data = await response.json();
-    
-    // Extract the closing prices from the response
-    const result = data?.chart?.result?.[0];
-    const timestamps = result?.timestamp;
-    const quotes = result?.indicators?.quote?.[0];
-    
-    if (!timestamps || !quotes?.close) {
-      console.error('Invalid historical data format:', data);
+      const data = await response.json();
+      
+      // Extract the closing prices from the response
+      const result = data?.chart?.result?.[0];
+      const timestamps = result?.timestamp;
+      const quotes = result?.indicators?.quote?.[0];
+      
+      if (!timestamps || !quotes?.close) {
+        console.error('Invalid historical data format:', data);
+        return null;
+      }
+      
+      // Filter out null values and map to prices
+      const prices = quotes.close.filter(price => price !== null);
+      
+      if (prices.length < 2) {
+        console.log(`Not enough price data for ${ticker}: ${prices.length} points`);
+        return null;
+      }
+      
+      console.log(`Fetched ${prices.length} price points for ${ticker}`);
+      return calculateReturns(prices);
+    } catch (error) {
+      console.error(`Error fetching historical data for ${ticker}:`, error);
       return null;
     }
-    
-    // Filter out null values and map to prices
-    const prices = quotes.close.filter(price => price !== null);
-    
-    if (prices.length < 2) {
-      console.log(`Not enough price data for ${ticker}: ${prices.length} points`);
-      return null;
-    }
-    
-    console.log(`Fetched ${prices.length} price points for ${ticker}`);
-    return calculateReturns(prices);
-  } catch (error) {
-    console.error(`Error fetching historical data for ${ticker}:`, error);
-    return null;
-  }
-};
+  };
 
   // Manual refresh for a single ticker
   const refreshTicker = async (ticker, exchange) => {
@@ -672,479 +673,518 @@ const fetchHistoricalData = async (ticker) => {
   ];
 
   return (
-    <div style={{ padding: "20px 0" }}>
-      {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 24,
-        }}
-      >
-        <div>
-          <h1
-            style={{
-              fontFamily: theme.syne,
-              fontSize: 28,
-              fontWeight: 800,
-              color: theme.text,
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              marginBottom: 8,
-            }}
-          >
-            <Shield size={28} color={theme.accent} />
-            Admin Dashboard
-          </h1>
-          <p
-            style={{ fontFamily: theme.mono, fontSize: 12, color: theme.muted }}
-          >
-            System-wide price cache management and monitoring
-          </p>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <Btn
-            onClick={refreshAllTickers}
-            color={theme.accent}
-            disabled={refreshing || loading || filteredCache.length === 0}
-          >
-            {refreshing ? (
-              <Spinner size={14} />
-            ) : (
-              <RefreshCw size={14} style={{ marginRight: 8 }} />
-            )}
-            {refreshing
-              ? "Updating..."
-              : `Update All (${filteredCache.length})`}
-          </Btn>
-          <Btn onClick={loadPriceCache} color={theme.accent} disabled={loading}>
-            <RefreshCw size={14} style={{ marginRight: 8 }} />
-            Refresh View
-          </Btn>
-        </div>
-      </div>
-
-      {/* Message Display */}
-      {message.text && (
-        <div
+    <>
+      <div style={{ display: "flex", gap: 16, marginBottom: 24, borderBottom: `1px solid ${theme.border}` }}>
+        <button
+          onClick={() => setActiveTab("cache")}
           style={{
-            padding: "12px 16px",
-            background:
-              message.type === "success"
-                ? theme.green + "20"
-                : theme.red + "20",
-            border: `1px solid ${message.type === "success" ? theme.green : theme.red}`,
-            borderRadius: 8,
-            marginBottom: 16,
-            color: message.type === "success" ? theme.green : theme.red,
+            padding: "8px 16px",
+            background: "transparent",
+            border: "none",
+            borderBottom: activeTab === "cache" ? `2px solid ${theme.accent}` : "none",
+            color: activeTab === "cache" ? theme.accent : theme.muted,
             fontFamily: theme.mono,
             fontSize: 13,
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
+            cursor: "pointer",
           }}
         >
-          {message.type === "success" ? (
-            <CheckCircle size={16} />
-          ) : (
-            <XCircle size={16} />
-          )}
-          {message.text}
-        </div>
-      )}
-
-      {/* Stats Cards */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-          gap: 16,
-          marginBottom: 24,
-        }}
-      >
-        <Card style={{ padding: 16 }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              marginBottom: 12,
-            }}
-          >
-            <Database size={20} color={theme.accent} />
-            <span
-              style={{
-                fontFamily: theme.mono,
-                fontSize: 11,
-                color: theme.muted,
-              }}
-            >
-              TOTAL ENTRIES
-            </span>
-          </div>
-          <div
-            style={{ fontFamily: theme.syne, fontSize: 32, fontWeight: 700 }}
-          >
-            {stats.totalTickers}
-          </div>
-          <div style={{ fontSize: 11, color: theme.muted, marginTop: 4 }}>
-            {stats.uniqueTickers} unique tickers
-          </div>
-        </Card>
-
-        <Card style={{ padding: 16 }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              marginBottom: 12,
-            }}
-          >
-            <Activity size={20} color={theme.green} />
-            <span
-              style={{
-                fontFamily: theme.mono,
-                fontSize: 11,
-                color: theme.muted,
-              }}
-            >
-              TODAY'S UPDATES
-            </span>
-          </div>
-          <div
-            style={{ fontFamily: theme.syne, fontSize: 32, fontWeight: 700 }}
-          >
-            {stats.todayUpdates}
-          </div>
-          <div style={{ fontSize: 11, color: theme.muted, marginTop: 4 }}>
-            {((stats.todayUpdates / stats.totalTickers) * 100 || 0).toFixed(1)}%
-            of cache
-          </div>
-        </Card>
-
-        <Card style={{ padding: 16 }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              marginBottom: 12,
-            }}
-          >
-            <TrendingUp size={20} color={theme.blue} />
-            <span
-              style={{
-                fontFamily: theme.mono,
-                fontSize: 11,
-                color: theme.muted,
-              }}
-            >
-              AVG 1Y RETURN
-            </span>
-          </div>
-          <div
-            style={{ fontFamily: theme.syne, fontSize: 32, fontWeight: 700 }}
-          >
-            {stats.avgReturns}%
-          </div>
-          <div style={{ fontSize: 11, color: theme.muted, marginTop: 4 }}>
-            Best: {stats.bestPerformer}
-          </div>
-        </Card>
-
-        <Card style={{ padding: 16 }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              marginBottom: 12,
-            }}
-          >
-            <Clock size={20} color={theme.yellow} />
-            <span
-              style={{
-                fontFamily: theme.mono,
-                fontSize: 11,
-                color: theme.muted,
-              }}
-            >
-              NEWEST CACHE
-            </span>
-          </div>
-          <div
-            style={{ fontFamily: theme.syne, fontSize: 18, fontWeight: 600 }}
-          >
-            {stats.newestCache?.toLocaleTimeString() || "N/A"}
-          </div>
-          <div style={{ fontSize: 11, color: theme.muted, marginTop: 4 }}>
-            {stats.newestCache?.toLocaleDateString()}
-          </div>
-        </Card>
-      </div>
-
-      {/* Admin Actions */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-          gap: 16,
-          marginBottom: 24,
-        }}
-      >
-        <Card>
-          <div
-            style={{
-              fontFamily: theme.syne,
-              fontWeight: 600,
-              marginBottom: 12,
-            }}
-          >
-            Cache Management
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Btn sm ghost onClick={() => clearOldCache(30)}>
-              <Trash2 size={12} style={{ marginRight: 4 }} />
-              Clear 30 days
-            </Btn>
-            <Btn sm ghost onClick={() => clearOldCache(7)}>
-              <Trash2 size={12} style={{ marginRight: 4 }} />
-              Clear 7 days
-            </Btn>
-            <Btn sm ghost onClick={exportCache}>
-              <Download size={12} style={{ marginRight: 4 }} />
-              Export CSV
-            </Btn>
-          </div>
-        </Card>
-
-        <Card>
-          <div
-            style={{
-              fontFamily: theme.syne,
-              fontWeight: 600,
-              marginBottom: 12,
-            }}
-          >
-            Quick Actions
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Btn
-              sm
-              ghost
-              color={theme.accent}
-              onClick={() => window.open("https://app.supabase.com", "_blank")}
-            >
-              <Database size={12} style={{ marginRight: 4 }} />
-              Supabase Dashboard
-            </Btn>
-            <Btn
-              sm
-              ghost
-              color={theme.accent}
-              onClick={() => window.open("https://finance.yahoo.com", "_blank")}
-            >
-              <BarChart3 size={12} style={{ marginRight: 4 }} />
-              Yahoo Finance
-            </Btn>
-          </div>
-        </Card>
-      </div>
-
-      {/* Filters */}
-      <Card style={{ marginBottom: 16 }}>
-        <div
+          Price Cache
+        </button>
+        <button
+          onClick={() => setActiveTab("instruments")}
           style={{
-            display: "flex",
-            gap: 16,
-            alignItems: "center",
-            flexWrap: "wrap",
+            padding: "8px 16px",
+            background: "transparent",
+            border: "none",
+            borderBottom: activeTab === "instruments" ? `2px solid ${theme.accent}` : "none",
+            color: activeTab === "instruments" ? theme.accent : theme.muted,
+            fontFamily: theme.mono,
+            fontSize: 13,
+            cursor: "pointer",
           }}
         >
-          <div style={{ flex: 1, minWidth: 250 }}>
-            <Input
-              value={searchTerm}
-              onChange={setSearchTerm}
-              placeholder="Search by ticker or name..."
-            >
-              <Search size={14} />
-            </Input>
-          </div>
-          <div style={{ width: 150 }}>
-            <Select value={filterExchange} onChange={setFilterExchange}>
-              {exchanges.map((ex) => (
-                <option key={ex} value={ex}>
-                  {ex === "all" ? "All Exchanges" : ex}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div style={{ color: theme.muted, fontSize: 12 }}>
-            <Filter size={12} style={{ display: "inline", marginRight: 4 }} />
-            {filteredCache.length} results
-          </div>
-        </div>
-      </Card>
+          Instruments Manager
+        </button>
+      </div>
 
-      {/* Price Cache Table */}
-      <Card style={{ overflow: "auto" }}>
-        <div style={{ minWidth: 1200 }}>
-          {/* Table Header */}
+      {activeTab === "cache" ? (
+        <div style={{ padding: "20px 0" }}>
+          {/* Header */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 24,
+            }}
+          >
+            <div>
+              <h1
+                style={{
+                  fontFamily: theme.syne,
+                  fontSize: 28,
+                  fontWeight: 800,
+                  color: theme.text,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  marginBottom: 8,
+                }}
+              >
+                <Shield size={28} color={theme.accent} />
+                Admin Dashboard
+              </h1>
+              <p
+                style={{ fontFamily: theme.mono, fontSize: 12, color: theme.muted }}
+              >
+                System-wide price cache management and monitoring
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Btn
+                onClick={refreshAllTickers}
+                color={theme.accent}
+                disabled={refreshing || loading || filteredCache.length === 0}
+              >
+                {refreshing ? (
+                  <Spinner size={14} />
+                ) : (
+                  <RefreshCw size={14} style={{ marginRight: 8 }} />
+                )}
+                {refreshing
+                  ? "Updating..."
+                  : `Update All (${filteredCache.length})`}
+              </Btn>
+              <Btn onClick={loadPriceCache} color={theme.accent} disabled={loading}>
+                <RefreshCw size={14} style={{ marginRight: 8 }} />
+                Refresh View
+              </Btn>
+            </div>
+          </div>
+
+          {/* Message Display */}
+          {message.text && (
+            <div
+              style={{
+                padding: "12px 16px",
+                background:
+                  message.type === "success"
+                    ? theme.green + "20"
+                    : theme.red + "20",
+                border: `1px solid ${message.type === "success" ? theme.green : theme.red}`,
+                borderRadius: 8,
+                marginBottom: 16,
+                color: message.type === "success" ? theme.green : theme.red,
+                fontFamily: theme.mono,
+                fontSize: 13,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              {message.type === "success" ? (
+                <CheckCircle size={16} />
+              ) : (
+                <XCircle size={16} />
+              )}
+              {message.text}
+            </div>
+          )}
+
+          {/* Stats Cards */}
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 1fr 1.2fr 1.2fr 1.5fr 1.2fr 1.2fr 2fr 1fr 100px",
-              gap: 8,
-              padding: "12px 0",
-              borderBottom: `2px solid ${theme.border}`,
-              fontWeight: 600,
-              fontSize: 11,
-              color: theme.muted,
-              fontFamily: theme.mono,
-              textTransform: "uppercase",
+              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+              gap: 16,
+              marginBottom: 24,
             }}
           >
-            <div>Ticker</div>
-            <div>Exchange</div>
-            <div>Price</div>
-            <div>Change %</div>
-            <div>Short Name</div>
-            <div>1Y Return %</div>
-            <div>Volatility %</div>
-            <div>Fetched At</div>
-            <div>Session</div>
-            <div>Actions</div>
+            <Card style={{ padding: 16 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  marginBottom: 12,
+                }}
+              >
+                <Database size={20} color={theme.accent} />
+                <span
+                  style={{
+                    fontFamily: theme.mono,
+                    fontSize: 11,
+                    color: theme.muted,
+                  }}
+                >
+                  TOTAL ENTRIES
+                </span>
+              </div>
+              <div
+                style={{ fontFamily: theme.syne, fontSize: 32, fontWeight: 700 }}
+              >
+                {stats.totalTickers}
+              </div>
+              <div style={{ fontSize: 11, color: theme.muted, marginTop: 4 }}>
+                {stats.uniqueTickers} unique tickers
+              </div>
+            </Card>
+
+            <Card style={{ padding: 16 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  marginBottom: 12,
+                }}
+              >
+                <Activity size={20} color={theme.green} />
+                <span
+                  style={{
+                    fontFamily: theme.mono,
+                    fontSize: 11,
+                    color: theme.muted,
+                  }}
+                >
+                  TODAY'S UPDATES
+                </span>
+              </div>
+              <div
+                style={{ fontFamily: theme.syne, fontSize: 32, fontWeight: 700 }}
+              >
+                {stats.todayUpdates}
+              </div>
+              <div style={{ fontSize: 11, color: theme.muted, marginTop: 4 }}>
+                {((stats.todayUpdates / stats.totalTickers) * 100 || 0).toFixed(1)}%
+                of cache
+              </div>
+            </Card>
+
+            <Card style={{ padding: 16 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  marginBottom: 12,
+                }}
+              >
+                <TrendingUp size={20} color={theme.blue} />
+                <span
+                  style={{
+                    fontFamily: theme.mono,
+                    fontSize: 11,
+                    color: theme.muted,
+                  }}
+                >
+                  AVG 1Y RETURN
+                </span>
+              </div>
+              <div
+                style={{ fontFamily: theme.syne, fontSize: 32, fontWeight: 700 }}
+              >
+                {stats.avgReturns}%
+              </div>
+              <div style={{ fontSize: 11, color: theme.muted, marginTop: 4 }}>
+                Best: {stats.bestPerformer}
+              </div>
+            </Card>
+
+            <Card style={{ padding: 16 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  marginBottom: 12,
+                }}
+              >
+                <Clock size={20} color={theme.yellow} />
+                <span
+                  style={{
+                    fontFamily: theme.mono,
+                    fontSize: 11,
+                    color: theme.muted,
+                  }}
+                >
+                  NEWEST CACHE
+                </span>
+              </div>
+              <div
+                style={{ fontFamily: theme.syne, fontSize: 18, fontWeight: 600 }}
+              >
+                {stats.newestCache?.toLocaleTimeString() || "N/A"}
+              </div>
+              <div style={{ fontSize: 11, color: theme.muted, marginTop: 4 }}>
+                {stats.newestCache?.toLocaleDateString()}
+              </div>
+            </Card>
           </div>
 
-          {/* Table Rows */}
-          {loading ? (
-            <div style={{ padding: 40, textAlign: "center" }}>
-              <Spinner />
-            </div>
-          ) : (
-            filteredCache.map((item, i) => (
+          {/* Admin Actions */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+              gap: 16,
+              marginBottom: 24,
+            }}
+          >
+            <Card>
               <div
-                key={i}
+                style={{
+                  fontFamily: theme.syne,
+                  fontWeight: 600,
+                  marginBottom: 12,
+                }}
+              >
+                Cache Management
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <Btn sm ghost onClick={() => clearOldCache(30)}>
+                  <Trash2 size={12} style={{ marginRight: 4 }} />
+                  Clear 30 days
+                </Btn>
+                <Btn sm ghost onClick={() => clearOldCache(7)}>
+                  <Trash2 size={12} style={{ marginRight: 4 }} />
+                  Clear 7 days
+                </Btn>
+                <Btn sm ghost onClick={exportCache}>
+                  <Download size={12} style={{ marginRight: 4 }} />
+                  Export CSV
+                </Btn>
+              </div>
+            </Card>
+
+            <Card>
+              <div
+                style={{
+                  fontFamily: theme.syne,
+                  fontWeight: 600,
+                  marginBottom: 12,
+                }}
+              >
+                Quick Actions
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <Btn
+                  sm
+                  ghost
+                  color={theme.accent}
+                  onClick={() => window.open("https://app.supabase.com", "_blank")}
+                >
+                  <Database size={12} style={{ marginRight: 4 }} />
+                  Supabase Dashboard
+                </Btn>
+                <Btn
+                  sm
+                  ghost
+                  color={theme.accent}
+                  onClick={() => window.open("https://finance.yahoo.com", "_blank")}
+                >
+                  <BarChart3 size={12} style={{ marginRight: 4 }} />
+                  Yahoo Finance
+                </Btn>
+              </div>
+            </Card>
+          </div>
+
+          {/* Filters */}
+          <Card style={{ marginBottom: 16 }}>
+            <div
+              style={{
+                display: "flex",
+                gap: 16,
+                alignItems: "center",
+                flexWrap: "wrap",
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 250 }}>
+                <Input
+                  value={searchTerm}
+                  onChange={setSearchTerm}
+                  placeholder="Search by ticker or name..."
+                >
+                  <Search size={14} />
+                </Input>
+              </div>
+              <div style={{ width: 150 }}>
+                <Select value={filterExchange} onChange={setFilterExchange}>
+                  {exchanges.map((ex) => (
+                    <option key={ex} value={ex}>
+                      {ex === "all" ? "All Exchanges" : ex}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div style={{ color: theme.muted, fontSize: 12 }}>
+                <Filter size={12} style={{ display: "inline", marginRight: 4 }} />
+                {filteredCache.length} results
+              </div>
+            </div>
+          </Card>
+
+          {/* Price Cache Table */}
+          <Card style={{ overflow: "auto" }}>
+            <div style={{ minWidth: 1200 }}>
+              {/* Table Header */}
+              <div
                 style={{
                   display: "grid",
                   gridTemplateColumns: "1fr 1fr 1.2fr 1.2fr 1.5fr 1.2fr 1.2fr 2fr 1fr 100px",
                   gap: 8,
-                  padding: "10px 0",
-                  borderBottom: `1px solid ${theme.border}`,
-                  alignItems: "center",
-                  fontSize: 12,
+                  padding: "12px 0",
+                  borderBottom: `2px solid ${theme.border}`,
+                  fontWeight: 600,
+                  fontSize: 11,
+                  color: theme.muted,
                   fontFamily: theme.mono,
-                  background: i % 2 === 0 ? "transparent" : theme.bg2,
+                  textTransform: "uppercase",
                 }}
               >
-                <div style={{ fontWeight: 600 }}>{item.ticker}</div>
-                <div>{item.exchange || "—"}</div>
-                <div style={{ color: theme.text }}>{inr(item.price)}</div>
-                <div
-                  style={{
-                    color: item.change_pct >= 0 ? theme.green : theme.red,
-                    fontWeight: 500,
-                  }}
-                >
-                  {item.change_pct ? pct(item.change_pct) : "—"}
-                </div>
-                <div style={{ color: theme.muted }}>
-                  {item.short_name || "—"}
-                </div>
-                <div
-                  style={{
-                    color: item.returns_1y?.annualized >= 0 ? theme.green : theme.red,
-                  }}
-                >
-                  {item.returns_1y?.annualized ? pct(item.returns_1y.annualized * 100) : "—"}
-                </div>
-                <div>
-                  {item.returns_1y?.volatility ? (item.returns_1y.volatility * 100).toFixed(1) + '%' : "—"}
-                </div>
-                <div style={{ fontSize: 11 }}>
-                  {new Date(item.fetched_at).toLocaleString()}
-                </div>
-                <div>
-                  <span
-                    style={{
-                      background:
-                        item.session === "admin_manual"
-                          ? theme.accent + "20"
-                          : theme.bg,
-                      padding: "2px 6px",
-                      borderRadius: 4,
-                      fontSize: 10,
-                    }}
-                  >
-                    {item.session || "auto"}
-                  </span>
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 4,
-                    justifyContent: "flex-end",
-                  }}
-                >
-                  <button
-                    onClick={() => refreshTicker(item.ticker, item.exchange)}
-                    disabled={refreshingTickers[item.ticker]}
-                    style={{
-                      background: "transparent",
-                      border: "none",
-                      color: refreshingTickers[item.ticker]
-                        ? theme.muted
-                        : theme.accent,
-                      cursor: refreshingTickers[item.ticker]
-                        ? "wait"
-                        : "pointer",
-                      opacity: refreshingTickers[item.ticker] ? 0.5 : 1,
-                      padding: 4,
-                    }}
-                    title="Refresh from Yahoo"
-                  >
-                    {refreshingTickers[item.ticker] ? (
-                      <Spinner size={14} />
-                    ) : (
-                      <RefreshCw size={14} />
-                    )}
-                  </button>
-
-                  <button
-                    onClick={() => deleteCacheEntry(item.id)}
-                    disabled={deletingId === item.id}
-                    style={{
-                      background: "transparent",
-                      border: "none",
-                      color: theme.red,
-                      cursor: deletingId === item.id ? "wait" : "pointer",
-                      padding: 4,
-                      opacity: deletingId === item.id ? 0.5 : 0.7,
-                      transition: "opacity 0.2s",
-                    }}
-                    onMouseEnter={(e) =>
-                      !deletingId && (e.currentTarget.style.opacity = 1)
-                    }
-                    onMouseLeave={(e) =>
-                      !deletingId && (e.currentTarget.style.opacity = 0.7)
-                    }
-                    title="Delete this entry"
-                  >
-                    {deletingId === item.id ? (
-                      <Spinner size={14} />
-                    ) : (
-                      <Trash2 size={14} />
-                    )}
-                  </button>
-                </div>
+                <div>Ticker</div>
+                <div>Exchange</div>
+                <div>Price</div>
+                <div>Change %</div>
+                <div>Short Name</div>
+                <div>1Y Return %</div>
+                <div>Volatility %</div>
+                <div>Fetched At</div>
+                <div>Session</div>
+                <div>Actions</div>
               </div>
-            ))
-          )}
+
+              {/* Table Rows */}
+              {loading ? (
+                <div style={{ padding: 40, textAlign: "center" }}>
+                  <Spinner />
+                </div>
+              ) : (
+                filteredCache.map((item, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr 1.2fr 1.2fr 1.5fr 1.2fr 1.2fr 2fr 1fr 100px",
+                      gap: 8,
+                      padding: "10px 0",
+                      borderBottom: `1px solid ${theme.border}`,
+                      alignItems: "center",
+                      fontSize: 12,
+                      fontFamily: theme.mono,
+                      background: i % 2 === 0 ? "transparent" : theme.bg2,
+                    }}
+                  >
+                    <div style={{ fontWeight: 600 }}>{item.ticker}</div>
+                    <div>{item.exchange || "—"}</div>
+                    <div style={{ color: theme.text }}>{inr(item.price)}</div>
+                    <div
+                      style={{
+                        color: item.change_pct >= 0 ? theme.green : theme.red,
+                        fontWeight: 500,
+                      }}
+                    >
+                      {item.change_pct ? pct(item.change_pct) : "—"}
+                    </div>
+                    <div style={{ color: theme.muted }}>
+                      {item.short_name || "—"}
+                    </div>
+                    <div
+                      style={{
+                        color: item.returns_1y?.annualized >= 0 ? theme.green : theme.red,
+                      }}
+                    >
+                      {item.returns_1y?.annualized ? pct(item.returns_1y.annualized * 100) : "—"}
+                    </div>
+                    <div>
+                      {item.returns_1y?.volatility ? (item.returns_1y.volatility * 100).toFixed(1) + '%' : "—"}
+                    </div>
+                    <div style={{ fontSize: 11 }}>
+                      {new Date(item.fetched_at).toLocaleString()}
+                    </div>
+                    <div>
+                      <span
+                        style={{
+                          background:
+                            item.session === "admin_manual"
+                              ? theme.accent + "20"
+                              : theme.bg,
+                          padding: "2px 6px",
+                          borderRadius: 4,
+                          fontSize: 10,
+                        }}
+                      >
+                        {item.session || "auto"}
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 4,
+                        justifyContent: "flex-end",
+                      }}
+                    >
+                      <button
+                        onClick={() => refreshTicker(item.ticker, item.exchange)}
+                        disabled={refreshingTickers[item.ticker]}
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: refreshingTickers[item.ticker]
+                            ? theme.muted
+                            : theme.accent,
+                          cursor: refreshingTickers[item.ticker]
+                            ? "wait"
+                            : "pointer",
+                          opacity: refreshingTickers[item.ticker] ? 0.5 : 1,
+                          padding: 4,
+                        }}
+                        title="Refresh from Yahoo"
+                      >
+                        {refreshingTickers[item.ticker] ? (
+                          <Spinner size={14} />
+                        ) : (
+                          <RefreshCw size={14} />
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => deleteCacheEntry(item.id)}
+                        disabled={deletingId === item.id}
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: theme.red,
+                          cursor: deletingId === item.id ? "wait" : "pointer",
+                          padding: 4,
+                          opacity: deletingId === item.id ? 0.5 : 0.7,
+                          transition: "opacity 0.2s",
+                        }}
+                        onMouseEnter={(e) =>
+                          !deletingId && (e.currentTarget.style.opacity = 1)
+                        }
+                        onMouseLeave={(e) =>
+                          !deletingId && (e.currentTarget.style.opacity = 0.7)
+                        }
+                        title="Delete this entry"
+                      >
+                        {deletingId === item.id ? (
+                          <Spinner size={14} />
+                        ) : (
+                          <Trash2 size={14} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </Card>
         </div>
-      </Card>
-    </div>
+      ) : (
+        <InstrumentsManager />
+      )}
+    </>
   );
 }

@@ -197,18 +197,44 @@ function ExpandableRow({ children, summary, theme, isDark }) {
 // ──────────────────────────────────────────────────────────────────────────
 function CostXRay({ data, theme, isDark }) {
   const { costXray = [], costSummary = {} } = data
-  const hasExpense = costXray.some(h => h.expense_ratio != null)
+  const hasExpense = costXray.some(h => h.expense_ratio != null && h.expense_ratio > 0)
+
+  // Calculate totals safely
+  const totalAnnualDrag = costSummary.total_annual_drag || 0
+  const totalStampDuty = costSummary.total_stamp_duty || 0
+  const totalExitLoadRisk = costSummary.total_exit_load_risk || 0
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
       {/* Summary cards */}
       <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
-        <StatCard icon={Percent}  label="Annual Drag"     value={inrCompact(costSummary.total_annual_drag||0)}
-          sub="expense ratio cost p.a." color={theme.red}   theme={theme} isDark={isDark}/>
-        <StatCard icon={Receipt}  label="Stamp Duty Paid" value={inrCompact(costSummary.total_stamp_duty||0)}
-          sub="across all buy trades"   color={theme.yellow} theme={theme} isDark={isDark}/>
-        <StatCard icon={Lock}     label="Exit Load Risk"  value={inrCompact(costSummary.total_exit_load_risk||0)}
-          sub="if you sold locked units today" color={theme.orange||'#f97316'} theme={theme} isDark={isDark}/>
+        <StatCard 
+          icon={Percent}  
+          label="Annual Drag"     
+          value={totalAnnualDrag > 0 ? inrCompact(totalAnnualDrag) : '₹0'}
+          sub={totalAnnualDrag > 0 ? 'expense ratio cost p.a.' : 'No expense ratio funds'}
+          color={totalAnnualDrag > 0 ? theme.red : theme.muted}   
+          theme={theme} 
+          isDark={isDark}
+        />
+        <StatCard 
+          icon={Receipt}  
+          label="Stamp Duty Paid" 
+          value={totalStampDuty > 0 ? inrCompact(totalStampDuty) : '₹0'}
+          sub={totalStampDuty > 0 ? 'across all buy trades' : 'No stamp duty paid'}
+          color={totalStampDuty > 0 ? theme.yellow : theme.muted} 
+          theme={theme} 
+          isDark={isDark}
+        />
+        <StatCard 
+          icon={Lock}     
+          label="Exit Load Risk"  
+          value={totalExitLoadRisk > 0 ? inrCompact(totalExitLoadRisk) : '₹0'}
+          sub={totalExitLoadRisk > 0 ? 'if you sold locked units today' : 'No exit load risk'}
+          color={totalExitLoadRisk > 0 ? (theme.orange || '#f97316') : theme.muted} 
+          theme={theme} 
+          isDark={isDark}
+        />
       </div>
 
       {/* Per holding breakdown */}
@@ -221,7 +247,7 @@ function CostXRay({ data, theme, isDark }) {
           gap:8, padding:'8px 16px',
           borderBottom:`1px solid ${theme.border}`,
         }}>
-          {['Holding','Exp. Ratio','Annual Drag','Stamp Duty Paid','Exit Load Risk'].map((h,i) => (
+          {['Holding','Exp. Ratio','Annual Drag','Stamp Duty','Exit Risk'].map((h,i) => (
             <span key={h} style={{
               fontFamily:theme.mono, fontSize:'0.48rem', letterSpacing:'0.14em',
               textTransform:'uppercase', color:theme.muted,
@@ -230,51 +256,182 @@ function CostXRay({ data, theme, isDark }) {
           ))}
         </div>
 
-        {costXray.map(h => (
-          <ExpandableRow key={h.holding_id} theme={theme} isDark={isDark}
-            summary={
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 90px 90px 90px 90px', gap:8, flex:1, alignItems:'center' }}>
-                <div>
-                  <div style={{ fontFamily:theme.mono, fontSize:'0.65rem', color:theme.text, fontWeight:500 }}>{h.ticker}</div>
-                  <div style={{ fontFamily:theme.mono, fontSize:'0.52rem', color:theme.muted }}>{h.name?.slice(0,32)}{h.name?.length > 32 ? '…' : ''}</div>
+        {costXray.map(h => {
+          // Safe value checks
+          const hasExpenseRatio = h.expense_ratio != null && h.expense_ratio > 0
+          const hasAnnualDrag = h.annual_drag_inr != null && h.annual_drag_inr > 0
+          const hasStampDuty = h.stamp_duty_paid > 0
+          const hasExitRisk = h.exit_load_risk > 0
+          const hasTenYearDrag = h.ten_year_drag != null && h.ten_year_drag > 0
+
+          return (
+            <ExpandableRow 
+              key={h.holding_id} 
+              theme={theme} 
+              isDark={isDark}
+              summary={
+                <div style={{ 
+                  display:'grid', 
+                  gridTemplateColumns:'1fr 90px 90px 90px 90px', 
+                  gap:8, 
+                  flex:1, 
+                  alignItems:'center' 
+                }}>
+                  <div>
+                    <div style={{ 
+                      fontFamily:theme.mono, 
+                      fontSize:'0.65rem', 
+                      color:theme.text, 
+                      fontWeight:500 
+                    }}>
+                      {h.ticker}
+                    </div>
+                    <div style={{ 
+                      fontFamily:theme.mono, 
+                      fontSize:'0.52rem', 
+                      color:theme.muted 
+                    }}>
+                      {h.name?.slice(0,32)}{h.name?.length > 32 ? '…' : ''}
+                    </div>
+                  </div>
+                  
+                  {/* Expense Ratio */}
+                  <div style={{ 
+                    fontFamily:theme.mono, 
+                    fontSize:'0.62rem', 
+                    color: hasExpenseRatio ? theme.red : theme.muted, 
+                    textAlign:'right' 
+                  }}>
+                    {hasExpenseRatio ? `${h.expense_ratio.toFixed(2)}%` : '—'}
+                  </div>
+                  
+                  {/* Annual Drag */}
+                  <div style={{ 
+                    fontFamily:theme.mono, 
+                    fontSize:'0.62rem', 
+                    color: hasAnnualDrag ? theme.red : theme.muted, 
+                    textAlign:'right' 
+                  }}>
+                    {hasAnnualDrag ? inrCompact(h.annual_drag_inr) : '—'}
+                  </div>
+                  
+                  {/* Stamp Duty */}
+                  <div style={{ 
+                    fontFamily:theme.mono, 
+                    fontSize:'0.62rem', 
+                    color: hasStampDuty ? theme.yellow : theme.muted, 
+                    textAlign:'right' 
+                  }}>
+                    {hasStampDuty ? inrCompact(h.stamp_duty_paid) : '—'}
+                  </div>
+                  
+                  {/* Exit Risk */}
+                  <div style={{ 
+                    fontFamily:theme.mono, 
+                    fontSize:'0.62rem', 
+                    color: hasExitRisk ? (theme.orange || '#f97316') : theme.muted, 
+                    textAlign:'right' 
+                  }}>
+                    {hasExitRisk ? inrCompact(h.exit_load_risk) : '—'}
+                  </div>
                 </div>
-                <div style={{ fontFamily:theme.mono, fontSize:'0.62rem', color: h.expense_ratio ? theme.red : theme.muted, textAlign:'right' }}>
-                  {h.expense_ratio != null ? `${h.expense_ratio}%` : '—'}
-                </div>
-                <div style={{ fontFamily:theme.mono, fontSize:'0.62rem', color: h.annual_drag_inr ? theme.red : theme.muted, textAlign:'right' }}>
-                  {h.annual_drag_inr != null ? inrCompact(h.annual_drag_inr) : '—'}
-                </div>
-                <div style={{ fontFamily:theme.mono, fontSize:'0.62rem', color:theme.yellow, textAlign:'right' }}>
-                  {inrCompact(h.stamp_duty_paid)}
-                </div>
-                <div style={{ fontFamily:theme.mono, fontSize:'0.62rem', color: h.exit_load_risk > 0 ? theme.red : theme.muted, textAlign:'right' }}>
-                  {h.exit_load_risk > 0 ? inrCompact(h.exit_load_risk) : '—'}
-                </div>
+              }
+            >
+              <div style={{ display:'flex', flexDirection:'column', gap:6, padding:'8px 0' }}>
+                <InfoRow 
+                  icon={CircleDot} 
+                  label="Current Value"        
+                  value={inrCompact(h.current_value || 0)}                       
+                  theme={theme}
+                />
+                
+                <InfoRow 
+                  icon={Percent}   
+                  label="Expense Ratio"        
+                  value={hasExpenseRatio ? `${h.expense_ratio.toFixed(2)}% p.a.` : 'No expense ratio (ETF/Equity)'}  
+                  color={hasExpenseRatio ? theme.red : theme.muted}
+                  theme={theme}
+                />
+                
+                {hasAnnualDrag && (
+                  <InfoRow 
+                    icon={TrendingDown} 
+                    label="Annual Drag (INR)"  
+                    value={inrCompact(h.annual_drag_inr)} 
+                    color={theme.red}   
+                    theme={theme}
+                  />
+                )}
+                
+                {hasTenYearDrag && (
+                  <InfoRow 
+                    icon={BarChart3}    
+                    label="10-Year Drag (Est)" 
+                    value={inrCompact(h.ten_year_drag)}   
+                    color={theme.red}   
+                    theme={theme}
+                  />
+                )}
+                
+                <Divider theme={theme}/>
+                
+                <InfoRow 
+                  icon={Receipt}   
+                  label="Stamp Duty Paid"      
+                  value={inrCompact(h.stamp_duty_paid || 0)}    
+                  color={hasStampDuty ? theme.yellow : theme.muted} 
+                  theme={theme}
+                />
+                
+                <InfoRow 
+                  icon={Lock}      
+                  label="Exit Load"          
+                  value={h.exit_load_pct > 0 ? `${h.exit_load_pct}% within lock-in` : 'No exit load'} 
+                  color={h.exit_load_pct > 0 ? theme.red : theme.muted}
+                  theme={theme}
+                />
+                
+                {hasExitRisk && (
+                  <InfoRow 
+                    icon={AlertTriangle} 
+                    label="Exit Load Risk Today" 
+                    value={inrCompact(h.exit_load_risk)} 
+                    color={theme.red} 
+                    theme={theme}
+                  />
+                )}
+                
+                <InfoRow 
+                  icon={Shield}    
+                  label="Plan Type"            
+                  value={h.plan_type === 'direct' ? 'Direct — no commission' : 'Regular — commission applies'} 
+                  color={h.plan_type === 'direct' ? theme.green : theme.yellow}
+                  theme={theme}
+                />
+
+                {/* Locked units info */}
+                {h.locked_value > 0 && (
+                  <InfoRow 
+                    icon={Lock} 
+                    label="Locked Units Value" 
+                    value={`${inrCompact(h.locked_value)} (${h.locked_lots} lot${h.locked_lots > 1 ? 's' : ''})`}
+                    color={theme.yellow}
+                    theme={theme}
+                  />
+                )}
               </div>
-            }
-          >
-            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-              <InfoRow icon={CircleDot} label="Current Value"        value={inrCompact(h.current_value)}                       theme={theme}/>
-              <InfoRow icon={Percent}   label="Expense Ratio"        value={h.expense_ratio != null ? `${h.expense_ratio}% p.a.` : 'N/A (ETF/Equity)'}  theme={theme}/>
-              {h.annual_drag_inr != null && (
-                <InfoRow icon={TrendingDown} label="Annual Drag (INR)"  value={inrCompact(h.annual_drag_inr)} color={theme.red}   theme={theme}/>
-              )}
-              {h.ten_year_drag != null && (
-                <InfoRow icon={BarChart3}    label="10-Year Drag (Est)" value={inrCompact(h.ten_year_drag)}   color={theme.red}   theme={theme}/>
-              )}
-              <Divider theme={theme}/>
-              <InfoRow icon={Receipt}   label="Stamp Duty Paid"      value={inrCompact(h.stamp_duty_paid)}    color={theme.yellow} theme={theme}/>
-              <InfoRow icon={Lock}      label="Exit Load %"          value={h.exit_load_pct > 0 ? `${h.exit_load_pct}% within lock-in` : 'No exit load'} theme={theme}/>
-              {h.exit_load_risk > 0 && (
-                <InfoRow icon={AlertTriangle} label="Exit Load Risk Today" value={inrCompact(h.exit_load_risk)} color={theme.red} theme={theme}/>
-              )}
-              <InfoRow icon={Shield}    label="Plan Type"            value={h.plan_type === 'direct' ? 'Direct — no distributor commission' : 'Regular — distributor commission applies'} theme={theme}/>
-            </div>
-          </ExpandableRow>
-        ))}
+            </ExpandableRow>
+          )
+        })}
 
         {costXray.length === 0 && (
-          <div style={{ padding:'32px 16px', textAlign:'center', color:theme.muted, fontFamily:theme.mono, fontSize:'0.65rem' }}>
+          <div style={{ 
+            padding:'32px 16px', 
+            textAlign:'center', 
+            color:theme.muted, 
+            fontFamily:theme.mono, 
+            fontSize:'0.65rem' 
+          }}>
             No holdings found
           </div>
         )}
@@ -285,17 +442,36 @@ function CostXRay({ data, theme, isDark }) {
         ...makeGlass(isDark, 0.03, 14),
         border:`1px solid ${theme.border}`,
         borderLeft:`2px solid ${theme.yellow}`,
-        borderRadius:10, padding:'12px 14px',
-        display:'flex', flexDirection:'column', gap:8,
+        borderRadius:10, 
+        padding:'12px 14px',
+        display:'flex', 
+        flexDirection:'column', 
+        gap:8,
       }}>
         <div style={{ display:'flex', alignItems:'center', gap:6, color:theme.muted }}>
           <Info size={11} strokeWidth={1.8}/>
-          <span style={{ fontFamily:theme.mono, fontSize:'0.50rem', letterSpacing:'0.16em', textTransform:'uppercase' }}>How to read this</span>
+          <span style={{ 
+            fontFamily:theme.mono, 
+            fontSize:'0.50rem', 
+            letterSpacing:'0.16em', 
+            textTransform:'uppercase' 
+          }}>
+            How to read this
+          </span>
         </div>
-        <p style={{ fontFamily:theme.sans, fontSize:'0.78rem', color:theme.muted, lineHeight:1.65, margin:0 }}>
+        <p style={{ 
+          fontFamily:theme.sans, 
+          fontSize:'0.78rem', 
+          color:theme.muted, 
+          lineHeight:1.65, 
+          margin:0 
+        }}>
           <strong style={{ color:theme.text }}>Expense ratio</strong> is already embedded in the NAV of mutual funds — you never see it as a deduction.
           It compounds silently over time. The <strong style={{ color:theme.text }}>10-Year Drag</strong> shows what you give up over a decade.
           Switching from Regular to Direct plans of the same fund eliminates the distributor commission (typically 0.5–1% extra per year).
+          {totalExitLoadRisk === 0 && (
+            <> <strong style={{ color:theme.green }}>Good news:</strong> You have no exit load risk on any of your holdings.</>
+          )}
         </p>
       </div>
     </div>
@@ -413,7 +589,7 @@ function ExitLoadTracker({ data, theme, isDark }) {
                 padding:'11px 16px', borderBottom:`1px solid ${theme.border}`,
               }}>
                 <div>
-                  <div style={{ fontFamily:theme.mono, fontSize:'0.65rem', color:theme.text, fontWeight:500 }}>{lot.ticker}</div>
+                  <div style={{ fontFamily:theme.mono, fontSize:'0.65rem', color:theme.text, fontWeight:500 }}>{lot.name}</div>
                   <div style={{ fontFamily:theme.mono, fontSize:'0.52rem', color:theme.muted, marginTop:1 }}>
                     Bought {new Date(lot.purchase_date).toLocaleDateString('en-IN',{day:'numeric',month:'short'})}
                     · {lot.units_remaining.toFixed(4)} units

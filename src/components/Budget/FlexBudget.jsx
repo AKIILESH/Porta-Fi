@@ -5,12 +5,12 @@ import { useFlexBudget } from '../../hooks/useFlexBudget'
 import { currentMonth } from '../../lib/formatters'
 import { inr } from '../../lib/formatters'
 import theme from '../../lib/theme'
-import { 
-  TrendingUp, TrendingDown, ArrowRight, 
+import {
+  TrendingUp, TrendingDown, ArrowRight,
   AlertCircle, Check, X, RefreshCw, Coffee,
   ShoppingBag, Car, Film, Home, Heart, Zap,
   Gift, BookOpen, Plane, Smartphone, Briefcase,
-  PiggyBank, Utensils, Hash, Move,BanknoteArrowDown
+  PiggyBank, Utensils, Hash, Move, BanknoteArrowDown
 } from 'lucide-react'
 
 // Category icon mapping
@@ -32,7 +32,7 @@ const CATEGORY_ICONS = {
   'Savings': PiggyBank,
   'Gifts': Gift,
   'Other': Hash,
-  'Loans':BanknoteArrowDown
+  'Loans': BanknoteArrowDown
 }
 
 const glass = (o = 0.04, b = 20) => ({
@@ -41,20 +41,20 @@ const glass = (o = 0.04, b = 20) => ({
 })
 
 // Category Bubble Component
-function CategoryBubble({ 
-  name, 
-  data, 
-  onDragStart, 
-  onDragEnd, 
+function CategoryBubble({
+  name,
+  data,
+  onDragStart,
+  onDragEnd,
   onDrop,
   isDragging,
-  isOverTarget 
+  isOverTarget
 }) {
   const Icon = CATEGORY_ICONS[name] || Hash
   const percent = data.percentUsed
   const isOver = data.isOver
   const color = isOver ? theme.red : percent > 80 ? theme.yellow : theme.green
-  
+
   return (
     <div
       draggable={!data.isFlexReserve}
@@ -134,10 +134,10 @@ function CategoryBubble({
           )}
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ 
-            fontFamily: theme.display, 
-            fontSize: '1.1rem', 
-            color: data.isOver ? theme.red : theme.green 
+          <div style={{
+            fontFamily: theme.display,
+            fontSize: '1.1rem',
+            color: data.isOver ? theme.red : theme.green
           }}>
             {data.isOver ? `-${inr(data.overAmount)}` : inr(data.remaining)}
           </div>
@@ -257,7 +257,7 @@ export default function FlexBudget() {
   const month = currentMonth()
   const [draggingFrom, setDraggingFrom] = useState(null)
   const [dropTarget, setDropTarget] = useState(null)
-  
+
   const {
     flexFund,
     overspentCategories,
@@ -328,7 +328,7 @@ export default function FlexBudget() {
       <SmartSuggestion
         suggestion={showSuggestion}
         onAccept={handleAcceptSuggestion}
-        onDecline={() => {}}
+        onDecline={() => { }}
       />
 
       {/* Flex Reserve Stats */}
@@ -395,9 +395,9 @@ export default function FlexBudget() {
           <CategoryBubble
             name="Flex Reserve"
             data={flexFund.categories['Flex Reserve']}
-            onDragStart={() => {}}
-            onDragEnd={() => {}}
-            onDrop={() => {}}
+            onDragStart={() => { }}
+            onDragEnd={() => { }}
+            onDrop={() => { }}
           />
         )}
       </div>

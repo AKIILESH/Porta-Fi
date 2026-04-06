@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <clipPath id="round">
+      <rect width="1024" height="1024" rx="230"/>
+    </clipPath>
+  </defs>
+
+  <rect width="1024" height="1024" rx="230" fill="#040812"/>
+
+  <g clip-path="url(#round)">
+    <rect width="1024" height="1024" fill="#040812"/>
+
+    <line x1="0" y1="1024" x2="1024" y2="0" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+
+    <line x1="100" y1="0"  x2="100" y2="1024" stroke="rgba(255,255,255,0.025)" stroke-width="0.5"/>
+    <line x1="200" y1="0"  x2="200" y2="1024" stroke="rgba(255,255,255,0.025)" stroke-width="0.5"/>
+    <line x1="300" y1="0"  x2="300" y2="1024" stroke="rgba(255,255,255,0.025)" stroke-width="0.5"/>
+    <line x1="400" y1="0"  x2="400" y2="1024" stroke="rgba(255,255,255,0.025)" stroke-width="0.5"/>
+    <line x1="500" y1="0"  x2="500" y2="1024" stroke="rgba(255,255,255,0.025)" stroke-width="0.5"/>
+    <line x1="600" y1="0"  x2="600" y2="1024" stroke="rgba(255,255,255,0.025)" stroke-width="0.5"/>
+    <line x1="700" y1="0"  x2="700" y2="1024" stroke="rgba(255,255,255,0.025)" stroke-width="0.5"/>
+    <line x1="800" y1="0"  x2="800" y2="1024" stroke="rgba(255,255,255,0.025)" stroke-width="0.5"/>
+    <line x1="900" y1="0"  x2="900" y2="1024" stroke="rgba(255,255,255,0.025)" stroke-width="0.5"/>
+
+    <line x1="0" y1="100"  x2="1024" y2="100" stroke="rgba(255,255,255,0.025)" stroke-width="0.5"/>
+    <line x1="0" y1="200"  x2="1024" y2="200" stroke="rgba(255,255,255,0.025)" stroke-width="0.5"/>
+    <line x1="0" y1="300"  x2="1024" y2="300" stroke="rgba(255,255,255,0.025)" stroke-width="0.5"/>
+    <line x1="0" y1="400"  x2="1024" y2="400" stroke="rgba(255,255,255,0.025)" stroke-width="0.5"/>
+    <line x1="0" y1="500"  x2="1024" y2="500" stroke="rgba(255,255,255,0.025)" stroke-width="0.5"/>
+    <line x1="0" y1="600"  x2="1024" y2="600" stroke="rgba(255,255,255,0.025)" stroke-width="0.5"/>
+    <line x1="0" y1="700"  x2="1024" y2="700" stroke="rgba(255,255,255,0.025)" stroke-width="0.5"/>
+    <line x1="0" y1="800"  x2="1024" y2="800" stroke="rgba(255,255,255,0.025)" stroke-width="0.5"/>
+    <line x1="0" y1="900"  x2="1024" y2="900" stroke="rgba(255,255,255,0.025)" stroke-width="0.5"/>
+  </g>
+
+  <polygon points="512,180  780,512  512,844  244,512" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1.5"/>
+
+  <polygon points="512,180  780,512  512,512" fill="#ffffff" opacity="0.95"/>
+  <polygon points="512,512  780,512  512,844" fill="#22c55e" opacity="0.90"/>
+
+  <polygon points="512,180  244,512  512,512" fill="#ffffff" opacity="0.12"/>
+  <polygon points="512,512  244,512  512,844" fill="#22c55e" opacity="0.15"/>
+
+  <line x1="512" y1="180" x2="512" y2="844" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+  <line x1="244" y1="512" x2="780" y2="512" stroke="rgba(255,255,255,0.10)" stroke-width="1"/>
+
+  <circle cx="512" cy="512" r="6" fill="rgba(255,255,255,0.5)"/>
+  <circle cx="512" cy="180" r="4" fill="rgba(255,255,255,0.3)"/>
+  <circle cx="780" cy="512" r="4" fill="rgba(255,255,255,0.2)"/>
+  <circle cx="512" cy="844" r="4" fill="#22c55e" opacity="0.8"/>
+  <circle cx="244" cy="512" r="4" fill="rgba(255,255,255,0.1)"/>
+
+  <rect width="1024" height="1024" rx="230" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
+  <rect x="1" y="1" width="1022" height="1022" rx="229" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+</svg>

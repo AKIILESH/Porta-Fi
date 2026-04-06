@@ -14,7 +14,7 @@ export function useNetWorthHistory(userId) {
         .eq('user_id', userId)
         .order('snapshot_date', { ascending: false })
         .limit(12)
-      
+
       if (error) throw error
       return data || []
     },

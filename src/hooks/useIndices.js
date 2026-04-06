@@ -9,7 +9,7 @@ function calculateReturnsFromData(item) {
   if (item.returns_1y) {
     return item.returns_1y;
   }
-  
+
   // Otherwise return null (will be populated by admin)
   return null;
 }
@@ -19,12 +19,12 @@ export function useIndices() {
     queryKey: queryKeys.indices(),
     queryFn: async () => {
       console.log('🌍 Fetching market indices from database only...')
-      
+
       const tickers = ['^NSEI', '^BSESN', '^GSPC', '^IXIC']
-      
+
       // Get the latest data for each ticker from price_cache
       const results = {}
-      
+
       for (const ticker of tickers) {
         // Get the most recent entry for this ticker
         const { data, error } = await supabase
@@ -34,12 +34,12 @@ export function useIndices() {
           .order('fetched_at', { ascending: false })
           .limit(1)
           .maybeSingle()
-        
+
         if (error) {
           console.error(`❌ Error fetching ${ticker}:`, error)
           continue
         }
-        
+
         if (data) {
           console.log(`📊 Found data for ${ticker}:`, {
             price: data.price,
@@ -47,14 +47,14 @@ export function useIndices() {
             hasReturns: !!data.returns_1y,
             annualizedReturn: data.returns_1y?.annualized ? (data.returns_1y.annualized * 100).toFixed(2) + '%' : 'N/A'
           })
-          
+
           results[ticker] = {
             price: data.price,
             changePct: data.change_pct,
             change: data.change_amt,
-            label: ticker === '^NSEI' ? 'NIFTY 50' : 
-                   ticker === '^BSESN' ? 'SENSEX' :
-                   ticker === '^GSPC' ? 'S&P 500' : 'NASDAQ',
+            label: ticker === '^NSEI' ? 'NIFTY 50' :
+              ticker === '^BSESN' ? 'SENSEX' :
+                ticker === '^GSPC' ? 'S&P 500' : 'NASDAQ',
             returns_1y: data.returns_1y, // This will be used for alpha calculation
             fromCache: true,
             fetched_at: data.fetched_at
@@ -64,7 +64,7 @@ export function useIndices() {
           results[ticker] = null
         }
       }
-      
+
       console.log('📊 Final indices data:', {
         nifty: results['^NSEI'] ? {
           price: results['^NSEI'].price,
@@ -75,7 +75,7 @@ export function useIndices() {
           returns: results['^GSPC'].returns_1y?.annualized
         } : '❌'
       })
-      
+
       return results
     },
     staleTime: 5 * 60 * 1000, // 5 minutes - data considered fresh for 5 minutes

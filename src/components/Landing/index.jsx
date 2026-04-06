@@ -1,6 +1,8 @@
 // src/components/Landing/index.jsx
 import { useState, useEffect, useRef } from "react";
 import { useTheme } from "../../context/ThemeContext.jsx";
+import PersonaSection from './PersonaSection'
+
 
 // Reusable hook for intersection observer
 function useInView(threshold = 0.15) {
@@ -50,13 +52,13 @@ function Nav() {
         transition: "all 0.4s ease",
       }}>
         {/* Logo */}
-        <a href="#" style={{ 
-          fontFamily: theme.display, 
-          fontSize: isMobile ? "1.3rem" : "1.55rem", 
-          fontWeight: 700, 
-          letterSpacing: "0.06em", 
-          color: theme.text, 
-          textDecoration: "none" 
+        <a href="#" style={{
+          fontFamily: theme.display,
+          fontSize: isMobile ? "1.3rem" : "1.55rem",
+          fontWeight: 700,
+          letterSpacing: "0.06em",
+          color: theme.text,
+          textDecoration: "none"
         }}>
           Porta<span style={{ color: theme.accent }}>Fi</span>
         </a>
@@ -64,52 +66,52 @@ function Nav() {
         {/* Desktop Buttons */}
         {!isMobile && (
           <div style={{ display: "flex", gap: "12px" }}>
-            <a 
-              href="/signup" 
+            <a
+              href="/signup"
               style={{
-                fontFamily: theme.mono, 
-                fontSize: "0.65rem", 
-                letterSpacing: "0.18em", 
+                fontFamily: theme.mono,
+                fontSize: "0.65rem",
+                letterSpacing: "0.18em",
                 textTransform: "uppercase",
-                color: theme.accent, 
-                border: `1px solid ${theme.accent}`, 
-                padding: "10px 24px", 
+                color: theme.accent,
+                border: `1px solid ${theme.accent}`,
+                padding: "10px 24px",
                 textDecoration: "none",
                 transition: "all 0.3s",
                 borderRadius: 6,
               }}
-              onMouseEnter={e => { 
-                e.target.style.background = theme.accent; 
-                e.target.style.color = theme.ink; 
+              onMouseEnter={e => {
+                e.target.style.background = theme.accent;
+                e.target.style.color = theme.ink;
               }}
-              onMouseLeave={e => { 
-                e.target.style.background = "transparent"; 
-                e.target.style.color = theme.accent; 
+              onMouseLeave={e => {
+                e.target.style.background = "transparent";
+                e.target.style.color = theme.accent;
               }}
             >
               Get Started
             </a>
-            <a 
-              href="/login" 
+            <a
+              href="/login"
               style={{
-                fontFamily: theme.mono, 
-                fontSize: "0.65rem", 
-                letterSpacing: "0.18em", 
+                fontFamily: theme.mono,
+                fontSize: "0.65rem",
+                letterSpacing: "0.18em",
                 textTransform: "uppercase",
-                color: theme.accent, 
-                border: `1px solid ${theme.accent}`, 
-                padding: "10px 24px", 
+                color: theme.accent,
+                border: `1px solid ${theme.accent}`,
+                padding: "10px 24px",
                 textDecoration: "none",
                 transition: "all 0.3s",
                 borderRadius: 6,
               }}
-              onMouseEnter={e => { 
-                e.target.style.background = theme.accent; 
-                e.target.style.color = theme.ink; 
+              onMouseEnter={e => {
+                e.target.style.background = theme.accent;
+                e.target.style.color = theme.ink;
               }}
-              onMouseLeave={e => { 
-                e.target.style.background = "transparent"; 
-                e.target.style.color = theme.accent; 
+              onMouseLeave={e => {
+                e.target.style.background = "transparent";
+                e.target.style.color = theme.accent;
               }}
             >
               Sign In
@@ -307,13 +309,13 @@ function Ticker() {
   const { theme } = useTheme();
   const doubled = [...tickerItems, ...tickerItems];
   return (
-    <div style={{ 
-      borderTop: `1px solid ${theme.border}`, 
-      borderBottom: `1px solid ${theme.border}`, 
-      overflow: "hidden", 
-      whiteSpace: "nowrap", 
-      padding: "13px 0", 
-      background: theme.bg2 
+    <div style={{
+      borderTop: `1px solid ${theme.border}`,
+      borderBottom: `1px solid ${theme.border}`,
+      overflow: "hidden",
+      whiteSpace: "nowrap",
+      padding: "13px 0",
+      background: theme.bg2
     }}>
       <style>{`@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}`}</style>
       <div style={{ display: "inline-flex", gap: 56, animation: "ticker 28s linear infinite" }}>
@@ -332,35 +334,35 @@ function Ticker() {
 
 // ── FEATURES ─────────────────────────────────────────────────────────────────
 const features = [
-  { 
-    icon: "▣", 
-    name: "Unified Dashboard", 
-    desc: "Stocks, mutual funds, FDs, and cash—all in one view. Connect Zerodha, Groww, Kuvera or add manually." 
+  {
+    icon: "▣",
+    name: "Unified Dashboard",
+    desc: "Stocks, mutual funds, FDs, and cash—all in one view. Connect Zerodha, Groww, Kuvera or add manually."
   },
-  { 
-    icon: "◈", 
-    name: "Live Price Tracking", 
-    desc: "Real-time updates via Yahoo Finance. Watch your net worth move as markets do, with instant price sync." 
+  {
+    icon: "◈",
+    name: "Live Price Tracking",
+    desc: "Real-time updates via Yahoo Finance. Watch your net worth move as markets do, with instant price sync."
   },
-  { 
-    icon: "◎", 
-    name: "AI-Powered Insights", 
-    desc: "Personalized recommendations on tax savings, rebalancing opportunities, and goal milestones—automatically." 
+  {
+    icon: "◎",
+    name: "AI-Powered Insights",
+    desc: "Personalized recommendations on tax savings, rebalancing opportunities, and goal milestones—automatically."
   },
-  { 
-    icon: "◇", 
-    name: "Goal Tracking", 
-    desc: "Set financial goals—retirement, home, education—and watch your progress with predictive milestones." 
+  {
+    icon: "◇",
+    name: "Goal Tracking",
+    desc: "Set financial goals—retirement, home, education—and watch your progress with predictive milestones."
   },
-  { 
-    icon: "✦", 
-    name: "Tax Optimisation", 
-    desc: "Automatic LTCG/STCG classification and actionable suggestions to reduce your tax liability each year." 
+  {
+    icon: "✦",
+    name: "Tax Optimisation",
+    desc: "Automatic LTCG/STCG classification and actionable suggestions to reduce your tax liability each year."
   },
-  { 
-    icon: "◉", 
-    name: "Bank-Grade Security", 
-    desc: "256-bit encryption, read-only API access, and zero storage of credentials. Your data stays safe." 
+  {
+    icon: "◉",
+    name: "Bank-Grade Security",
+    desc: "256-bit encryption, read-only API access, and zero storage of credentials. Your data stays safe."
   },
 ];
 
@@ -437,9 +439,9 @@ function Features() {
           Built for the <em style={{ fontStyle: "italic", color: theme.accentLt }}>complete</em> picture
         </h2>
       </div>
-      <div style={{ 
-        display: "grid", 
-        gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", 
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)",
         gap: isMobile ? 16 : 0,
         border: isMobile ? "none" : `1px solid ${theme.border}`,
         borderRadius: isMobile ? 0 : 12,
@@ -493,13 +495,13 @@ function AssetRow({ a, i }) {
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <div style={{ 
-          width: 36, height: 36, 
-          background: theme.accentDim, 
-          border: `1px solid ${theme.border}`, 
-          display: "flex", alignItems: "center", justifyContent: "center", 
-          fontFamily: theme.mono, fontSize: "0.55rem", color: theme.accent, 
-          letterSpacing: "0.05em", flexShrink: 0, borderRadius: 6 
+        <div style={{
+          width: 36, height: 36,
+          background: theme.accentDim,
+          border: `1px solid ${theme.border}`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontFamily: theme.mono, fontSize: "0.55rem", color: theme.accent,
+          letterSpacing: "0.05em", flexShrink: 0, borderRadius: 6
         }}>
           {a.tag}
         </div>
@@ -530,15 +532,15 @@ function TrackerSection() {
   const isMobile = windowWidth <= 768;
 
   return (
-    <section style={{ 
-      display: "grid", 
-      gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", 
-      borderTop: `1px solid ${theme.border}`, 
-      borderBottom: `1px solid ${theme.border}` 
+    <section style={{
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+      borderTop: `1px solid ${theme.border}`,
+      borderBottom: `1px solid ${theme.border}`
     }}>
-      <div ref={ref} style={{ 
-        padding: isMobile ? "40px 20px" : "100px 60px", 
-        borderRight: isMobile ? "none" : `1px solid ${theme.border}` 
+      <div ref={ref} style={{
+        padding: isMobile ? "40px 20px" : "100px 60px",
+        borderRight: isMobile ? "none" : `1px solid ${theme.border}`
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, fontFamily: theme.mono, fontSize: "0.62rem", letterSpacing: "0.25em", textTransform: "uppercase", color: theme.accent, marginBottom: 18 }}>
           <span style={{ width: 24, height: 1, background: theme.accent, display: "inline-block" }} />
@@ -556,10 +558,10 @@ function TrackerSection() {
           From blue-chip stocks to small-cap bets, from liquid funds to 5-year FDs—PortaFi tracks every rupee, everywhere it lives.
         </p>
       </div>
-      <div style={{ 
-        padding: isMobile ? "20px 20px 40px" : "80px 60px", 
-        display: "flex", 
-        alignItems: "center" 
+      <div style={{
+        padding: isMobile ? "20px 20px 40px" : "80px 60px",
+        display: "flex",
+        alignItems: "center"
       }}>
         <div style={{ width: "100%", border: `1px solid ${theme.border}`, borderRadius: 12 }}>
           {assets.map((a, i) => <AssetRow key={i} a={a} i={i} />)}
@@ -583,37 +585,37 @@ function AISection() {
 
   const isMobile = windowWidth <= 768;
 
-const chatMessages = [
+  const chatMessages = [
     { user: true, text: "How am I doing against the Nifty 50 this year?" },
-    { 
-      user: false, 
+    {
+      user: false,
       text: (
         <>
           Your portfolio is up <strong style={{ color: theme.accentLt }}>+19.4%</strong> YTD vs Nifty 50's{' '}
           <strong style={{ color: theme.accentLt }}>+11.2%</strong> — outperforming by{' '}
           <strong style={{ color: theme.accentLt }}>820 bps</strong>. Alpha is driven by your mid-cap bets.
         </>
-      ) 
+      )
     },
     { user: true, text: "Any FD maturities I should watch out for?" },
-    { 
-      user: false, 
+    {
+      user: false,
       text: (
         <>
           Your <strong style={{ color: theme.accentLt }}>HDFC FD (₹2L)</strong> matures Aug 14. Rates have dipped to 6.8% since you locked in at 7.1%.{' '}
           Consider a short-duration debt fund for better liquidity.
         </>
-      ) 
+      )
     },
   ];
 
   return (
-    <section style={{ 
-      padding: isMobile ? "60px 20px" : "120px 60px", 
-      display: "grid", 
-      gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", 
-      gap: isMobile ? 40 : 80, 
-      alignItems: "center" 
+    <section style={{
+      padding: isMobile ? "60px 20px" : "120px 60px",
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+      gap: isMobile ? 40 : 80,
+      alignItems: "center"
     }}>
       <div ref={ref}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, fontFamily: theme.mono, fontSize: "0.62rem", letterSpacing: "0.25em", textTransform: "uppercase", color: theme.accent, marginBottom: 18 }}>
@@ -634,21 +636,21 @@ const chatMessages = [
         <CTAButton>Coming Soon</CTAButton>
       </div>
 
-      <div style={{ 
-        border: `1px solid ${theme.border}`, 
-        padding: isMobile ? "24px" : "32px", 
-        background: theme.bg2, 
+      <div style={{
+        border: `1px solid ${theme.border}`,
+        padding: isMobile ? "24px" : "32px",
+        background: theme.bg2,
         position: "relative",
         borderRadius: 12,
       }}>
-        <div style={{ 
-          position: "absolute", top: -10, left: 24, 
-          background: theme.bg2, 
-          padding: "0 8px", 
-          fontFamily: theme.mono, 
-          fontSize: "0.52rem", 
-          letterSpacing: "0.2em", 
-          color: theme.accent 
+        <div style={{
+          position: "absolute", top: -10, left: 24,
+          background: theme.bg2,
+          padding: "0 8px",
+          fontFamily: theme.mono,
+          fontSize: "0.52rem",
+          letterSpacing: "0.2em",
+          color: theme.accent
         }}>
           AI INSIGHTS
         </div>
@@ -661,24 +663,24 @@ const chatMessages = [
                 opacity: inView ? 1 : 0, transform: inView ? "translateY(0)" : "translateY(10px)",
                 transition: `opacity 0.5s ${i * 0.15}s ease, transform 0.5s ${i * 0.15}s ease`,
               }}>
-                <div style={{ 
-                  width: 28, height: 28, flexShrink: 0, 
-                  border: `1px solid ${theme.border}`, 
-                  display: "flex", alignItems: "center", justifyContent: "center", 
-                  fontFamily: theme.mono, fontSize: "0.52rem", 
-                  color: m.user ? theme.muted : theme.accent, 
+                <div style={{
+                  width: 28, height: 28, flexShrink: 0,
+                  border: `1px solid ${theme.border}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontFamily: theme.mono, fontSize: "0.52rem",
+                  color: m.user ? theme.muted : theme.accent,
                   background: m.user ? "transparent" : theme.accentDim,
                   borderRadius: 6,
                 }}>
                   {m.user ? "U" : "AI"}
                 </div>
-                <div style={{ 
-                  background: m.user ? theme.bg3 : theme.accentDim, 
-                  border: `1px solid ${theme.border}`, 
-                  padding: "11px 15px", 
-                  fontSize: isMobile ? "0.75rem" : "0.76rem", 
-                  lineHeight: 1.65, 
-                  color: m.user ? theme.muted : theme.text, 
+                <div style={{
+                  background: m.user ? theme.bg3 : theme.accentDim,
+                  border: `1px solid ${theme.border}`,
+                  padding: "11px 15px",
+                  fontSize: isMobile ? "0.75rem" : "0.76rem",
+                  lineHeight: 1.65,
+                  color: m.user ? theme.muted : theme.text,
                   flex: 1,
                   borderRadius: 8,
                 }}>
@@ -866,98 +868,98 @@ function Hero() {
   const isMobile = windowWidth <= 768;
 
   return (
-    <section style={{ 
-      minHeight: "100vh", 
-      display: "grid", 
-      gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", 
-      alignItems: "center", 
-      padding: isMobile ? "100px 20px 60px" : "0 60px", 
-      paddingTop: isMobile ? 120 : 120, 
-      position: "relative", 
+    <section style={{
+      minHeight: "100vh",
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+      alignItems: "center",
+      padding: isMobile ? "100px 20px 60px" : "0 60px",
+      paddingTop: isMobile ? 120 : 120,
+      position: "relative",
       overflow: "hidden",
       gap: isMobile ? 40 : 0,
     }}>
       {/* Ambient glow */}
-      <div style={{ 
-        position: "absolute", 
-        top: "-15%", 
-        right: "-8%", 
-        width: isMobile ? 400 : 700, 
-        height: isMobile ? 400 : 700, 
-        background: `radial-gradient(circle, ${theme.accent}15 0%, transparent 65%)`, 
-        pointerEvents: "none", 
-        animation: "pulse 9s ease-in-out infinite" 
+      <div style={{
+        position: "absolute",
+        top: "-15%",
+        right: "-8%",
+        width: isMobile ? 400 : 700,
+        height: isMobile ? 400 : 700,
+        background: `radial-gradient(circle, ${theme.accent}15 0%, transparent 65%)`,
+        pointerEvents: "none",
+        animation: "pulse 9s ease-in-out infinite"
       }} />
       <style>{`@keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.12);opacity:0.7}} @keyframes floatBadge{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}`}</style>
 
-      <div style={{ 
-        maxWidth: isMobile ? "100%" : 540, 
-        opacity: mounted ? 1 : 0, 
-        transform: mounted ? "translateY(0)" : "translateY(28px)", 
+      <div style={{
+        maxWidth: isMobile ? "100%" : 540,
+        opacity: mounted ? 1 : 0,
+        transform: mounted ? "translateY(0)" : "translateY(28px)",
         transition: "opacity 0.9s ease, transform 0.9s ease",
         textAlign: isMobile ? 'center' : 'left',
       }}>
-        <div style={{ 
-          display: "inline-flex", 
-          alignItems: "center", 
+        <div style={{
+          display: "inline-flex",
+          alignItems: "center",
           justifyContent: isMobile ? 'center' : 'flex-start',
-          gap: 12, 
-          fontFamily: theme.mono, 
-          fontSize: "0.62rem", 
-          letterSpacing: "0.25em", 
-          textTransform: "uppercase", 
-          color: theme.accent, 
+          gap: 12,
+          fontFamily: theme.mono,
+          fontSize: "0.62rem",
+          letterSpacing: "0.25em",
+          textTransform: "uppercase",
+          color: theme.accent,
           marginBottom: 28,
           width: '100%',
         }}>
           <span style={{ width: 32, height: 1, background: theme.accent, display: "inline-block" }} />
           For Indian Investors
         </div>
-        <h1 style={{ 
-          fontFamily: theme.display, 
-          fontSize: isMobile ? "2.5rem" : "clamp(3rem,5.5vw,5.2rem)", 
-          fontWeight: 300, 
-          lineHeight: 1.06, 
-          letterSpacing: "-0.01em", 
-          marginBottom: 24, 
-          color: theme.text 
+        <h1 style={{
+          fontFamily: theme.display,
+          fontSize: isMobile ? "2.5rem" : "clamp(3rem,5.5vw,5.2rem)",
+          fontWeight: 300,
+          lineHeight: 1.06,
+          letterSpacing: "-0.01em",
+          marginBottom: 24,
+          color: theme.text
         }}>
           All your money,<br />
           <em style={{ fontStyle: "italic", color: theme.accentLt }}>one</em> dashboard.
         </h1>
-        <p style={{ 
-          fontSize: isMobile ? "0.9rem" : "1rem", 
-          lineHeight: 1.78, 
-          color: theme.muted, 
-          maxWidth: isMobile ? "100%" : 430, 
-          marginBottom: 48 
+        <p style={{
+          fontSize: isMobile ? "0.9rem" : "1rem",
+          lineHeight: 1.78,
+          color: theme.muted,
+          maxWidth: isMobile ? "100%" : 430,
+          marginBottom: 48
         }}>
           Stocks, mutual funds, FDs, and cash—
           <span style={{ color: theme.text }}> tracked together</span> for the first time.
           AI-powered insights that help you invest smarter.
         </p>
-        <div style={{ 
-          display: "flex", 
-          alignItems: "center", 
+        <div style={{
+          display: "flex",
+          alignItems: "center",
           justifyContent: isMobile ? 'center' : 'flex-start',
-          gap: isMobile ? 20 : 32, 
-          opacity: mounted ? 1 : 0, 
-          transform: mounted ? "translateY(0)" : "translateY(20px)", 
+          gap: isMobile ? 20 : 32,
+          opacity: mounted ? 1 : 0,
+          transform: mounted ? "translateY(0)" : "translateY(20px)",
           transition: "opacity 0.9s 0.2s ease, transform 0.9s 0.2s ease",
           flexDirection: isMobile ? 'column' : 'row',
         }}>
           <CTAButton large>Coming Soon</CTAButton>
-          <a href="#" style={{ 
-            fontFamily: theme.mono, 
-            fontSize: "0.65rem", 
-            letterSpacing: "0.18em", 
-            textTransform: "uppercase", 
-            color: theme.muted, 
-            textDecoration: "none", 
-            display: "flex", 
-            alignItems: "center", 
-            gap: 7, 
-            transition: "color 0.3s" 
+          <a href="#" style={{
+            fontFamily: theme.mono,
+            fontSize: "0.65rem",
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            color: theme.muted,
+            textDecoration: "none",
+            display: "flex",
+            alignItems: "center",
+            gap: 7,
+            transition: "color 0.3s"
           }}
             onMouseEnter={e => e.currentTarget.style.color = theme.text}
             onMouseLeave={e => e.currentTarget.style.color = theme.muted}
@@ -967,42 +969,42 @@ function Hero() {
         </div>
       </div>
 
-      <div style={{ 
-        display: "flex", 
-        justifyContent: "center", 
-        position: "relative", 
-        opacity: mounted ? 1 : 0, 
-        transform: mounted ? "translateY(0)" : "translateY(30px)", 
+      <div style={{
+        display: "flex",
+        justifyContent: "center",
+        position: "relative",
+        opacity: mounted ? 1 : 0,
+        transform: mounted ? "translateY(0)" : "translateY(30px)",
         transition: "opacity 1s 0.3s ease, transform 1s 0.3s ease",
         marginTop: isMobile ? 20 : 0,
       }}>
         {/* Floating badges - hide on very small screens */}
         {!isMobile && (
           <>
-            <div style={{ 
-              position: "absolute", top: -10, left: -20, 
-              display: "flex", alignItems: "center", gap: 8, 
-              background: theme.bg2, 
-              border: `1px solid ${theme.border}`, 
-              padding: "10px 16px", 
-              fontFamily: theme.mono, fontSize: "0.58rem", 
-              letterSpacing: "0.1em", color: theme.text, 
-              animation: "floatBadge 4s ease-in-out infinite", 
+            <div style={{
+              position: "absolute", top: -10, left: -20,
+              display: "flex", alignItems: "center", gap: 8,
+              background: theme.bg2,
+              border: `1px solid ${theme.border}`,
+              padding: "10px 16px",
+              fontFamily: theme.mono, fontSize: "0.58rem",
+              letterSpacing: "0.1em", color: theme.text,
+              animation: "floatBadge 4s ease-in-out infinite",
               zIndex: 2,
               borderRadius: 30,
             }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: theme.green, display: "inline-block" }} />
               Live prices synced
             </div>
-            <div style={{ 
-              position: "absolute", bottom: 80, right: -30, 
-              display: "flex", alignItems: "center", gap: 8, 
-              background: theme.bg2, 
-              border: `1px solid ${theme.border}`, 
-              padding: "10px 16px", 
-              fontFamily: theme.mono, fontSize: "0.58rem", 
-              letterSpacing: "0.1em", color: theme.text, 
-              animation: "floatBadge 4s 1.5s ease-in-out infinite", 
+            <div style={{
+              position: "absolute", bottom: 80, right: -30,
+              display: "flex", alignItems: "center", gap: 8,
+              background: theme.bg2,
+              border: `1px solid ${theme.border}`,
+              padding: "10px 16px",
+              fontFamily: theme.mono, fontSize: "0.58rem",
+              letterSpacing: "0.1em", color: theme.text,
+              animation: "floatBadge 4s 1.5s ease-in-out infinite",
               zIndex: 2,
               borderRadius: 30,
             }}>
@@ -1032,20 +1034,20 @@ function CTASection() {
   const isMobile = windowWidth <= 768;
 
   return (
-    <section ref={ref} style={{ 
-      padding: isMobile ? "80px 20px" : "160px 60px", 
-      textAlign: "center", 
-      borderTop: `1px solid ${theme.border}`, 
-      position: "relative", 
-      overflow: "hidden" 
+    <section ref={ref} style={{
+      padding: isMobile ? "80px 20px" : "160px 60px",
+      textAlign: "center",
+      borderTop: `1px solid ${theme.border}`,
+      position: "relative",
+      overflow: "hidden"
     }}>
-      <div style={{ 
-        position: "absolute", top: "50%", left: "50%", 
-        transform: "translate(-50%,-50%)", 
-        width: isMobile ? 300 : 600, 
-        height: isMobile ? 300 : 600, 
-        background: `radial-gradient(circle, ${theme.accent}15 0%, transparent 65%)`, 
-        pointerEvents: "none" 
+      <div style={{
+        position: "absolute", top: "50%", left: "50%",
+        transform: "translate(-50%,-50%)",
+        width: isMobile ? 300 : 600,
+        height: isMobile ? 300 : 600,
+        background: `radial-gradient(circle, ${theme.accent}15 0%, transparent 65%)`,
+        pointerEvents: "none"
       }} />
       <div style={{ display: "inline-flex", alignItems: "center", gap: 12, fontFamily: theme.mono, fontSize: "0.62rem", letterSpacing: "0.25em", textTransform: "uppercase", color: theme.accent, marginBottom: 18 }}>
         <span style={{ width: 24, height: 1, background: theme.accent, display: "inline-block" }} />
@@ -1059,12 +1061,12 @@ function CTASection() {
       }}>
         Your complete<br />financial picture<br /><em style={{ fontStyle: "italic", color: theme.accentLt }}>awaits</em>
       </h2>
-      <p style={{ 
-        fontSize: isMobile ? "0.85rem" : "0.9rem", 
-        color: theme.muted, 
-        maxWidth: isMobile ? "100%" : 380, 
-        margin: "0 auto 48px", 
-        lineHeight: 1.8 
+      <p style={{
+        fontSize: isMobile ? "0.85rem" : "0.9rem",
+        color: theme.muted,
+        maxWidth: isMobile ? "100%" : 380,
+        margin: "0 auto 48px",
+        lineHeight: 1.8
       }}>
         Join investors who track everything in one place. No spreadsheets. No juggling apps. Just clarity.
       </p>
@@ -1088,7 +1090,7 @@ function Footer() {
   const isTablet = windowWidth > 768 && windowWidth <= 1024;
 
   return (
-    <footer style={{ 
+    <footer style={{
       borderTop: `1px solid ${theme.border}`,
       minHeight: isMobile ? '40vh' : '52vh',
       display: 'flex',
@@ -1097,8 +1099,8 @@ function Footer() {
       padding: isMobile ? '56px 20px' : '80px 20px',
       backgroundColor: `${theme.accent}`
     }}>
-      <div style={{ 
-        width: '100%', 
+      <div style={{
+        width: '100%',
         textAlign: 'center',
         maxWidth: 1200,
         margin: '0 auto',
@@ -1117,7 +1119,7 @@ function Footer() {
         }}>
           PORT<span style={{ color: theme.white }}>A</span>FI
         </h2>
-        
+
         {/* Tagline */}
         <p style={{
           fontFamily: theme.mono,
@@ -1133,8 +1135,8 @@ function Footer() {
 
         {/* CTA Button */}
         <div style={{ marginTop: isMobile ? '24px' : '28px' }}>
-          <a 
-            href="/signup" 
+          <a
+            href="/signup"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -1185,17 +1187,17 @@ export default function PortaFi() {
   const { theme } = useTheme();
 
   return (
-    <div style={{ 
-      background: theme.bg, 
-      color: theme.text, 
-      fontFamily: theme.sans, 
-      fontWeight: 300, 
-      overflowX: "hidden", 
+    <div style={{
+      background: theme.bg,
+      color: theme.text,
+      fontFamily: theme.sans,
+      fontWeight: 300,
+      overflowX: "hidden",
       minHeight: "100vh",
       position: 'relative',
     }}>
       {/* Grain overlay */}
-      <div style={{ 
+      <div style={{
         position: "fixed", inset: 0, pointerEvents: "none", zIndex: 999, opacity: 0.025,
         backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E")`,
       }} />
@@ -1205,6 +1207,7 @@ export default function PortaFi() {
       <Ticker />
       <Features />
       <TrackerSection />
+      <PersonaSection />
       <AISection />
       <FeatureHighlights />
       <CTASection />
@@ -1212,3 +1215,4 @@ export default function PortaFi() {
     </div>
   );
 }
+

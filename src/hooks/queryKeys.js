@@ -26,4 +26,10 @@ export const queryKeys = {
 
   taxCosts:         (userId) => ['taxCosts', userId],
 fundLots:         (userId) => ['fundLots', userId],
+
+instruments: {
+    _def: ['instruments'],
+    list: (filters) => ['instruments', 'list', filters],
+    detail: (id) => ['instruments', 'detail', id],
+  },
 }
