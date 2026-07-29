@@ -88,7 +88,7 @@ export function useDashboardData(userId) {
 
       // Fetch everything else in parallel
       const [cashRes, accountsRes, monthTxRes, recentTxRes, debtsRes, nwRes] = await Promise.all([
-        supabase.from('cash_accounts').select('balance').eq('user_id', userId),
+        supabase.from('cash_accounts').select('*').eq('user_id', userId),
         supabase.from('accounts').select('balance').eq('user_id', userId),
         supabase
           .from('transactions')
@@ -192,6 +192,7 @@ export function useDashboardData(userId) {
         totalDebt,
         netWorth,
         byAssetClass,
+        cashAccounts,
         recentTransactions,
         monthTransactions,
         monthlyIncome,

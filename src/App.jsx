@@ -8,6 +8,7 @@ import { FinanceProvider } from "./context/FinanceContext.jsx";
 import PortaFi from "./components/Landing/index.jsx";
 import Signup from "./components/Auth/Signup.jsx";
 import Sidebar from "./components/shared/Sidebar.jsx";
+import DesktopHeader from "./components/shared/DesktopHeader.jsx";
 import TickerBar from "./components/shared/TickerBar.jsx";
 import Dashboard from "./components/Dashboard/index.jsx";
 import Portfolio from "./components/Portfolio/index.jsx";
@@ -47,10 +48,10 @@ document.head.appendChild(meta);
 const globalStyle = document.createElement("style");
 globalStyle.textContent = `
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:${theme.bg}; color:${theme.text}; overflow-x: hidden; }
+  body { background: var(--bg); color: var(--text); overflow-x: hidden; }
   ::-webkit-scrollbar { width:4px; height:4px; }
-  ::-webkit-scrollbar-track { background:${theme.bg2}; }
-  ::-webkit-scrollbar-thumb { background:${theme.border}; border-radius:2px; }
+  ::-webkit-scrollbar-track { background: var(--bg2); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius:2px; }
   
   @keyframes pulse  { 0%,100%{opacity:1} 50%{opacity:.4} }
   @keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
@@ -287,6 +288,15 @@ function DashboardApp({ userId }) {
           />
         )}
 
+        {/* Desktop Header - Shown on desktop */}
+        {!isMobile && (
+          <DesktopHeader
+            tab={tab}
+            setTab={setTab}
+            onSignOut={() => supabase.auth.signOut()}
+          />
+        )}
+
         <TickerBar />
         
         <div style={{ 
@@ -295,20 +305,11 @@ function DashboardApp({ userId }) {
           overflow: "hidden",
           position: 'relative',
         }}>
-          {/* Desktop Sidebar - Hidden on mobile */}
-          {!isMobile && (
-            <Sidebar
-              tab={tab}
-              setTab={setTab}
-              onSignOut={() => supabase.auth.signOut()}
-            />
-          )}
-          
           {/* Main Content */}
           <main style={{ 
             flex: 1, 
             overflow: "auto", 
-            padding: isMobile ? '16px' : isTablet ? '20px 24px' : '24px 28px',
+            padding: isMobile ? '16px' : isTablet ? '24px 32px' : '28px 48px',
             WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS
             scrollbarWidth: 'thin',
           }}>

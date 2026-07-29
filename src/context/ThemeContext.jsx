@@ -1,6 +1,6 @@
 // src/context/ThemeContext.jsx
 import { createContext, useContext, useState, useEffect } from 'react'
-import { lightTheme, darkTheme } from '../lib/theme.js'
+import { lightTheme, darkTheme, injectThemeVars } from '../lib/theme.js'
 
 const ThemeCtx = createContext(null)
 
@@ -24,7 +24,9 @@ export function ThemeProvider({ children }) {
     // Also set the body background so there's no flash of wrong color
     document.body.style.background = isDark
       ? 'rgba(14, 11, 20, 1)'
-      : 'rgba(242, 240, 236, 1)'
+      : 'rgba(252, 252, 254, 1)'
+    // Push every design token onto :root as CSS custom properties
+    injectThemeVars(isDark)
   }, [isDark])
 
   return (

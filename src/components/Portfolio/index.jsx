@@ -41,30 +41,30 @@ const shine = {
 
 // ── Asset config ──────────────────────────────────────────────────────────────
 export const ASSET_CLASSES = [
-  { value: "equity", label: "Equity", exchange: "NSE", color: "#2563EB" },
-  { value: "us_equity", label: "US Equity", exchange: "NYSE", color: "#0EA5E9" },
-  { value: "etf", label: "ETF", exchange: "NSE", color: "#60A5FA" },
-  { value: "mutual_fund", label: "Mutual Fund", exchange: "AMFI", color: "#8B5CF6" },
-  { value: "index_fund", label: "Index Fund", exchange: "AMFI", color: "#A78BFA" },
-  { value: "elss", label: "ELSS", exchange: "AMFI", color: "#C4B5FD" },
-  { value: "debt_fund", label: "Debt Fund", exchange: "AMFI", color: "#10B981" },
-  { value: "liquid_fund", label: "Liquid Fund", exchange: "AMFI", color: "#34D399" },
-  { value: "hybrid_fund", label: "Hybrid Fund", exchange: "AMFI", color: "#6EE7B7" },
-  { value: "gold", label: "Gold", exchange: "NSE", color: "#F59E0B" },
-  { value: "silver", label: "Silver", exchange: "NSE", color: "#94A3B8" },
-  { value: "reit", label: "REIT", exchange: "NSE", color: "#EC4899" },
-  { value: "invit", label: "InvIT", exchange: "NSE", color: "#F97316" },
-  { value: "crypto", label: "Crypto", exchange: "OTHER", color: "#A855F7" },
-  { value: "other", label: "Other", exchange: "OTHER", color: "#6B7280" },
+  { value: "equity", label: "Equity", exchange: "NSE", color: "#6D5EF8" },
+  { value: "us_equity", label: "US Equity", exchange: "NYSE", color: "#7B6FFF" },
+  { value: "etf", label: "ETF", exchange: "NSE", color: "#8B7DFF" },
+  { value: "mutual_fund", label: "Mutual Fund", exchange: "AMFI", color: "#9B8FFF" },
+  { value: "index_fund", label: "Index Fund", exchange: "AMFI", color: "#A89EFF" },
+  { value: "elss", label: "ELSS", exchange: "AMFI", color: "#B5ADFF" },
+  { value: "debt_fund", label: "Debt Fund", exchange: "AMFI", color: "#5A4BD4" },
+  { value: "liquid_fund", label: "Liquid Fund", exchange: "AMFI", color: "#4E3FBF" },
+  { value: "hybrid_fund", label: "Hybrid Fund", exchange: "AMFI", color: "#C2BBFF" },
+  { value: "gold", label: "Gold", exchange: "NSE", color: "#D0CAFF" },
+  { value: "silver", label: "Silver", exchange: "NSE", color: "#DDD9FF" },
+  { value: "reit", label: "REIT", exchange: "NSE", color: "#4232A8" },
+  { value: "invit", label: "InvIT", exchange: "NSE", color: "#7668E8" },
+  { value: "crypto", label: "Crypto", exchange: "OTHER", color: "#9184F0" },
+  { value: "other", label: "Other", exchange: "OTHER", color: "#E8E5FF" },
 ]
 
 const CATEGORY_GROUPS = [
-  { key: "equity", label: "Equity", color: "#2563EB", includes: ["equity", "etf"] },
-  { key: "us_equity", label: "US Equity", color: "#0EA5E9", includes: ["us_equity", "index"] },
-  { key: "mutual_fund", label: "Mutual Funds", color: "#8B5CF6", includes: ["mutual_fund", "index_fund", "elss"] },
-  { key: "debt", label: "Debt", color: "#10B981", includes: ["debt_fund", "liquid_fund", "hybrid_fund"] },
-  { key: "commodity", label: "Commodity", color: "#F59E0B", includes: ["gold", "silver"] },
-  { key: "other", label: "Other", color: "#6B7280", includes: ["reit", "invit", "crypto", "other"] },
+  { key: "equity", label: "Equity", color: "#6D5EF8", includes: ["equity", "etf"] },
+  { key: "us_equity", label: "US Equity", color: "#7B6FFF", includes: ["us_equity", "index"] },
+  { key: "mutual_fund", label: "Mutual Funds", color: "#9B8FFF", includes: ["mutual_fund", "index_fund", "elss"] },
+  { key: "debt", label: "Debt", color: "#5A4BD4", includes: ["debt_fund", "liquid_fund", "hybrid_fund"] },
+  { key: "commodity", label: "Commodity", color: "#D0CAFF", includes: ["gold", "silver"] },
+  { key: "other", label: "Other", color: "#E8E5FF", includes: ["reit", "invit", "crypto", "other"] },
 ]
 
 const assetColor = (theme, k) => ASSET_CLASSES.find(a => a.value === k)?.color || theme.muted

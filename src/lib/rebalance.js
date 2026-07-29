@@ -7,37 +7,37 @@ export const REBALANCE_BUCKETS = {
   equity: {
     label:       'Equity',
     description: 'Stocks, domestic ETFs, equity mutual funds',
-    color:       '#2563EB',
+    color:       '#6D5EF8',
     icon:        'TrendingUp',
   },
   international: {
     label:       'International',
     description: 'US stocks, international ETFs, global funds',
-    color:       '#0EA5E9',
+    color:       '#7B6FFF',
     icon:        'Globe',
   },
   debt: {
     label:       'Debt',
     description: 'Debt funds, liquid funds, gilt, bonds',
-    color:       '#10B981',
+    color:       '#5A4BD4',
     icon:        'Shield',
   },
   commodities: {
     label:       'Commodities',
     description: 'Gold, silver, commodity funds',
-    color:       '#F59E0B',
+    color:       '#D0CAFF',
     icon:        'Coins',
   },
   real_estate: {
     label:       'Real Estate',
     description: 'REITs, InvITs',
-    color:       '#EC4899',
+    color:       '#4232A8',
     icon:        'Building2',
   },
   crypto: {
     label:       'Crypto',
     description: 'Bitcoin, Ethereum, altcoins, stablecoins',
-    color:       '#F97316',
+    color:       '#9B8FFF',
     icon:        'Zap',
   },
 }

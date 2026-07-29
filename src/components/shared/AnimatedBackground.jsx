@@ -62,15 +62,15 @@ export default function AnimatedBackground() {
     // Called inside draw() so they always read the current isDark closure value
     const ink   = (a) => isDark
       ? `rgba(255, 245, 228, ${a})`    // warm parchment strokes on dark
-      : `rgba(22,  18,  14,  ${a})`    // warm near-black strokes on light
+      : `rgba(15,  15,  18,  ${a})`    // crisp dark strokes on light
 
     const base  = () => isDark
       ? 'rgba(14, 11, 20, 0.96)'       // deep obsidian
-      : 'rgba(242, 240, 236, 0.94)'    // warm frosted parchment
+      : 'rgba(252, 252, 254, 0.96)'    // clean white / subtle cool off-white
 
     const vigEdge = () => isDark
       ? 'rgba(6, 3, 12, 0.75)'         // deeper at edges on dark
-      : 'rgba(210, 205, 196, 0.50)'    // warm shadow at edges on light
+      : 'rgba(235, 235, 242, 0.40)'    // subtle shadow at edges on light
 
     const vigCenter = () => isDark
       ? 'rgba(0,0,0,0)'
@@ -186,25 +186,7 @@ export default function AnimatedBackground() {
         ctx.fill()
       })
 
-      // Candlesticks
-      candles.forEach(c => {
-        const x       = c.x * W
-        const alpha   = 0.08 + Math.sin(t * 0.008 + c.phase) * 0.03
-        const color   = c.bull ? bullColor(alpha) : bearColor(alpha)
-        const bodyTop = (c.bodyY - c.bodyH / 2) * H
-        const bodyBot = (c.bodyY + c.bodyH / 2) * H
-        const cW      = W * 0.016
 
-        ctx.strokeStyle = color
-        ctx.lineWidth   = 1
-        ctx.beginPath()
-        ctx.moveTo(x, bodyTop - c.wickTop * H)
-        ctx.lineTo(x, bodyBot + c.wickBot * H)
-        ctx.stroke()
-
-        ctx.fillStyle = color
-        ctx.fillRect(x - cW / 2, bodyTop, cW, bodyBot - bodyTop)
-      })
 
       // Portfolio wave
       ctx.beginPath()
