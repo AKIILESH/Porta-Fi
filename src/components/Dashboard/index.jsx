@@ -4,7 +4,9 @@ import { useTheme } from '../../context/ThemeContext.jsx' // 👈 Add this
 import { useFinance } from '../../context/FinanceContext.jsx'
 import { useDashboardData } from '../../hooks/useDashboardData'
 import { useIndices } from '../../hooks/useIndices'
+import { useBudgetLimits } from '../../hooks/useBudgetLimits'
 import { inr, inrCompact, pct, gainColor, fmtDate } from '../../lib/formatters.js'
+import { calculateFire } from '../../lib/fire.js'
 import {
   AreaChart, Area, BarChart, Bar, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -425,6 +427,8 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const { data: dashboardData, isLoading, error, refetch } = useDashboardData(userId)
   const { data: indices, isLoading: indicesLoading } = useIndices()
+  const currentMonth = new Date().toISOString().slice(0, 7)
+  const { data: budgetLimits = [] } = useBudgetLimits(userId, currentMonth)
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200)
 
   useEffect(() => {
@@ -477,7 +481,14 @@ export default function Dashboard() {
 
   const savings = monthlyIncome - monthlyExpenses
   const savingsRate = monthlyIncome > 0 ? (savings / monthlyIncome) * 100 : 0
-  const emergencyMonths = monthlyExpenses > 0 ? (cashBalance / monthlyExpenses).toFixed(1) : 'N/A'
+  const investmentLimit = budgetLimits.find(b => b.category === 'Investments')?.monthly_limit || 0
+  // Use budget limits total as the more reliable monthly expense figure for FIRE.
+  // Falls back to actual transaction expenses, then to a minimum floor so FIRE always calculates.
+  const budgetExpenses = budgetLimits
+    .filter(b => b.category !== 'Investments')
+    .reduce((s, b) => s + (Number(b.monthly_limit) || 0), 0)
+  const fireMonthlyExpenses = budgetExpenses > 0 ? budgetExpenses : monthlyExpenses > 0 ? monthlyExpenses : 0
+  const fireData = calculateFire({ netWorth, monthlyExpenses: fireMonthlyExpenses, investmentLimit })
 
   // Allocation data with percentages
   const allocationData = useMemo(() => {
@@ -658,7 +669,7 @@ export default function Dashboard() {
         {!isMobile && (
           <>
             <MetricCard label="Monthly Savings" value={inr(savings)} sub={`${savingsRate.toFixed(1)}% of income`} icon={Wallet} accent={savings >= 0 ? theme.accent : theme.red} delay={180} />
-            <MetricCard label="Emergency Fund" value={`${emergencyMonths}m`} sub="of expenses covered" icon={Shield} accent={parseFloat(emergencyMonths) >= 6 ? theme.accent : theme.yellow} delay={240} />
+            <MetricCard label="FIRE Journey" value={fireData.noData ? '—' : `${fireData.years} yrs`} sub={fireData.noData ? 'Set budget limits to calculate' : `Corpus: ${inrCompact(fireData.target)}`} icon={Target} accent={theme.green} delay={240} />
           </>
         )}
       </div>
@@ -667,7 +678,7 @@ export default function Dashboard() {
       {isMobile && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
           <MetricCard label="Monthly Savings" value={inr(savings)} sub={`${savingsRate.toFixed(1)}% of income`} icon={Wallet} accent={savings >= 0 ? theme.accent : theme.red} delay={180} />
-          <MetricCard label="Emergency Fund" value={`${emergencyMonths}m`} sub="of expenses covered" icon={Shield} accent={parseFloat(emergencyMonths) >= 6 ? theme.accent : theme.yellow} delay={240} />
+          <MetricCard label="FIRE Journey" value={fireData.noData ? '—' : `${fireData.years} yrs`} sub={fireData.noData ? 'Set budget limits to calculate' : `Corpus: ${inrCompact(fireData.target)}`} icon={Target} accent={theme.green} delay={240} />
         </div>
       )}
 

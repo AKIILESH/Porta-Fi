@@ -1,15 +1,18 @@
 // src/pages/Goals.jsx
 import { useState, useRef, useEffect } from 'react'
 import { useFinance } from '../../context/FinanceContext.jsx'
+import { useDashboardData } from '../../hooks/useDashboardData.js'
+import { useBudgetLimits } from '../../hooks/useBudgetLimits.js'
 import { useGoals, useAddGoal, useUpdateGoal, useDeleteGoal } from '../../hooks/useGoals.js'
-import { useTheme } from '../../context/ThemeContext.jsx' // 👈 Add this
+import { useTheme } from '../../context/ThemeContext.jsx' 
+import { calculateFire } from '../../lib/fire.js'
 import { Spinner } from '../shared/ui.jsx'
 import { inr, inrCompact } from '../../lib/formatters.js'
 import {
   Target, Home, Plane, GraduationCap, Car, Heart, Laptop, Shield,
   TrendingUp, Umbrella, Dumbbell, Music, Globe, Coins, Gift,
   Plus, X, CheckCircle, ChevronDown, Check, AlertTriangle,
-  RefreshCw, Zap, Calendar, ArrowRight, Sparkles, Clock,
+  RefreshCw, Zap, Calendar, ArrowRight, Sparkles, Clock, Flame,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -27,10 +30,9 @@ const CSS = (theme) => `
 
   .g-header      { display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:14px;
                    margin-bottom:26px; padding-bottom:22px; border-bottom:1px solid ${theme.border}; }
-  .g-kpi-grid    { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  .g-kpi-grid    { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
   .g-goals-grid  { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:16px; }
   .g-form-grid   { display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:12px; margin-bottom:14px; }
-  .g-ef-stats    { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
 
   .g-icon-btn:hover { background: rgba(255,255,255,0.08) !important; border-color: ${theme.borderHi} !important; }
 
@@ -39,7 +41,7 @@ const CSS = (theme) => `
   .dd-menu::-webkit-scrollbar-thumb { background:${theme.border}; border-radius:4px }
 
   @media (max-width:1024px) {
-    .g-kpi-grid  { grid-template-columns:repeat(3,1fr); }
+    .g-kpi-grid  { grid-template-columns:repeat(2,1fr); }
     .g-form-grid { grid-template-columns:1fr 1fr; }
   }
   @media (max-width:767px) {
@@ -48,11 +50,9 @@ const CSS = (theme) => `
     .g-kpi-grid  { grid-template-columns:repeat(2,1fr); gap:10px; }
     .g-goals-grid{ grid-template-columns:1fr; }
     .g-form-grid { grid-template-columns:1fr; }
-    .g-ef-stats  { grid-template-columns:1fr 1fr; }
   }
   @media (max-width:420px) {
     .g-kpi-grid  { grid-template-columns:1fr; }
-    .g-ef-stats  { grid-template-columns:1fr; }
   }
 `
 
@@ -195,54 +195,6 @@ function IconPickerDropdown({ value, onChange }) {
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MONTHS DROPDOWN  (for emergency fund)
-// ─────────────────────────────────────────────────────────────────────────────
-function MonthsDropdown({ value, onChange }) {
-  const { theme } = useTheme()
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
-  const opts = [
-    { v:3,  label:'3 months', sub:'Minimum safety' },
-    { v:6,  label:'6 months', sub:'Recommended' },
-    { v:9,  label:'9 months', sub:'Conservative' },
-    { v:12, label:'12 months', sub:'Very safe' },
-  ]
-  const sel = opts.find(o => o.v === value) || opts[1]
-
-  useEffect(() => {
-    const fn = e => { if(ref.current && !ref.current.contains(e.target)) setOpen(false) }
-    document.addEventListener('mousedown', fn)
-    return () => document.removeEventListener('mousedown', fn)
-  }, [])
-
-  return (
-    <div ref={ref} style={{ position:'relative' }}>
-      <button type="button" onClick={() => setOpen(v=>!v)} style={{ ...inputBase(theme), display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, cursor:'pointer', border:`1px solid ${open?`${theme.accent}70`:theme.border}`, boxShadow: open?`inset 0 2px 5px rgba(0,0,0,0.22),0 0 0 3px ${theme.accentDim}`:`inset 0 2px 5px rgba(0,0,0,0.22)` }}>
-        <div>
-          <span style={{ color:theme.text, fontSize:'0.72rem' }}>{sel.label}</span>
-          <span style={{ color:theme.muted, fontSize:'0.62rem', marginLeft:8 }}>{sel.sub}</span>
-        </div>
-        <ChevronDown size={13} style={{ color:theme.muted, transform:open?'rotate(180deg)':'none', transition:'transform 0.22s', flexShrink:0 }}/>
-      </button>
-      {open && (
-        <div style={{ position:'absolute', top:'calc(100% + 6px)', left:0, right:0, ...glass(theme, 0.16, 26), border:`1px solid ${theme.borderHi}`, borderRadius:12, zIndex:1400, boxShadow:'0 16px 40px rgba(0,0,0,0.5)', animation:'fadeIn 0.17s ease', overflow:'hidden' }}>
-          {opts.map(o => (
-            <button key={o.v} type="button"
-              onClick={() => { onChange(o.v); setOpen(false) }}
-              style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'11px 14px', background:value===o.v?`${theme.accent}12`:'transparent', border:'none', borderBottom:`1px solid ${theme.border}`, color:value===o.v?theme.accent:theme.text, fontFamily:theme.mono, fontSize:'0.71rem', cursor:'pointer', transition:'background 0.15s' }}
-              onMouseEnter={e=>{ if(value!==o.v) e.currentTarget.style.background='rgba(255,255,255,0.05)' }}
-              onMouseLeave={e=>{ if(value!==o.v) e.currentTarget.style.background='transparent' }}
-            >
-              <span>{o.label}</span>
-              <span style={{ fontSize:'0.63rem', color:theme.muted }}>{o.sub}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GLASS PROGRESS BAR
@@ -303,135 +255,7 @@ function GoalsSkeleton() {
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// EMERGENCY FUND CARD
-// ─────────────────────────────────────────────────────────────────────────────
-function EmergencyFundCard({ emergencyFund, onUpdate, isPending }) {
-  const { theme } = useTheme()
-  const { monthlyExpenses, cashBalance } = useFinance()
-  const [editing, setEditing]   = useState(false)
-  const [targetMonths, setTM]   = useState(6)
 
-  const current   = cashBalance || 0
-  const target    = monthlyExpenses * targetMonths
-  const progress  = target > 0 ? Math.min((current/target)*100, 100) : 0
-  const remaining = Math.max(0, target - current)
-  const achieved  = current >= target
-  const coverage  = monthlyExpenses > 0 ? (current/monthlyExpenses).toFixed(1) : '0'
-  const accent    = achieved ? theme.green : theme.yellow
-
-  const barColor  = achieved ? theme.green : progress > 70 ? theme.yellow : theme.red
-
-  const handleSave = async () => {
-    await onUpdate({ target, saved:current })
-    setEditing(false)
-  }
-
-  return (
-    <div style={{ ...glass(theme, 0.06, 24), border:`1px solid ${achieved?`${theme.green}40`:`${theme.yellow}30`}`, borderLeft:`2px solid ${accent}`, borderRadius:18, padding:28, position:'relative', overflow:'hidden', boxShadow:`${gi(theme)},0 0 30px ${accent}0a`, animation:'fadeUp 0.4s ease' }}>
-      <div style={shine}/>
-      <div style={{ position:'absolute', top:-60, right:-60, width:220, height:220, background:`radial-gradient(circle,${accent}10 0%,transparent 70%)`, pointerEvents:'none' }}/>
-      <div style={{ position:'absolute', top:0, left:0, right:0, height:1, background:`linear-gradient(90deg,${accent}60,transparent)` }}/>
-
-      {/* Header row */}
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:22, flexWrap:'wrap', gap:12 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:14 }}>
-          <div style={{ width:46, height:46, ...glass(theme, 0.1, 14), border:`1px solid ${accent}40`, borderRadius:14, display:'flex', alignItems:'center', justifyContent:'center', color:accent, boxShadow:`0 0 20px ${accent}30`, flexShrink:0 }}>
-            <Shield size={20} strokeWidth={1.8}/>
-          </div>
-          <div>
-            <SL icon={Shield} color={accent}>Emergency Fund</SL>
-            <div style={{ fontFamily:theme.sans, fontSize:'0.88rem', color:theme.muted, marginTop:-12 }}>
-              {achieved
-                ? `✓ Fully funded — ${coverage} months of expenses covered`
-                : `${inr(remaining)} more to reach ${targetMonths}-month safety net`
-              }
-            </div>
-          </div>
-        </div>
-        {!editing && (
-          <button onClick={() => setEditing(true)}
-            style={{ display:'inline-flex', alignItems:'center', gap:7, ...glass(theme, 0.05, 10), border:`1px solid ${theme.border}`, borderRadius:9, color:theme.muted, padding:'8px 16px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.6rem', letterSpacing:'0.14em', textTransform:'uppercase', transition:'all 0.2s', flexShrink:0 }}
-            onMouseEnter={e=>{ e.currentTarget.style.borderColor=`${accent}60`; e.currentTarget.style.color=accent }}
-            onMouseLeave={e=>{ e.currentTarget.style.borderColor=theme.border; e.currentTarget.style.color=theme.muted }}
-          >
-            <Zap size={11} strokeWidth={2}/> Update Target
-          </button>
-        )}
-      </div>
-
-      {editing ? (
-        <div style={{ animation:'fadeUp 0.2s ease' }}>
-          <div style={{ marginBottom:14 }}>
-            <FL>Target months of expenses</FL>
-            <MonthsDropdown value={targetMonths} onChange={setTM}/>
-          </div>
-          {monthlyExpenses > 0 && (
-            <div style={{ padding:'10px 14px', ...glass(theme, 0.06, 12), border:`1px solid ${accent}30`, borderLeft:`2px solid ${accent}`, borderRadius:10, marginBottom:14, fontFamily:theme.mono, fontSize:'0.61rem', color:theme.muted, display:'flex', alignItems:'center', gap:10 }}>
-              <span>Target amount:</span>
-              <span style={{ color:accent, fontFamily:theme.display, fontSize:'1.1rem' }}>{inr(target)}</span>
-              <span>· Currently:</span>
-              <span style={{ color:theme.text }}>{inr(current)}</span>
-            </div>
-          )}
-          <div style={{ display:'flex', gap:10 }}>
-            <button onClick={handleSave} disabled={isPending}
-              style={{ display:'inline-flex', alignItems:'center', gap:8, ...glass(theme, 0.08, 12), border:`1px solid ${accent}50`, borderRadius:10, color:accent, padding:'10px 22px', cursor:isPending?'not-allowed':'pointer', fontFamily:theme.mono, fontSize:'0.65rem', letterSpacing:'0.16em', textTransform:'uppercase', opacity:isPending?0.6:1, transition:'all 0.2s', boxShadow:`0 0 14px ${accent}18` }}>
-              {isPending ? <Spinner size={13}/> : <><Check size={13}/> Save</>}
-            </button>
-            <button onClick={() => setEditing(false)}
-              style={{ display:'inline-flex', alignItems:'center', gap:7, ...glass(theme, 0.04, 10), border:`1px solid ${theme.border}`, borderRadius:10, color:theme.muted, padding:'10px 18px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.63rem', letterSpacing:'0.13em', textTransform:'uppercase', transition:'all 0.2s' }}>
-              <X size={13}/> Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
-        <>
-          {/* Big progress + amounts */}
-          <div style={{ marginBottom:20 }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:10, flexWrap:'wrap', gap:6 }}>
-              <div style={{ fontFamily:theme.display, fontSize:'2.2rem', fontWeight:700, color:theme.text, lineHeight:1, textShadow:`0 0 24px ${accent}30` }}>{inr(current)}</div>
-              <div style={{ fontFamily:theme.mono, fontSize:'0.63rem', color:theme.muted }}>target: <span style={{color:theme.text}}>{inr(target)}</span></div>
-            </div>
-            <GlassBar value={current} max={target} color={barColor} height={6}/>
-            <div style={{ display:'flex', justifyContent:'space-between', marginTop:7, flexWrap:'wrap', gap:4 }}>
-              <span style={{ fontFamily:theme.mono, fontSize:'0.56rem', color:barColor }}>{progress.toFixed(1)}% funded</span>
-              <span style={{ fontFamily:theme.mono, fontSize:'0.56rem', color:theme.muted }}>{targetMonths}-month goal</span>
-            </div>
-          </div>
-
-          {/* Stat pills */}
-          <div className="g-ef-stats">
-            {[
-              { label:'Status',        value:achieved?'✓ Funded':`${progress.toFixed(0)}%`, color:accent },
-              { label:'Monthly Need',  value:inr(monthlyExpenses),                           color:theme.text },
-              { label:'Coverage',      value:`${coverage} months`,                           color:theme.text },
-            ].map(({ label, value, color }) => (
-              <div key={label} style={{ ...glass(theme, 0.06, 12), border:`1px solid ${theme.border}`, borderRadius:12, padding:'12px 14px' }}>
-                <FL>{label}</FL>
-                <div style={{ fontFamily:theme.display, fontSize:'1.1rem', color, fontWeight:700 }}>{value}</div>
-              </div>
-            ))}
-          </div>
-
-          {!achieved && (
-            <div style={{ display:'flex', gap:8, marginTop:16, flexWrap:'wrap' }}>
-              {[['Add from Cash','/cash'],['Trim Budget','/budget']].map(([label,href]) => (
-                <button key={label} onClick={() => window.location.href=href}
-                  style={{ display:'inline-flex', alignItems:'center', gap:6, ...glass(theme, 0.05, 10), border:`1px solid ${theme.border}`, borderRadius:9, color:theme.muted, padding:'7px 14px', cursor:'pointer', fontFamily:theme.mono, fontSize:'0.59rem', letterSpacing:'0.12em', textTransform:'uppercase', transition:'all 0.2s' }}
-                  onMouseEnter={e=>{ e.currentTarget.style.borderColor=`${accent}60`; e.currentTarget.style.color=accent }}
-                  onMouseLeave={e=>{ e.currentTarget.style.borderColor=theme.border; e.currentTarget.style.color=theme.muted }}
-                >
-                  <ArrowRight size={10} strokeWidth={2.5}/>{label}
-                </button>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  )
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ADD GOAL FORM
@@ -699,27 +523,33 @@ function GoalCard({ goal, index=0 }) {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function Goals() {
   const { theme } = useTheme()
-  const { userId, monthlyExpenses, cashBalance } = useFinance()
+  const { userId, cashBalance } = useFinance()
+  const { data: dashboardData } = useDashboardData(userId)
+  const currentMonth = new Date().toISOString().slice(0, 7)
+  const { data: budgetLimits = [] } = useBudgetLimits(userId, currentMonth)
+
+  const netWorth = dashboardData?.netWorth || 0
+  const txExpenses = dashboardData?.monthlyExpenses || 0
+  const investmentLimit = budgetLimits.find(b => b.category === 'Investments')?.monthly_limit || 0
+  const budgetExpenses = budgetLimits
+    .filter(b => b.category !== 'Investments')
+    .reduce((s, b) => s + (Number(b.monthly_limit) || 0), 0)
+  const fireMonthlyExpenses = budgetExpenses > 0 ? budgetExpenses : txExpenses
+  const fireData = calculateFire({ netWorth, monthlyExpenses: fireMonthlyExpenses, investmentLimit })
+
   const { data:goals=[], isLoading, error, refetch } = useGoals(userId)
   const addGoal    = useAddGoal(userId)
   const updateGoal = useUpdateGoal(userId)
   const [adding, setAdding] = useState(false)
 
-  const emergencyFund = goals.find(g => g.name === 'Emergency Fund')
-  const otherGoals    = goals.filter(g => g.name !== 'Emergency Fund')
-  const totalSaved    = otherGoals.reduce((s,g) => s+Number(g.saved), 0)
-  const totalTarget   = otherGoals.reduce((s,g) => s+Number(g.target), 0)
-  const doneCount     = otherGoals.filter(g => g.saved >= g.target).length
-  const urgentCount   = otherGoals.filter(g => {
+  const totalSaved    = goals.reduce((s,g) => s+Number(g.saved), 0)
+  const totalTarget   = goals.reduce((s,g) => s+Number(g.target), 0)
+  const doneCount     = goals.filter(g => g.saved >= g.target).length
+  const urgentCount   = goals.filter(g => {
     if (g.saved >= g.target) return false
     const d = g.deadline ? Math.ceil((new Date(g.deadline)-new Date())/86400000) : null
     return d !== null && d < 30
   }).length
-
-  const handleEmUpdate = async updates => {
-    if (emergencyFund) await updateGoal.mutateAsync({ id:emergencyFund.id, updates })
-    else await addGoal.mutateAsync({ name:'Emergency Fund', icon:'Shield', target:updates.target||monthlyExpenses*6, saved:cashBalance||0, deadline:null })
-  }
 
   // Update CSS variables when theme changes
   useEffect(() => {
@@ -758,7 +588,7 @@ export default function Goals() {
           </div>
           <h1 style={{ fontFamily:theme.display, fontSize:'2rem', fontWeight:700, color:theme.text, margin:0, lineHeight:1 }}>Goals & Milestones</h1>
           <p style={{ fontFamily:theme.mono, fontSize:'0.57rem', color:theme.muted, marginTop:6, letterSpacing:'0.10em' }}>
-            Emergency fund · Savings targets · Life milestones
+            Savings targets · Life milestones
             {urgentCount > 0 && <span style={{ color:theme.red, marginLeft:10 }}>· {urgentCount} urgent</span>}
           </p>
         </div>
@@ -770,25 +600,20 @@ export default function Goals() {
         </button>
       </div>
 
-      {/* Emergency Fund */}
-      <EmergencyFundCard
-        emergencyFund={emergencyFund||{saved:0,target:monthlyExpenses*6}}
-        onUpdate={handleEmUpdate}
-        isPending={updateGoal.isPending||addGoal.isPending}
-      />
 
       {/* KPIs */}
       <div className="g-kpi-grid">
-        <KpiTile label="Active Goals"  value={otherGoals.length}       accent={theme.accent}  icon={Target}     sub={`${doneCount} completed`}                                         index={0}/>
+        <KpiTile label="Active Goals"  value={goals.length}       accent={theme.accent}  icon={Target}     sub={`${doneCount} completed`}                                         index={0}/>
         <KpiTile label="Total Saved"   value={inrCompact(totalSaved)}  accent={theme.green}   icon={TrendingUp} sub="Across all goals"                                                 index={1}/>
         <KpiTile label="Total Target"  value={inrCompact(totalTarget)} accent={theme.blue}    icon={Coins}      sub={totalTarget>0?`${((totalSaved/totalTarget)*100).toFixed(0)}% funded`:'Set your targets'} index={2}/>
+        <KpiTile label="FIRE Journey"  value={`${fireData.years} yrs`} accent={theme.green}   icon={Flame}      sub={`Target: ${inrCompact(fireData.target)}`}                       index={3}/>
       </div>
 
       {/* Add form */}
       {adding && <AddGoalForm onDone={() => setAdding(false)} userId={userId}/>}
 
       {/* Empty */}
-      {otherGoals.length === 0 && !adding ? (
+      {goals.length === 0 && !adding ? (
         <div style={{ ...glass(theme, 0.04, 18), border:`1px dashed ${theme.border}`, borderRadius:18, padding:'60px 0', textAlign:'center' }}>
           <Target size={36} strokeWidth={1} style={{ color:theme.muted, margin:'0 auto 16px', opacity:0.25, display:'block' }}/>
           <div style={{ fontFamily:theme.mono, fontSize:'0.68rem', color:theme.muted, opacity:0.5, marginBottom:20 }}>
@@ -801,7 +626,7 @@ export default function Goals() {
         </div>
       ) : (
         <div className="g-goals-grid">
-          {otherGoals
+          {goals
             .sort((a,b) => {
               // Urgent first, then in-progress, then completed
               const aD = a.deadline ? Math.ceil((new Date(a.deadline)-new Date())/86400000) : 9999

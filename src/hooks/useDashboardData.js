@@ -87,9 +87,8 @@ export function useDashboardData(userId) {
       }
 
       // Fetch everything else in parallel
-      const [cashRes, accountsRes, monthTxRes, recentTxRes, debtsRes, nwRes] = await Promise.all([
+      const [cashRes, monthTxRes, recentTxRes, debtsRes, nwRes] = await Promise.all([
         supabase.from('cash_accounts').select('*').eq('user_id', userId),
-        supabase.from('accounts').select('balance').eq('user_id', userId),
         supabase
           .from('transactions')
           .select('*')
@@ -113,7 +112,6 @@ export function useDashboardData(userId) {
       ])
 
       const cashAccounts      = cashRes.data     || []
-      const accounts          = accountsRes.data || []
       const monthTransactions = monthTxRes.data  || []
       const recentTransactions= recentTxRes.data || []
       const debts             = debtsRes.data    || []
@@ -155,10 +153,16 @@ export function useDashboardData(userId) {
       const portfolioGainPct = portfolioCost > 0 ? (portfolioGain / portfolioCost) * 100 : 0
 
       // ── Cash & net worth ──────────────────────────────────────────────────
-      const cashBalance    = cashAccounts.reduce((s, a) => s + Number(a.balance), 0)
-      const accountBalance = accounts.reduce((s, a) => s + Number(a.balance), 0)
-      const totalDebt      = debts.reduce((s, d) => s + Number(d.balance), 0)
-      const netWorth       = portfolioValue + cashBalance + accountBalance - totalDebt
+      // For FDs and RDs, use current_value (principal + accrued interest) if available,
+      // falling back to deposit_amount then balance — same logic as the Cash tab.
+      const cashBalance = cashAccounts.reduce((s, a) => {
+        const val = ['fd', 'rd'].includes(a.type)
+          ? Number(a.current_value || a.deposit_amount || a.balance || 0)
+          : Number(a.balance || 0)
+        return s + val
+      }, 0)
+      const totalDebt   = debts.reduce((s, d) => s + Number(d.balance), 0)
+      const netWorth    = portfolioValue + cashBalance - totalDebt
 
       // ── Monthly income / expenses ─────────────────────────────────────────
       const monthlyIncome = monthTransactions
@@ -175,7 +179,6 @@ export function useDashboardData(userId) {
         portfolioGain:    portfolioGain.toFixed(2),
         portfolioGainPct: portfolioGainPct.toFixed(2) + '%',
         cashBalance:      cashBalance.toFixed(2),
-        accountBalance:   accountBalance.toFixed(2),
         totalDebt:        totalDebt.toFixed(2),
         netWorth:         netWorth.toFixed(2),
         monthlyIncome:    monthlyIncome.toFixed(2),
@@ -188,7 +191,6 @@ export function useDashboardData(userId) {
         portfolioGain,
         portfolioGainPct,
         cashBalance,
-        accountBalance,
         totalDebt,
         netWorth,
         byAssetClass,
